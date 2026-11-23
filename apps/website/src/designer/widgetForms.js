@@ -26,7 +26,9 @@ import { allowsStoredCode, isStoredCodeField } from '#shared/data/storedTextPoli
 import { multilangFieldIds } from '#shared/data/writableRecordTypes.js';
 import { RecordStructureProvider } from '#shared/recordview/RecordStructureProvider.js';
 import { HEditForm } from '#shared/widgets/edit-form/HEditForm.js';
+import { crosstabsConfiguration, crosstabsFormFields } from '#shared/widgets/crosstabs/crosstabsConfiguration.js';
 import { querySourceAction } from '#shared/widgets/edit-form/querySourceChooser.js';
+import { QUERY_CHOICE_FILTER_THRESHOLD, queryChoiceTerms } from '#shared/data/queryChoices.js';
 import { openEditFormDialog } from '#shared/widgets/edit-form/editFormDialog.js';
 import { createTranslationForm } from '#shared/widgets/translation/HTranslationDialog.js';
 import { sectionTitle, showDomForm, showEditForm } from './panelForms.js';
@@ -611,26 +613,22 @@ export function cardTemplateTerms(reports, stored = null) {
  * the query of a Query Source in the record editor), no parameters; ▾ copies the query of a query source (plan 27n1 §4:
  * by value, no id is kept).
  *
- * @param {object} services `editQuery(query, filterForm, {allowParameters})`, `describeQuery(query)`, `querySources()`,
- *        `querySourceDefinition(id)`, `savedFilters()`, `savedFilterDefinition(id)`.
- * @param {{filters?: boolean}} [options] `filters`: the saved filters of "Website filters" in the list too.
+ * @param {object} services `editQuery(query, filterForm, {allowParameters})`, `describeQuery(query)`, `queryChoices()`
+ *        (the one list of query sources and saved filters, review 7), `querySourceDefinition(id)`, `savedFilterDefinition(id)`.
  * @returns {object} HEditField `special`.
  */
-export function cardsQuerySpecial(services, { filters = false } = {}) {
+export function cardsQuerySpecial(services) {
   const edit = typeof services.editQuery === 'function' ? async (value) => {
     const result = await services.editQuery(parseCardsQuery(value) || [], null, { allowParameters: false });
     return result?.query ? JSON.stringify(result.query) : undefined;
   } : undefined;
   const actions = [];
   if (edit) actions.push({ label: 'Edit', icon: 'fa-sliders', title: 'Open the Filter Builder', primary: true, run: edit });
-  if (typeof services.querySources === 'function' && typeof services.querySourceDefinition === 'function') {
+  if (typeof services.queryChoices === 'function' && typeof services.querySourceDefinition === 'function') {
+    // no parameters here: those with parameters are shown disabled
     actions.push(querySourceAction({
-      list: async () => {
-        const [sources, saved] = await Promise.all([services.querySources().catch(() => []),
-          filters && typeof services.savedFilters === 'function' ? services.savedFilters().catch(() => []) : []]);
-        return [...sources.map((item) => ({ ...item, kind: 'source' })), ...saved.map((item) => ({ ...item, kind: 'filter' }))];
-      },
-      definition: (item) => (item.kind === 'filter' ? services.savedFilterDefinition(item.id) : services.querySourceDefinition(item.id)),
+      list: () => services.queryChoices().catch(() => []),
+      definition: (choice) => (choice.kind === 'filter' ? services.savedFilterDefinition(choice.id) : services.querySourceDefinition(choice.id)),
       apply: (definition) => queryText(definition?.source?.query)
     }));
   }
@@ -689,7 +687,7 @@ export function recordsForm({ type, sources = [], services = {}, legend = true }
         terms: [{ id: 'own', label: 'Own query' }, ...sources],
         help: 'Any of them: the module shows the latest search' },
       // one query (plan 27n1 §4): ▾ copies a query source or a saved filter of "Website filters" (by value)
-      { name: 'query', type: 'freetext', label: 'Query', max: 1, special: cardsQuerySpecial(services, { filters: true }), showWhen: own,
+      { name: 'query', type: 'freetext', label: 'Query', max: 1, special: cardsQuerySpecial(services), showWhen: own,
         help: 'A query without parameters' },
       { name: 'selection', type: 'boolean', label: 'Share selection with other modules', mode: 'checkbox', max: 1 }
     ];
@@ -1417,15 +1415,18 @@ export async function openReportForm({ settings = {}, languages = [], services, 
  *
  * @param {object} options
  * @param {object} [options.settings]
- * @param {Array<{kind: string, id: number, title: string}>} options.choices The filters that can be offered.
+ * @param {Array<object>} options.choices The filters that can be offered (listQueryChoices, scope website).
  * @returns {Promise<object|null>} The stored settings (storedCmsFilterWidget).
  */
 export function openFilterWidgetForm({ settings = {}, choices = [], inline = null } = {}) {
   const current = cmsFilterWidgetSettings(settings);
   // a filter of the widget that is not public any more stays offered (it can be removed)
-  const all = [...choices.map((choice) => ({ ...choice, key: cmsFilterItemKey(choice.kind, choice.id) }))];
+  const all = [...choices.map((choice) => ({ kind: choice.kind, id: choice.id, title: choice.label, key: cmsFilterItemKey(choice.kind, choice.id) }))];
   for (const item of current.items) if (!all.some((choice) => choice.key === item.key)) all.push(item);
-  const terms = all.map((choice) => ({ id: choice.key, label: `${choice.title} [${choice.kind === 'filter' ? 'filter' : 'source'}]` }));
+  // the one list (review 7): names with the marks [filter] [parametrized]; a filter no longer listed by its stored title
+  const terms = [...queryChoiceTerms(choices),
+    ...all.filter((item) => !choices.some((choice) => cmsFilterItemKey(choice.kind, choice.id) === item.key))
+      .map((item) => ({ id: item.key, label: item.title || item.key, marks: item.kind === 'filter' ? ['filter'] : [] }))];
   const modeLabels = { buttons: 'Buttons', list: 'List', select: 'Select' };
   return showEditForm({
     title: 'Filter',
@@ -1434,8 +1435,9 @@ export function openFilterWidgetForm({ settings = {}, choices = [], inline = nul
         id: 'main',
         children: [
           { name: 'items', type: 'enum', label: 'Available filters', req: 'required', mode: 'select', multiple: true, max: 0, terms,
-            help: 'Saved filters of the group "Website filters" and public query sources' },
+            filterThreshold: QUERY_CHOICE_FILTER_THRESHOLD, help: 'Saved filters of the group "Website filters" and public query sources' },
           { name: 'active', type: 'enum', label: 'Active on start', mode: 'select', terms, emptyLabel: 'None',
+            filterThreshold: QUERY_CHOICE_FILTER_THRESHOLD,
             help: 'One of the available filters; it runs when the page opens without a Saved filter in its address' },
           { name: 'mode', type: 'enum', label: 'Show as', mode: 'radio', max: 1,
             terms: CMS_FILTER_WIDGET_MODES.map((id) => ({ id, label: modeLabels[id] })) }
@@ -1665,6 +1667,53 @@ export function storyMapTerms(presets, stored = null) {
 }
 
 /**
+ * The buttons under the form of a presentation element (story map, crosstabs): Edit (Explorer in a new window) and
+ * Refresh — the list of the presentations read again into the field `preset`, and the preview.
+ *
+ * @param {HEditForm} edit
+ * @param {object} options
+ * @param {string} options.editLabel Label of Edit.
+ * @param {(presetId: number) => void} [options.onEdit]
+ * @param {() => (Promise<Array<{id: number, title: string, public?: boolean}>|null>|void)} [options.onRefresh] Gives the
+ *        presentations again (null: the list is not changed).
+ * @returns {void}
+ */
+function presentationActions(edit, { editLabel, onEdit = null, onRefresh = null }) {
+  if (!edit.container || (!onEdit && !onRefresh)) return;
+  const bar = document.createElement('div');
+  bar.className = 'h-cms-storymap-actions';
+  const action = (icon, text, run) => {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'h-btn h-compact';
+    const glyph = document.createElement('i');
+    glyph.className = `fa-solid ${icon}`;
+    glyph.setAttribute('aria-hidden', 'true');
+    button.append(glyph, document.createTextNode(` ${$HR(text)}`));
+    button.addEventListener('click', () => void run(button, glyph));
+    bar.append(button);
+  };
+  if (onEdit) action('fa-up-right-from-square', editLabel, () => onEdit(Number([edit.getValues().preset].flat()[0]) || 0));
+  if (onRefresh) {
+    action('fa-rotate', 'Refresh', async (button, glyph) => {
+      button.disabled = true;
+      glyph.classList.add('fa-spin');
+      try {
+        const presets = await onRefresh();
+        if (Array.isArray(presets)) {
+          const current = [edit.getValues().preset].flat()[0] ?? null;
+          await edit.updateField('preset', { terms: storyMapTerms(presets, current) });
+        }
+      } finally {
+        button.disabled = false;
+        glyph.classList.remove('fa-spin');
+      }
+    });
+  }
+  edit.container.append(bar);
+}
+
+/**
  * Settings of the story map element (plan 27q1 §8): the story map (a Presentation set) and the map module of the page;
  * Edit in new window (Explorer with the story map) and Refresh (the preview again).
  *
@@ -1673,7 +1722,8 @@ export function storyMapTerms(presets, stored = null) {
  * @param {Array<{id: number, title: string, public?: boolean}>} options.presets
  * @param {Array<{id: string, label: string}>} options.maps Map instances of the page.
  * @param {(presetId: number) => void} [options.onEdit] Open the story map in Explorer.
- * @param {() => void} [options.onRefresh] Load the preview again.
+ * @param {() => Promise<Array|null>} [options.onRefresh] The story maps read again (the list of the field) and the
+ *        preview loaded again.
  * @returns {Promise<object|null>} `{preset, map?}`.
  */
 export function openStoryMapForm({ settings = {}, presets = [], maps = [], onEdit = null, onRefresh = null, inline = null } = {}) {
@@ -1693,23 +1743,7 @@ export function openStoryMapForm({ settings = {}, presets = [], maps = [], onEdi
     values: { preset: Number(settings.preset) > 0 ? String(settings.preset) : null, map: settings.map || null },
     onReady: (edit) => {
       addFormHelp(edit, STORYMAP_HELP);
-      if (!edit.container) return;
-      const bar = document.createElement('div');
-      bar.className = 'h-cms-storymap-actions';
-      const action = (icon, text, run) => {
-        const button = document.createElement('button');
-        button.type = 'button';
-        button.className = 'h-btn h-compact';
-        const glyph = document.createElement('i');
-        glyph.className = `fa-solid ${icon}`;
-        glyph.setAttribute('aria-hidden', 'true');
-        button.append(glyph, document.createTextNode(` ${$HR(text)}`));
-        button.addEventListener('click', run);
-        bar.append(button);
-      };
-      if (onEdit) action('fa-up-right-from-square', 'Edit in new window', () => onEdit(Number(edit.getValues().preset) || 0));
-      if (onRefresh) action('fa-rotate', 'Refresh', () => onRefresh());
-      edit.container.append(bar);
+      presentationActions(edit, { editLabel: 'Edit story map', onEdit, onRefresh });
     },
     validate: (values) => (Number(values.preset) > 0 ? [] : [{ field: 'preset', message: $HR('Choose a story map') }])
   }, (values) => {
@@ -1726,15 +1760,17 @@ export const CROSSTABS_HELP = 'A crosstab is made in Explorer (tool Crosstabs): 
 /**
  * Settings of the crosstabs element (plan 27q2 §10): the crosstab (a Presentation set), where its records come from
  * (`from`: own = its query, links, filter:<id>, module:<id>) and the level of the visitor (it can only lower the level of
- * the crosstab); Edit in new window (Explorer with the crosstab) and Refresh. A crosstab published from Explorer keeps
+ * the crosstab); Edit crosstab (Explorer with the crosstab in its designer, a new window) and Refresh (the list and the
+ * preview again). The fields are those of the website mode of crosstabsConfiguration. A crosstab published from Explorer keeps
  * the query of the records shown there in `settings.query` (presentation-sources.md §6): it is the own query then.
  *
  * @param {object} options
- * @param {object} [options.settings] `{preset, from, level, query}`.
+ * @param {object} [options.settings] `{preset, from, level, query, ui, config}`.
  * @param {Array<{id: number, title: string, public?: boolean}>} options.presets
  * @param {Array<{id: string, label: string}>} options.sources The sources of the page (links, Filter widgets, modules).
  * @param {(presetId: number) => void} [options.onEdit] Open the crosstab in Explorer.
- * @param {() => void} [options.onRefresh] Load the preview again.
+ * @param {() => Promise<Array|null>} [options.onRefresh] The crosstabs read again (the list of the field) and the
+ *        preview loaded again.
  * @returns {Promise<object|null>} `{preset, from?, level?}`.
  */
 export function openCrosstabsForm({ settings = {}, presets = [], sources = [], onEdit = null, onRefresh = null, inline = null } = {}) {
@@ -1744,56 +1780,37 @@ export function openCrosstabsForm({ settings = {}, presets = [], sources = [], o
   const terms = [{ id: 'own', label: publishedQuery ? 'Query published from Explorer' : 'Query of the crosstab' }, ...sources,
     ...(stored || []).filter((token) => !known.has(token)).map((token) => ({ id: token, label: token }))];
   const fallback = ['own', ...sources.filter((item) => item.id === 'links' || item.id.startsWith('filter:')).map((item) => item.id)];
+  // the fields of the website mode of the crosstabs configuration (one form for the CMS, Explorer's publication and test)
+  const children = crosstabsFormFields('website', { crosstabPresets: storyMapTerms(presets, settings.preset), pageSources: terms })
+    .map((field) => (field.name === 'preset' && !presets.length ? { ...field, help: 'Make a crosstab in Explorer first (tool Crosstabs)' } : field));
   return showEditForm({
     title: 'Crosstabs',
-    form: {
-      groups: [{
-        id: 'main',
-        children: [
-          { name: 'preset', type: 'enum', label: 'Crosstab', mode: 'select', max: 1, req: 'required', terms: storyMapTerms(presets, settings.preset),
-            help: presets.length ? 'Public crosstabs can be seen by visitors' : 'Make a crosstab in Explorer first (tool Crosstabs)' },
-          { name: 'from', type: 'enum', label: 'Records from', mode: 'checkbox', max: 0, terms,
-            help: 'Any of them: the crosstab counts the latest search' },
-          { name: 'level', type: 'enum', label: 'Visitors can', mode: 'select', max: 1, emptyLabel: 'As in the crosstab',
-            terms: [{ id: 'view', label: 'View' }, { id: 'display', label: 'Change the display' }, { id: 'pivot', label: 'Choose the fields' }],
-            help: 'Lowers what the crosstab allows' }
-        ]
-      }]
-    },
+    form: { groups: [{ id: 'main', children }] },
     values: {
       preset: Number(settings.preset) > 0 ? String(settings.preset) : null,
       from: stored || fallback,
-      level: settings.level || null
+      level: settings.level || null,
+      // review 5: the header (name of the crosstab) and the records counted without Update
+      ui: { showSourceHeader: settings.ui?.showSourceHeader === true },
+      config: { defaults: { maxAutoReload: String(settings.config?.defaults?.maxAutoReload || '50000') } }
     },
     onReady: (edit) => {
       addFormHelp(edit, CROSSTABS_HELP);
-      if (!edit.container) return;
-      const bar = document.createElement('div');
-      bar.className = 'h-cms-storymap-actions';
-      const action = (icon, text, run) => {
-        const button = document.createElement('button');
-        button.type = 'button';
-        button.className = 'h-btn h-compact';
-        const glyph = document.createElement('i');
-        glyph.className = `fa-solid ${icon}`;
-        glyph.setAttribute('aria-hidden', 'true');
-        button.append(glyph, document.createTextNode(` ${$HR(text)}`));
-        button.addEventListener('click', run);
-        bar.append(button);
-      };
-      if (onEdit) action('fa-up-right-from-square', 'Edit in new window', () => onEdit(Number(edit.getValues().preset) || 0));
-      if (onRefresh) action('fa-rotate', 'Refresh', () => onRefresh());
-      edit.container.append(bar);
+      presentationActions(edit, { editLabel: 'Edit crosstab', onEdit, onRefresh });
     },
-    validate: (values) => (Number(values.preset) > 0 ? [] : [{ field: 'preset', message: $HR('Choose a crosstab') }])
+    validate: (values) => (Number([values.preset].flat()[0]) > 0 ? [] : [{ field: 'preset', message: $HR('Choose a crosstab') }])
   }, (values) => {
     if (!values) return null;
     const from = [...new Set([values.from].flat().filter((token) => typeof token === 'string' && token))];
     const same = from.length === fallback.length && fallback.every((token) => from.includes(token));
     const level = [values.level].flat()[0];
+    // the header and the limit as the configuration stores them (no defaults kept)
+    const { ui, config } = crosstabsConfiguration.serialize({ ui: values.ui, config: values.config });
     return {
-      preset: Number(values.preset), ...(same ? {} : { from }), ...(level ? { level: String(level) } : {}),
-      ...(publishedQuery ? { query: settings.query } : {})
+      preset: Number([values.preset].flat()[0]), ...(same ? {} : { from }), ...(level ? { level: String(level) } : {}),
+      ...(publishedQuery ? { query: settings.query } : {}),
+      ...(ui ? { ui: { ...settings.ui, ...ui } } : settings.ui?.language ? { ui: { language: settings.ui.language } } : {}),
+      ...(config ? { config } : {})
     };
   }, { inline, sections: { source: ['preset', 'from'], behaviour: ['level'] } });
 }

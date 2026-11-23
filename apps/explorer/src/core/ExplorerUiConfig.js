@@ -27,6 +27,8 @@ export const PRESENTATION_TYPES = ['data', 'map', 'graph', 'timeline', 'recordvi
 /** Tools placed in panes like the presentations (2026-10-14, plan 16 Part 2). The Website
  *  manager is not one: a management tool over the whole screen (plan 27b §11, 2026-10-28). */
 export const TOOL_TYPES = ['report', 'crosstabs', 'actions', 'export', 'storymap'];
+/** Tools of an Explorer on a website page (review 2026-11-23): the Crosstabs viewer, without Edit / New / Publish. */
+export const WEBSITE_TOOL_TYPES = ['crosstabs'];
 /** Everything that can be placed in a pane. */
 export const MODULE_TYPES = [...PRESENTATION_TYPES, ...TOOL_TYPES];
 /** The configuration's bucket for modules not shown at all; Result can not go there. */

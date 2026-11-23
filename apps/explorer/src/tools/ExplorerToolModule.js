@@ -9,6 +9,10 @@
  * There is no close button: the tool is shown and hidden like the presentations
  * (toolbar button, pane tab). See docs/development/16 DONE Compact-Toolbar-Plan.md, Part 2.
  *
+ * A hidden tool does no work: it is created when its pane is shown first, and the changes of
+ * DataSource, selection and rules while it is hidden reach it (the last ones only) when it is
+ * shown again (a ResizeObserver on the slot; without one the tool is always "shown").
+ *
  * @project     Heurist academic knowledge management system
  * @package     heurist-explorer
  *
@@ -42,6 +46,8 @@ export class ExplorerToolModule extends ExplorerModule {
     this.create = typeof create === 'function' ? create : null;
     this.tool = null;
     this.body = null;
+    /** Changes the tool did not get while hidden: sent when it is shown. */
+    this._stale = { source: false, selection: false, rules: false };
   }
 
   /**
@@ -57,7 +63,10 @@ export class ExplorerToolModule extends ExplorerModule {
     const caption = document.createElement('span');
     caption.className = 'h-explorer-tool-workspace-title';
     caption.textContent = $HR(this.title);
-    header.append(caption);
+    // buttons of the tool at the right of the header (Publish, Help: as the modules, review 5)
+    this.actions = document.createElement('span');
+    this.actions.className = 'h-explorer-tool-workspace-actions';
+    header.append(caption, this.actions);
     this.body = document.createElement('div');
     this.body.className = `h-explorer-tool-workspace-body h-explorer-tool-${this.type}-body`;
     panel.append(header, this.body);
@@ -68,38 +77,32 @@ export class ExplorerToolModule extends ExplorerModule {
       return this;
     }
     this.body.textContent = $HR('Loading...');
-    // not awaited: Explorer goes on while the tool's chunk loads
-    this._pending = Promise.resolve()
-      .then(() => this.create(this.body, this))
-      .then((tool) => {
-        if (this._destroyed) void tool?.destroy?.();
-        else this.tool = tool || null;
-        return this.tool;
-      })
-      .catch((error) => {
-        if (this.body) this.body.textContent = error?.message || String(error);
-        console.error(`Unable to open the ${this.type} tool`, error);
-        return null;
-      });
+    if (typeof globalThis.ResizeObserver === 'function') {
+      this._observer = new globalThis.ResizeObserver(() => void this._onShown());
+      this._observer.observe(this.container);
+    }
+    if (this._isShown()) this._start();
     return this;
   }
 
-  /** @returns {Promise<object|null>} The tool once created (null when it failed). */
+  /** @returns {Promise<object|null>} The tool once created (null when it failed); created now when not yet. */
   ready() {
-    return this._pending || Promise.resolve(this.tool);
+    return this._start();
   }
 
   /** @inheritdoc */
   async setDataSource(source) {
     await super.setDataSource(source);
-    await this.tool?.setDataSource?.(source);
+    if (this._canSend()) await this.tool.setDataSource?.(source);
+    else this._stale.source = Boolean(this.tool);
     return source;
   }
 
   /** @inheritdoc */
   async setSelection(ids) {
     this.selection = normalizeIds(ids);
-    await this.tool?.setSelection?.(this.selection);
+    if (this._canSend()) await this.tool.setSelection?.(this.selection);
+    else this._stale.selection = Boolean(this.tool);
     return this.selection;
   }
 
@@ -111,7 +114,9 @@ export class ExplorerToolModule extends ExplorerModule {
    */
   async setRules(rules) {
     if (this.dataSource) this.dataSource = { ...this.dataSource, request: { ...(this.dataSource.request || {}), rules } };
-    await this.tool?.setRules?.(rules);
+    this.rules = rules;
+    if (this._canSend()) await this.tool.setRules?.(rules);
+    else this._stale.rules = Boolean(this.tool);
   }
 
   /** @inheritdoc */
@@ -128,9 +133,65 @@ export class ExplorerToolModule extends ExplorerModule {
   /** @inheritdoc */
   async destroy() {
     this._destroyed = true;
+    this._observer?.disconnect();
+    this._observer = null;
     await this.tool?.destroy?.();
     this.tool = null;
     this.body = null;
     this.container?.replaceChildren();
+  }
+
+  /**
+   * @private Create the tool (once; its chunk is loaded now). The tool reads DataSource and selection itself when it
+   * renders.
+   * @returns {Promise<object|null>}
+   */
+  _start() {
+    if (this._pending) return this._pending;
+    if (!this.create || this._destroyed) return Promise.resolve(this.tool);
+    // not awaited by mount: Explorer goes on while the tool's chunk loads
+    this._pending = Promise.resolve()
+      .then(() => this.create(this.body, this))
+      .then((tool) => {
+        if (this._destroyed) void tool?.destroy?.();
+        else this.tool = tool || null;
+        return this.tool;
+      })
+      .catch((error) => {
+        if (this.body) this.body.textContent = error?.message || String(error);
+        console.error(`Unable to open the ${this.type} tool`, error);
+        return null;
+      });
+    return this._pending;
+  }
+
+  /** @private The pane was resized or shown: create the tool, or send it the changes made while it was hidden. */
+  async _onShown() {
+    if (this._destroyed || !this._isShown()) return;
+    if (!this._pending) {
+      this._start();
+      return;
+    }
+    if (this.tool) await this._flush();
+  }
+
+  /** @private The changes not sent yet, the last ones only. */
+  async _flush() {
+    const stale = this._stale;
+    this._stale = { source: false, selection: false, rules: false };
+    if (stale.source && this.dataSource) await this.tool?.setDataSource?.(this.dataSource);
+    else if (stale.rules && this.rules) await this.tool?.setRules?.(this.rules);
+    if (stale.selection) await this.tool?.setSelection?.(this.selection || []);
+  }
+
+  /** @private The tool exists and its pane is shown: a change is sent at once. */
+  _canSend() {
+    return Boolean(this.tool) && this._isShown();
+  }
+
+  /** @private Whether the pane of the tool is on screen (always without a ResizeObserver: tests, old browsers). */
+  _isShown() {
+    if (!this._observer) return true;
+    return Boolean(this.container?.isConnected) && this.container.getClientRects().length > 0;
   }
 }

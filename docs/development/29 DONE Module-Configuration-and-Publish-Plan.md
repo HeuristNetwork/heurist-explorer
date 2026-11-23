@@ -824,3 +824,7 @@ All in one run, at Artem's request.
   to the CMS designer inline (bridge `createConfigurationPanel`, `createModuleConfigurationPanel` in
   `apps/explorer/src/modules/moduleConfigurations.js`). The module settings of a new Explorer instance get the website
   defaults (`websiteModuleSettings`).
+
+**Note 2026-11-23 (plan 27q2 review 4):** the widget / tool Crosstabs has a configuration entry too
+(`shared/src/widgets/crosstabs/crosstabsConfiguration.js`, in `MODULE_CONFIGURATIONS`): flat settings of the website
+element instead of the `{options, config}` envelope; publication through `openModuleConfiguration` like the modules.

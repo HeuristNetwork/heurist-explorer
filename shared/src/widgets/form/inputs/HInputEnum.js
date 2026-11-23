@@ -346,7 +346,9 @@ function termsSource(terms = []) {
     value: numericId(term.id ?? term.value),
     label: term.label || String(term.id ?? term.value),
     depth: Math.max(0, (Number(term.depth) || 1) - 1),
-    ...(term.disabled === true ? { disabled: true } : {})
+    ...(term.disabled === true ? { disabled: true } : {}),
+    ...(Array.isArray(term.marks) && term.marks.length ? { marks: term.marks } : {}),
+    ...(term.title ? { title: term.title } : {})
   })));
 }
 

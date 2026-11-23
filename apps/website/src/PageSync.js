@@ -290,9 +290,11 @@ class CrosstabsMember extends EventTarget {
     this.widget = widget;
   }
 
-  async setDataSource(dataSource) {
+  /** The records of the page; with the request a Saved filter link shows the Filter Form of its source (review 6). */
+  async setDataSource(dataSource, request = null) {
     try {
-      await this.widget?.setQuery?.(dataSource?.request?.q ?? null);
+      if (typeof this.widget?.applyPageRequest === 'function') await this.widget.applyPageRequest(request || { dataSource, values: {}, missing: [] });
+      else await this.widget?.setQuery?.(dataSource?.request?.q ?? null);
     } catch (error) {
       console.warn(`Page result: crosstabs (${this.id}) did not take the records`, error);
     }

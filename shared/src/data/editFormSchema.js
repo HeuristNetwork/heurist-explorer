@@ -6,7 +6,7 @@
  *   {format: 'heurist-edit-form/1', localized, groups: [{id, type: 'tabs'|'accordion'|'group',
  *    label, help, showWhen, slot, columns, inner, newTabs, open, explanation, req, modes, simplified,
  *    children: [field]}]}
- *   field: {name, type, label, help, req, max, default, terms, vocabulary, mode, minValue, maxValue,
+ *   field: {name, type, label, help, req, max, default, terms, vocabulary, mode, minValue, maxValue, filterThreshold,
  *           step, maxLength, pattern, patternMessage, rows, width, targetTypes, geoKind, multilang,
  *           readOnly, clearable, showWhen, special, modes, forced, simplified, termsSource, emptyLabel, multiple,
  *           nullWhenEmpty, dty?}
@@ -154,7 +154,10 @@ function normalizeField(item, warnings, where) {
   if (!REQUIREMENTS.has(req)) req = 'optional';
   const terms = Array.isArray(item.terms)
     ? item.terms.map((term) => (term && typeof term === 'object'
-      ? { id: term.id, label: String(term.label ?? term.id), depth: Number(term.depth) || 1, ...(term.disabled === true ? { disabled: true } : {}) }
+      ? { id: term.id, label: String(term.label ?? term.id), depth: Number(term.depth) || 1, ...(term.disabled === true ? { disabled: true } : {}),
+        // marks and a tooltip of a choice (the query choices, review 7)
+        ...(Array.isArray(term.marks) && term.marks.length ? { marks: term.marks.map(String) } : {}),
+        ...(term.title ? { title: String(term.title) } : {}) }
       : { id: term, label: String(term), depth: 1 }))
     : null;
   const number = (value) => (value === null || value === undefined || value === '' || !Number.isFinite(Number(value)) ? null : Number(value));

@@ -25,7 +25,10 @@
  */
 import { $HR } from '#shared/ui';
 import { createModuleConfigurationForm } from '#shared/ui/config/ModuleConfigurationDialog.js';
-import { ExplorerUiConfig, PRESENTATION_TYPES, UNUSED_REGION } from '../../core/ExplorerUiConfig.js';
+import { ExplorerUiConfig, PRESENTATION_TYPES, UNUSED_REGION, WEBSITE_TOOL_TYPES } from '../../core/ExplorerUiConfig.js';
+
+/** What a page may place in the panes: the presentation modules and the Crosstabs viewer (review 2026-11-23). */
+const WEBSITE_TYPES = [...PRESENTATION_TYPES, ...WEBSITE_TOOL_TYPES];
 import { createLayoutEditor } from './explorerLayoutEditor.js';
 import { explorerPublicationForm, normalizePublicationValues, publicationFilterChoices, publicationSettings } from './explorerPublication.js';
 
@@ -60,7 +63,7 @@ export function websiteLayoutValue(settings) {
   const defaults = ExplorerUiConfig.defaults();
   const ui = settings?.ui || {};
   const regions = { ...defaults.regions, ...(ui.regions || {}) };
-  for (const type of Object.keys(regions)) if (!PRESENTATION_TYPES.includes(type)) regions[type] = UNUSED_REGION;
+  for (const type of Object.keys(regions)) if (!WEBSITE_TYPES.includes(type)) regions[type] = UNUSED_REGION;
   return {
     regions,
     order: Array.isArray(ui.order) && ui.order.length ? [...ui.order] : [...defaults.order],
@@ -118,18 +121,18 @@ export function websiteExplorerSettings(modules = {}) {
  *
  * @param {object} options
  * @param {{settings?: object, state?: object}|null} [options.value] The instance (null: a new one).
- * @param {{filters: Array<object>, sources: Array<object>}} options.lists Public filters (`_publicFilterLists`).
+ * @param {Array<object>} options.choices Query sources and saved filters visitors can read (listQueryChoices, website).
  * @param {() => Promise<object>} options.defaults The settings of a new instance (websiteExplorerSettings).
  * @param {HTMLElement|null} [options.recordsSection] The fields *Records and selection* of the designer (plan 27l §12):
  *        put at the top of the filters fieldset.
  * @returns {Promise<{element: HTMLElement, read: () => Promise<{settings: object, state: object}|null>, reset: () => void,
  *          showFilters: (shown: boolean) => void, destroy: () => Promise<void>}>}
  */
-export async function createExplorerWebsitePanel({ value = null, lists = {}, defaults, recordsSection = null } = {}) {
+export async function createExplorerWebsitePanel({ value = null, choices: queryChoices = [], defaults, recordsSection = null } = {}) {
   const settings = value?.settings && typeof value.settings === 'object' && Object.keys(value.settings).length ? value.settings : null;
   // the query of an older page stays offered while it is one of its filters
   const published = (settings?.filter?.items || []).find((item) => item.kind === 'query');
-  const choices = publicationFilterChoices({ ...lists, current: null });
+  const choices = publicationFilterChoices({ choices: queryChoices, current: null });
   if (published) choices.push({ ...published, key: 'current', title: published.title || 'Current query', parameterized: false });
   const element = document.createElement('div');
   element.className = 'h-explorer-website-panel';
@@ -164,7 +167,7 @@ export async function createExplorerWebsitePanel({ value = null, lists = {}, def
   layoutSection.append(heading);
   element.append(layoutSection);
   const layout = websiteLayoutValue(settings);
-  const editor = createLayoutEditor(layoutSection, { value: layout, types: PRESENTATION_TYPES });
+  const editor = createLayoutEditor(layoutSection, { value: layout, types: WEBSITE_TYPES });
   return {
     element,
     async read() {

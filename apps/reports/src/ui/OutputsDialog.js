@@ -21,6 +21,7 @@ import { visibilityIconHtml } from '#shared/widgets/record-list/recordAdminInfo.
 import { $HR, HMsg } from '#shared/ui';
 import { intervalLabel, outputsOfQuery } from '../core/ReportsApplication.js';
 import { chooseQuerySource } from '#shared/widgets/edit-form/querySourceChooser.js';
+import { queryChoiceItems } from '#shared/data/queryChoices.js';
 import { confirmDialog } from './formDialog.js';
 import { formatDate, formatSize, LARGE_FILE } from './GeneratedFiles.js';
 
@@ -302,7 +303,7 @@ export async function createOutputsPanel(app, report = null, { mode = 'list', on
 
   /** New mode for a template: the source of the records instead of the search and the list. */
   const startNew = async (target) => {
-    const [current, sources] = await Promise.all([app.currentResult(), app.querySourcesForReports()]);
+    const [current, sources] = await Promise.all([app.currentResult(), app.queryChoicesForReports()]);
     let sourceRequest = 0;
     const radios = [];
     const addRadio = (value, label, parent) => {
@@ -328,19 +329,23 @@ export async function createOutputsPanel(app, report = null, { mode = 'list', on
 
     const sourceRow = el('div', 'h-reports-source-row', source);
     let sourceInput;
+    let chosenSource = null;
     if (sources.length) {
-      // the list of the ▾ of query fields (plan 27n1 §4): the query is copied into the new output (by value)
+      // the one picker of query sources and saved filters (review 7): the query is copied into the new output (by value);
+      // those with parameters are shown disabled (no Filter Form in a generated report)
       sourceInput = el('button', 'h-btn h-btn-small h-reports-source-choose', sourceRow);
       sourceInput.type = 'button';
       sourceInput.value = '';
       const caption = el('span', '', sourceInput);
-      caption.textContent = $HR('Choose a query source');
+      caption.textContent = $HR('Choose a query source or a saved filter');
       el('i', 'fa-solid fa-caret-down', sourceInput).setAttribute('aria-hidden', 'true');
       sourceInput.addEventListener('click', () => run(async () => {
-        const item = await chooseQuerySource(sourceInput, sources);
-        if (!item) return;
-        sourceInput.value = String(item.id);
-        caption.textContent = item.title || `#${item.id}`;
+        const choice = await chooseQuerySource(sourceInput, queryChoiceItems(sources, { parameters: 'without' }),
+          { value: sourceInput.value });
+        if (!choice) return;
+        sourceInput.value = choice.value;
+        chosenSource = choice;
+        caption.textContent = choice.label || `#${choice.id}`;
         await applySource();
       }));
     } else {
@@ -354,7 +359,7 @@ export async function createOutputsPanel(app, report = null, { mode = 'list', on
     create.type = 'button';
     create.textContent = $HR('Generate New Report');
     const sourceNote = sources.length ? el('div', 'h-reports-form-hint h-muted h-reports-source-note', source) : null;
-    if (sourceNote) sourceNote.textContent = $HR('Query Sources with parameters (Filter Form) are not listed.');
+    if (sourceNote) sourceNote.textContent = $HR('Query sources and saved filters with parameters (Filter Form) can not be chosen.');
     create.addEventListener('click', () => run(async () => {
       const output = await app.newOutput(newReport, newQuery);
       if (output) await generateOutput(output);
@@ -366,12 +371,13 @@ export async function createOutputsPanel(app, report = null, { mode = 'list', on
       const fromSource = radios.find((radio) => radio.checked)?.value === 'source';
       sourceRow.hidden = !fromSource;
       if (sourceNote) sourceNote.hidden = !fromSource;
-      const id = Number(sourceInput.value);
+      // a chosen query choice, or the id typed without the list (no host list)
+      const typed = sources.length ? null : Number(sourceInput.value);
       newQuery = null;
       if (!fromSource) newQuery = current.query;
       render();
-      if (!fromSource || !(id > 0)) return;
-      const query = await app.querySourceQuery(id);
+      if (!fromSource || !(chosenSource || typed > 0)) return;
+      const query = chosenSource ? await app.queryChoiceQuery(chosenSource) : await app.querySourceQuery(typed);
       if (request !== sourceRequest) return;
       newQuery = query;
       render();

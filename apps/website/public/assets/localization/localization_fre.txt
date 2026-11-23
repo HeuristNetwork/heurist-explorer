@@ -840,3 +840,20 @@
 #Calculating…#Calcul en cours…
 #Stop the calculation#Arrêter le calcul
 #Stopped#Arrêté
+# Crosstabs reviews 4-7 (2026-11-23)
+#Count automatically up to#Compter automatiquement jusqu'à
+#Current result: the page counts the records shown now in Explorer#Résultat actuel : la page compte les enregistrements affichés maintenant dans Explorer
+#Filter form#Formulaire de filtre
+#More records: the visitor counts them with Update#Plus d'enregistrements : le visiteur les compte avec Mettre à jour
+#Never (Update button)#Jamais (bouton Mettre à jour)
+#25,000 records#25 000 enregistrements
+#50,000 records#50 000 enregistrements
+#100,000 records#100 000 enregistrements
+#Own query of the crosstab#Requête propre du tableau croisé
+#PNG#PNG
+#The name of the crosstab above it#Le nom du tableau croisé au-dessus de lui
+#Select records: the query of the crosstab uses the selection#Sélectionnez des enregistrements : la requête du tableau croisé utilise la sélection
+#Visitors#Visiteurs
+#Show header#Afficher l'en-tête
+#Default settings#Paramètres par défaut
+#Automatic#Automatique

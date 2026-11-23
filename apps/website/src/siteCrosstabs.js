@@ -29,7 +29,9 @@ import { HCrosstab } from '#shared/widgets/crosstabs/HCrosstab.js';
 import { CrosstabService } from '#shared/widgets/crosstabs/crosstabService.js';
 import { cmsInstanceRecords } from '#shared/site/cmsRecords.js';
 import { CMS_FILTER_LIMITS, normalizeCmsFilterValues } from '#shared/site/cmsSavedFilter.js';
-import { ownQuery } from '#shared/data/presentationSource.js';
+import { askedParameters, CrosstabParams, ownCount } from '#shared/widgets/crosstabs/crosstabParams.js';
+import { crosstabsAutoLimit } from '#shared/widgets/crosstabs/crosstabsConfiguration.js';
+import './siteCrosstabs.css';
 
 /** The definitions by database and language (labels of terms, record types and fields). */
 const DEFINITIONS = new Map();
@@ -43,7 +45,8 @@ const DEFINITIONS = new Map();
  * @param {object} options
  * @param {string} options.id Instance id.
  * @param {(request: object, origin: string) => void} [options.sendRecords] Send a search on (PageSync.setRequest).
- * @returns {Promise<{widget: HCrosstab}|null>} null when the crosstab can not be read.
+ * @returns {Promise<{widget: HCrosstab, api: object}|null>} null when the crosstab can not be read; `api`: the member of
+ *          PageSync (`setQuery`, `applyPageRequest`) and `destroy`.
  */
 export async function mountCrosstabs(host, instance, config, { id, sendRecords = null } = {}) {
   const runtime = config.runtime || {};
@@ -56,16 +59,30 @@ export async function mountCrosstabs(host, instance, config, { id, sendRecords =
     host.textContent = runtime.design ? $HR('Choose a crosstab in the configuration of this element') : '';
     return null;
   }
-  const language = config.site?.language || runtime.language || '';
+  const pageLanguage = settings.ui?.language && settings.ui.language !== 'auto' ? settings.ui.language : '';
+  const language = config.site?.language || pageLanguage || runtime.language || '';
   const dbdefs = await definitions(apiBaseUrl, runtime.database, language);
   const container = document.createElement('div');
   container.className = 'h-site-crosstabs-root';
-  host.replaceChildren(container);
+  // the Filter Form of the records counted (own query or a Saved filter link, reviews 2026-11-23 / 6): at the left of
+  // the crosstab (vertical form) or above it (horizontal)
+  const paramsHost = document.createElement('div');
+  paramsHost.className = 'h-site-crosstabs-params';
+  const body = document.createElement('div');
+  body.className = 'h-site-crosstabs-body h-crosstab-params-layout';
+  body.append(paramsHost, container);
+  const header = settings.ui?.showSourceHeader === true ? document.createElement('div') : null;
+  if (header) {
+    header.className = 'heurist-source-header h-site-crosstabs-header';
+    header.textContent = preset.title || '';
+  }
+  host.replaceChildren(...(header ? [header] : []), body);
   const { from } = cmsInstanceRecords(instance, config.instances || {});
   const widget = new HCrosstab().attach(container, {
     service,
     settings: preset.settings,
     level: settings.level || 'pivot',
+    autoLimit: crosstabsAutoLimit(settings),
     language,
     database: runtime.database || '',
     labels: {
@@ -81,14 +98,60 @@ export async function mountCrosstabs(host, instance, config, { id, sendRecords =
     }, `module:${id}`) : null,
     emptyText: runtime.design ? 'The crosstab counts the records of the page' : 'No records'
   }).render();
-  // its own query first (with the values of the page URL); a search of the page replaces it (PageSync)
+  // the source whose Filter Form is shown: its Filter counts it again (some values are enough, review 6)
+  let active = null;
+  const count = (source, values) => {
+    const own = ownCount(source.query, { values, filterForm: source.filterForm, dbdefs });
+    if (own.q == null) widget.clear(own.message || 'No records');
+    else void widget.setQuery(own.q);
+  };
+  const params = new CrosstabParams(paramsHost, {
+    dbdefs,
+    apiClient: new HeuristApiClient({ apiBaseUrl, database: runtime.database || '' }),
+    runtimeMode: 'website',
+    layout: body,
+    onSubmit: (values) => {
+      if (active) count(active, values);
+    }
+  });
+  // its own query first (with the values of the page URL, then of its Filter Form); a search of the page replaces it
   const query = settings.query != null && settings.query !== '' ? settings.query : preset.query;
   if (from.includes('own') && query != null && query !== '') {
-    const own = ownQuery(query, { values: urlValues(globalThis.location?.search || ''), filterForm: preset.settings.filterForm });
-    if (own.missing.length) widget.clear(`${$HR('This crosstab needs a value of')} ${own.missing.join(', ')}`);
-    else void widget.setQuery(own.q);
+    active = { id: preset.id, query, filterForm: preset.settings.filterForm || null };
+    const values = urlValues(globalThis.location?.search || '');
+    params.show({ id: active.id, query, settings: preset.settings }, values);
+    count(active, values);
   }
-  return { widget };
+  const api = {
+    widget,
+    /** Records of the page (PageSync). */
+    setQuery: (q) => {
+      active = null;
+      params.hide();
+      return widget.setQuery(q);
+    },
+    /**
+     * A search of the page (PageSync, review 6): a Saved filter link with parameters shows the Filter Form of its query
+     * source (its values filled in), not the one of the own query; other searches hide the form.
+     */
+    applyPageRequest: (request) => {
+      const raw = request?.raw || null;
+      const linkQuery = raw?.request?.q ?? null;
+      if (linkQuery != null && askedParameters(linkQuery).length) {
+        active = { id: `link:${raw.reference?.id ?? ''}`, query: linkQuery, filterForm: raw.presentation?.filterForm || null };
+        const values = request.values || {};
+        params.show({ id: active.id, query: linkQuery, settings: { filterForm: active.filterForm } }, values);
+        count(active, values);
+        return Promise.resolve();
+      }
+      return api.setQuery(request?.dataSource?.request?.q ?? null);
+    },
+    destroy: () => {
+      params.hide();
+      return widget.destroy();
+    }
+  };
+  return { widget, api };
 }
 
 /**

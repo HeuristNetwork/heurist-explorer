@@ -821,7 +821,12 @@ export class HEditField extends HBaseWidget {
     let choices;
     let items;
     if (Array.isArray(field.terms)) {
-      const terms = field.terms.map((term) => ({ id: term.id, label: term.label, depth: term.depth || 1 }));
+      // marks, disabled and a tooltip of a term are kept (the query choices: [filter] [parametrized], review 7)
+      const terms = field.terms.map((term) => ({
+        id: term.id, label: term.label, depth: term.depth || 1,
+        ...(term.marks?.length ? { marks: term.marks } : {}), ...(term.disabled ? { disabled: true } : {}),
+        ...(term.title ? { title: term.title } : {})
+      }));
       // text ids stay text; numeric ids (a list of term ids) as numbers
       const numeric = terms.length > 0 && terms.every((term) => typeof term.id === 'number');
       choices = { terms, numeric };
@@ -840,6 +845,8 @@ export class HEditField extends HBaseWidget {
       ...(this.isMultiChoice ? { multiple: true } : {}),
       // label of the empty choice (a configuration value where null has a meaning, plan 29)
       ...(field.emptyLabel ? { emptyLabel: field.emptyLabel } : {}),
+      // the search row of the picker from this number of entries (query choices: 10, review 7)
+      ...(field.filterThreshold ? { filterThreshold: Number(field.filterThreshold) } : {}),
       ...(mode === 'radio' || mode === 'checkbox' ? { orientation: 'inline', radioStyle: 'standard', countsMode: 'none' } : {})
     };
   }

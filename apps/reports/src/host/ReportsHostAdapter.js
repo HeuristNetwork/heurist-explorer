@@ -11,7 +11,8 @@
  *   describeQuery(query) -> text                    (a query in words)
  *   getCurrentQuery() -> {query, title} | null      (executable query of the active DataSource)
  *   getSelection() -> number[]                      (selected record ids)
- *   getQuerySources() -> [{id, title, parametrized}] (for generation)
+ *   getQueryChoices() -> query sources and saved filters (listQueryChoices, for generation, review 7)
+ *   getQueryChoiceDefinition(choice) -> {query, filterForm}
  *   getUserGroups() -> {currentUserId, users, groups} (owner group names)
  *
  * @project     Heurist academic knowledge management system
@@ -88,19 +89,22 @@ export class ReportsHostAdapter {
     }
   }
 
-  /** Query Sources known to the host: `[{id, title}]`. */
-  async getQuerySources() {
+  /** Query sources and saved filters of the host (the one list, review 7): `[{value, kind, id, label, parameterized}]`. */
+  async getQueryChoices() {
     try {
-      const list = await this.bridge.getQuerySources?.();
-      return (Array.isArray(list) ? list : [])
-        .map((item) => ({
-          id: Number(item.id ?? item.recordId),
-          title: String(item.title || item.name || item.id),
-          parametrized: item.parametrized === true
-        }))
-        .filter((item) => item.id > 0);
+      const list = await this.bridge.getQueryChoices?.();
+      return (Array.isArray(list) ? list : []).filter((item) => item && Number(item.id) > 0 && item.value);
     } catch {
       return [];
+    }
+  }
+
+  /** The query of a query choice, or null. */
+  async getQueryChoiceDefinition(choice) {
+    try {
+      return (await this.bridge.getQueryChoiceDefinition?.(choice)) || null;
+    } catch {
+      return null;
     }
   }
 

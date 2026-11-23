@@ -48,7 +48,7 @@ import { buildFileMediaItem, fileMediaUrls } from '#shared/recordview/fileMediaI
 import { TranslationClient } from '#shared/data/TranslationClient.js';
 import { mediaTag } from '#shared/widgets/rich-text/mediaTag.js';
 import { querySourceAction } from '#shared/widgets/edit-form/querySourceChooser.js';
-import { listQuerySources } from '#shared/data/querySourceList.js';
+import { listQueryChoices, queryChoiceDefinition } from '#shared/data/queryChoices.js';
 
 /** Id prefix of the record editor dialogs (a numbered id each: a pointed record opens over its editor). */
 const DIALOG_ID = 'h-record-editor-dialog';
@@ -72,6 +72,7 @@ export class RecordEditorHost {
    * @param {Function} options.getBridge Returns the legacy host bridge (may be null).
    * @param {Function} options.isLoggedIn Whether a user is logged in.
    * @param {Function} [options.selectExtent] Map extent picker for geo fields.
+   * @param {function(): number[]} [options.queryOwnerIds] Owners of the saved filters in the ▾ of a query field.
    * @param {Function} [options.selectGeometry] Map drawing of a geometry for geo fields: `(wkt) → {type, wkt}|null`.
    * @param {Function} [options.editQuery] `(query, filterForm, {allowParameters}) => Promise<{query, filterForm}|null>` (HFilterBuilder).
    * @param {Function} [options.describeQuery] Query in words.
@@ -489,21 +490,27 @@ export class RecordEditorHost {
           const actions = edit ? [{ label: 'Edit', icon: 'fa-sliders', title: 'Open the Filter Builder', primary: true, run: edit }] : [];
           const rectype = Number(context.rectypeId || context.record?.rec_RecTypeID) || 0;
           if (querySourceType > 0 && rectype === querySourceType) return actions;
-          const hasForm = Boolean(form) && context.hasField?.(form) !== false;
+          // asked at the click: the (hidden) Filter form field may come after the query and is not in the form yet when
+          // these actions are made (review 5: the query sources with parameters were missing in the crosstab editor)
+          const hasForm = () => Boolean(form) && context.hasField?.(form) !== false;
           const current = typeof currentQuery === 'function';
           actions.push(querySourceAction({
-            list: () => listQuerySources({ apiClient: this.options.apiClient, dbdefs }),
-            // the list has the query and the filter form already; Current result: the query of Explorer's result
-            definition: async (item) => {
-              if (item.id !== 'current') return item;
+            // the one list of query sources and saved filters (review 7): what the user can read
+            list: () => listQueryChoices({
+              apiClient: this.options.apiClient, dbdefs, scope: 'user', ownerIds: this.options.queryOwnerIds || null
+            }),
+            // Current result: the query of Explorer's result; a saved filter is read (and converted)
+            definition: async (choice) => {
+              if (choice.value !== 'current') return queryChoiceDefinition(choice, { apiClient: this.options.apiClient, dbdefs });
               const query = currentQuery();
               if (query == null) HMsg.showMsgFlash?.($HR('There is no current result'), 2000);
               return query == null ? null : { query, filterForm: null };
             },
-            first: current ? [{ id: 'current', title: 'Current result' }] : [],
-            parameters: hasForm ? 'any' : 'without',
+            first: current ? [{ value: 'current', label: 'Current result' }] : [],
+            // without a Filter form field the parameterized ones are shown disabled
+            parameters: () => (hasForm() ? 'any' : 'without'),
             apply: (item, current) => {
-              if (hasForm) current.setValue?.(form, item.filterForm ? JSON.stringify(item.filterForm) : '');
+              if (hasForm()) current.setValue?.(form, item.filterForm ? JSON.stringify(item.filterForm) : '');
               return typeof item.query === 'string' ? item.query : JSON.stringify(item.query ?? []);
             }
           }));

@@ -27,6 +27,7 @@ import { SavedFilterManager } from './SavedFilterManager.js';
 import { LegacySavedFilterConverter } from '#shared/data/legacy/LegacySavedFilterConverter.js';
 import { RecordTypeManager } from './RecordTypeManager.js';
 import { UserGroupManager, ownerScope } from './UserGroupManager.js';
+import { listQueryChoices, queryChoiceDefinition } from '#shared/data/queryChoices.js';
 import { QuerySourceManager } from './QuerySourceManager.js';
 import { RecordEditorHost } from './RecordEditorHost.js';
 import { querySourceDetails } from './querySourceRecord.js';
@@ -58,7 +59,7 @@ import './ExplorerApplication.css';
 import { aggregate } from '#shared/data/aggregate.js';
 import { openTagManager } from '../ui/ExplorerTagManager.js';
 import { WebsiteClient } from '#shared/api/WebsiteClient.js';
-import { publishModulePage, publishModuleTo } from '#shared/site/modulePublisher.js';
+import { publishModuleTo } from '#shared/site/modulePublisher.js';
 import { HFilter } from '#shared/widgets/filter/HFilter.js';
 import { memoryStorage, normalizePublishedFilter, publishedModuleSettings, publishedUiConfig } from './publishedView.js';
 import { filterItemCaptions } from '#shared/site/cmsFilterWidget.js';
@@ -185,6 +186,8 @@ export class ExplorerApplication {
     // open in Explorer's record editor, also without the legacy host (plan 14)
     this.recordEditing = new RecordEditorHost({
       apiClient,
+      // the saved filters of the ▾ of a query field: the owner scope of the user (review 7)
+      queryOwnerIds: () => ownerScope(this.userGroups?.data || null),
       getDbDefs: () => this._dbDefs || null,
       ensureDbDefs: () => this._ensureDbDefs(),
       getBridge: () => this.config.hostBridge || null,
@@ -1961,7 +1964,7 @@ export class ExplorerApplication {
         export: (body) => this._createExportTool(body),
         actions: (body) => this._createActionsTool(body),
         storymap: (body) => this._createStoryMapTool(body),
-        crosstabs: (body) => this._createCrosstabsTool(body)
+        crosstabs: (body, module) => this._createCrosstabsTool(body, module)
       }[definition.type] || null
     });
     this.modules.set(definition.id, module);
@@ -2060,7 +2063,7 @@ export class ExplorerApplication {
         import('../modules/moduleConfigurations.js')
       ]);
       const choices = publication.publicationFilterChoices({
-        ...(await this._publicFilterLists(publication.WEBSITE_FILTERS_GROUP)),
+        choices: await this._websiteQueryChoices(),
         current: this.sync?.dataSource || null
       });
       const target = await publishTarget(client, 'explorer', { database: this.config.database });
@@ -2103,29 +2106,15 @@ export class ExplorerApplication {
   }
 
   /**
-   * The filters a published page may offer (plan 27b §11.3): the saved filters of "Website
-   * filters" and the public query sources.
+   * The filters a published page may offer (plan 27b §11.3): the public query sources and the saved filters of "Website
+   * filters", by their names (the one list, review 7).
    *
    * @private
-   * @param {number} group Owner group of the website filters.
-   * @returns {Promise<{filters: Array<object>, sources: Array<object>}>}
+   * @returns {Promise<Array<object>>} listQueryChoices.
    */
-  async _publicFilterLists(group) {
-    const filters = await new SavedFilterManager({
-      apiClient: this.apiClient,
-      legacyConverter: this.savedFilters?.legacyConverter || null,
-      ownerIds: [group]
-    }).load().catch(() => []);
-    let sources = [];
-    const typeId = this.querySources?.recordTypeId;
-    if (typeId) {
-      const payload = await this.apiClient.get('/records/', {
-        query: { q: [{ t: String(typeId) }, { access: 'public' }], fields: 'rec_ID', limit: 100000 }
-      }).catch(() => null);
-      const ids = new Set((payload?.records || []).map((record) => Number(record.rec_ID)));
-      sources = this.getQuerySources().filter((source) => ids.has(Number(source.id)));
-    }
-    return { filters, sources };
+  async _websiteQueryChoices() {
+    return listQueryChoices({ apiClient: this.apiClient, dbdefs: await this._ensureDbDefs().catch(() => null), scope: 'website' })
+      .catch(() => []);
   }
 
   /**
@@ -2225,13 +2214,10 @@ export class ExplorerApplication {
    * @returns {Promise<object>} See createExplorerWebsitePanel (with `showFilters`).
    */
   async _explorerInstancePanel({ value = null, recordsSection = null } = {}) {
-    const [{ createExplorerWebsitePanel }, publication] = await Promise.all([
-      import('../ui/config/explorerWebsitePanel.js'),
-      import('../ui/config/explorerPublication.js')
-    ]);
+    const { createExplorerWebsitePanel } = await import('../ui/config/explorerWebsitePanel.js');
     return createExplorerWebsitePanel({
       value,
-      lists: await this._publicFilterLists(publication.WEBSITE_FILTERS_GROUP),
+      choices: await this._websiteQueryChoices(),
       defaults: async () => (await this._websiteDefaults({ moduleType: 'explorer' })).settings,
       recordsSection
     });
@@ -2375,7 +2361,7 @@ export class ExplorerApplication {
         import('../ui/config/explorerPublication.js')
       ]);
       const choices = publication.publicationFilterChoices({
-        ...(await this._publicFilterLists(publication.WEBSITE_FILTERS_GROUP)),
+        choices: await this._websiteQueryChoices(),
         current: this.sync?.dataSource || null
       });
       let result = null;
@@ -2557,18 +2543,24 @@ export class ExplorerApplication {
    *
    * @private
    * @param {HTMLElement} body Tool body.
+   * @param {object} [module] Its ExplorerToolModule (`actions`: the buttons on the header).
    * @returns {Promise<object>} The CrosstabsTool.
    */
-  async _createCrosstabsTool(body) {
+  async _createCrosstabsTool(body, module = null) {
     const { CrosstabsTool } = await (this._crosstabsLoader || loadCrosstabsTool)();
     const tool = new CrosstabsTool({
       apiClient: this.apiClient,
       getDbDefs: () => this._ensureDbDefs(),
       getDataSource: () => (this.sync?.dataSource ? cloneDataSource(this.sync.dataSource) : null),
       getSelection: () => [...(this.sync?.selection || [])],
-      openDesigner: (presetId) => this.openCrosstabsDesigner(presetId),
-      publish: (options) => this.publishCrosstab(options),
-      openManual: (anchor) => this.openManual(anchor),
+      // a published Explorer (a website page): the viewer only (review 2026-11-23)
+      openDesigner: this.config.published ? null : (presetId) => this.openCrosstabsDesigner(presetId),
+      publish: this.config.published ? null : (options) => this.publishCrosstab(options),
+      openManual: this.config.published ? null : (anchor) => this.openManual(anchor),
+      // Publish and Help on the header of the pane, as the modules (review 5)
+      headerActions: module?.actions || null,
+      // a geo parameter of the Filter Form: the extent drawn on the map (review 6)
+      selectExtent: this.config.moduleUrls?.map ? (current) => this.selectFilterExtent(current) : null,
       runtime: this._reportsRuntime()
     });
     body.replaceChildren();
@@ -2611,6 +2603,7 @@ export class ExplorerApplication {
         specialEditors: (dbdefs, options) => this.recordEditing.specialEditors(dbdefs, options),
         formServices: () => this.recordEditing.formServices(),
         openManual: (anchor) => this.openManual(anchor),
+        selectExtent: this.config.moduleUrls?.map ? (current) => this.selectFilterExtent(current) : null,
         onClose: (result) => finish(result),
         runtime: this._reportsRuntime()
       });
@@ -2643,23 +2636,23 @@ export class ExplorerApplication {
   }
 
   /**
-   * Publish a crosstab with the records shown in the pane as a standalone page (presentation-sources.md §6): the page
-   * gets one Crosstabs element with the crosstab and the query (its own records).
+   * Publish a crosstab as a standalone page (presentation-sources.md §6, review 2026-11-23): the configuration form of
+   * the crosstabs in publication mode (crosstab, records, what visitors can, Publish to), as the modules publish. The
+   * page gets one Crosstabs element; with *Current result* the query of the records shown now.
    *
-   * @param {{presetId: number, title?: string, query?: *}} options
-   * @returns {Promise<object|null>} The page, null when cancelled.
+   * @param {{presetId: number, query?: *, source?: string, presets?: Array<{id: number, title: string}>}} options
+   * @returns {Promise<object|null>} The publication, null when cancelled.
    */
-  async publishCrosstab({ presetId, title = '', query = null }) {
+  async publishCrosstab({ presetId, query = null, source = 'current', presets = [] }) {
     try {
-      const client = new WebsiteClient({ apiClient: this.apiClient });
-      const settings = { preset: Number(presetId), from: ['own'], ...(query != null && query !== '' ? { query } : {}) };
-      const result = await publishModulePage({ client, database: this.config.database, type: 'crosstabs', settings, state: null });
-      if (!result) return null;
-      const { PublishedDialog } = await import('#shared/ui/PublishedDialog.js');
-      new PublishedDialog({
-        publication: { ...result, title: result.title || title, actions: [{ label: 'Website manager', run: () => this.openWebsiteManager({ recordId: result.id }) }] }
-      }).open();
-      return result;
+      return await this.openModuleConfiguration({
+        moduleType: 'crosstabs',
+        mode: 'publication',
+        title: 'Publish crosstab',
+        value: { preset: Number(presetId) || null, records: source === 'own' ? 'own' : 'current' },
+        publication: { query: query != null && query !== '' ? query : null },
+        terms: { crosstabPresets: presets.map((item) => ({ id: String(item.id), label: item.title })) }
+      });
     } catch (error) {
       HMsg.showMsgErr?.(error?.message || String(error));
       return null;
@@ -2712,9 +2705,14 @@ export class ExplorerApplication {
         return query ? { query, title: source.title || '' } : null;
       },
       getSelection: () => [...(this.sync?.selection || [])],
-      getQuerySources: () => this.getQuerySources().map((item) => ({
-        id: item.id, title: item.title, parametrized: item.parametrized === true || item.kind === 'parametrized'
-      })),
+      // the one list of query sources and saved filters (review 7): what the user can read, by their names
+      getQueryChoices: async () => listQueryChoices({
+        apiClient: this.apiClient, dbdefs: await this._ensureDbDefs().catch(() => null), scope: 'user',
+        ownerIds: ownerScope(this.userGroups?.data || null)
+      }),
+      getQueryChoiceDefinition: async (choice) => queryChoiceDefinition(choice, {
+        apiClient: this.apiClient, dbdefs: await this._ensureDbDefs().catch(() => null)
+      }),
       getUserGroups: async () => (await this.userGroups?.ensure(['users'])) || null
     };
   }

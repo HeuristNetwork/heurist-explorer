@@ -3,7 +3,8 @@
  * @brief The Crosstabs pane of Explorer (plan 27q2 §17, presentation-sources.md): the viewer of crosstabs. It changes no
  *        configuration: Edit and New open the full screen designer (CrosstabsDesigner, through Explorer).
  *
- * Toolbar: crosstab chooser | Source (Current result / Own query) | Edit | New | Publish | Help. With the source *Current
+ * Toolbar: crosstab chooser | Source (Current result / Own query) | Edit | New; Publish and Help on the header of the pane
+ * (as the modules, review 5). With the source *Current
  * result* the pane counts Explorer's result (AND the record type of the crosstab) and the chooser lists first the crosstabs
  * whose record type is in the result (with the count), the others below and disabled; when exactly one fits and none is
  * chosen it is opened. With *Own query* it counts the query of the crosstab; `$SELECTED$` gets the selection, other
@@ -25,8 +26,7 @@ import { $HR, HMsg } from '#shared/ui';
 import { showPopover, closePopover } from '#shared/widgets/popover/popover.js';
 import { HCrosstab } from '#shared/widgets/crosstabs/HCrosstab.js';
 import { CrosstabService } from '#shared/widgets/crosstabs/crosstabService.js';
-import { HFilterForm } from '#shared/widgets/filter/HFilterForm.js';
-import { resolveQueryParameters } from '#shared/data/queryParameters.js';
+import { CrosstabParams, ownCount } from '#shared/widgets/crosstabs/crosstabParams.js';
 import { ownQuery, SELECTED_PARAMETER } from '#shared/data/presentationSource.js';
 import { loadScopeRecordTypes } from '../toolScope.js';
 import {
@@ -50,6 +50,8 @@ export class CrosstabsTool extends HBaseWidget {
    *        crosstab (0: a new one); resolves when it is closed.
    * @param {function({presetId: number, query: *}): Promise<void>} [options.publish] Publish the crosstab with the query.
    * @param {function(string): void} [options.openManual] Explorer manual at a section (Help: `crosstabs`).
+   * @param {Function} [options.selectExtent] Map extent picker of geo parameters of the Filter Form.
+   * @param {HTMLElement|null} [options.headerActions] The buttons on the header of the pane (Publish, Help).
    * @param {object} options.runtime `{apiBaseUrl, database, requestHeaders, accessToken, language}`.
    */
   constructor(options) {
@@ -80,9 +82,22 @@ export class CrosstabsTool extends HBaseWidget {
     this.toolbar = element('div', 'h-toolbar h-crosstabs-tool-toolbar');
     this.toolbar.setAttribute('role', 'toolbar');
     this.paramsHost = element('div', 'h-crosstabs-viewer-params');
-    this.paramsHost.hidden = true;
+    // the form and the crosstab: a vertical form at the left, a horizontal one above (review 6)
+    const body = element('div', 'h-crosstabs-viewer-body h-crosstab-params-layout');
+    // the Filter Form of an own query with parameters: it stays after Filter (review 2026-11-23)
+    this.params = new CrosstabParams(this.paramsHost, {
+      dbdefs: this.dbdefs,
+      apiClient: this.tool.apiClient,
+      layout: body,
+      selectExtent: this.tool.selectExtent || null,
+      onSubmit: (values) => {
+        this.values = values;
+        void this._apply();
+      }
+    });
     this.view = element('div', 'h-crosstabs-tool-view');
-    this.container.replaceChildren(this.toolbar, this.paramsHost, this.view);
+    body.append(this.paramsHost, this.view);
+    this.container.replaceChildren(this.toolbar, body);
     this.crosstab = new HCrosstab().attach(this.view, {
       service: this.service,
       level: 'display',
@@ -127,9 +142,11 @@ export class CrosstabsTool extends HBaseWidget {
   /** Explorer's result changed. */
   async setDataSource(source) {
     this.source = source;
-    if (this.sourceMode !== 'current') return;
+    // the same query as counted (new rules, another title): nothing to count again
+    if (this.sourceMode !== 'current' || (this.preset && JSON.stringify(this._currentQuery() ?? null) === this._countedKey)) return;
     await this._refreshRecordTypes();
-    if (!this.preset) await this._autoOpen();
+    // a crosstab opened now has counted the result already
+    if (!this.preset && await this._autoOpen()) return;
     await this._apply();
   }
 
@@ -159,7 +176,8 @@ export class CrosstabsTool extends HBaseWidget {
 
   /** @returns {Promise<void>} */
   async destroy() {
-    await this.paramsForm?.destroy?.();
+    this.params?.hide();
+    this.tool.headerActions?.replaceChildren();
     await this.crosstab?.destroy();
     this.crosstab = null;
     await super.destroy();
@@ -184,24 +202,39 @@ export class CrosstabsTool extends HBaseWidget {
     const key = query == null ? '' : JSON.stringify(query);
     if (key === this._typesKey) return;
     this._typesKey = key;
-    this.recordTypes = query == null ? null
-      : (await loadScopeRecordTypes(this.tool.apiClient, query, this.dbdefs).catch(() => null))?.recordTypes || null;
+    const scope = query == null ? null : await loadScopeRecordTypes(this.tool.apiClient, query, this.dbdefs).catch(() => null);
+    this.recordTypes = scope?.recordTypes || null;
+    this.total = scope?.total ?? null;
   }
 
-  /** @private No crosstab chosen: the one that fits the result alone, or the last one chosen for its record type. */
+  /** @private The records of the current result the crosstab counts (from the record types; null: not known). */
+  _currentCount() {
+    const rectype = this.preset?.settings.fields.rectype;
+    if (!rectype) return this.total;
+    const item = this.recordTypes?.find((type) => type.id === rectype);
+    return item ? item.count : null;
+  }
+
+  /**
+   * @private No crosstab chosen: the one that fits the result alone, or the last one chosen for its record type.
+   * @returns {Promise<boolean>} True when a crosstab was opened (and counted).
+   */
   async _autoOpen() {
-    if (this.preset || this.sourceMode !== 'current' || !this.recordTypes) return;
+    if (this.preset || this.sourceMode !== 'current' || !this.recordTypes) return false;
     const { fitting } = groupCrosstabPresets(this.presets, this.recordTypes);
     const kept = this._kept();
     const remembered = fitting.find((item) => kept[`rt${item.rectype}`] === item.id);
     const chosen = remembered || (fitting.length === 1 ? fitting[0] : null);
-    if (chosen) await this.openPreset(chosen.id);
+    return chosen ? this.openPreset(chosen.id) : false;
   }
 
   /** @private The crosstab counts the records of the source. */
   async _apply() {
     if (!this.crosstab) return;
-    this._renderParams(null);
+    this._countedKey = this.sourceMode === 'current' ? JSON.stringify(this._currentQuery() ?? null) : null;
+    // the form of the own query: shown while the source is Own query, closed with Current result or another crosstab
+    if (this.sourceMode !== 'own' || !this.preset) this.params.hide();
+    else this.params.show(this.preset, this.values);
     if (!this.preset) {
       this.crosstab.clear(this.presets.length ? 'Choose a crosstab' : 'There is no crosstab yet: New opens the designer');
       return;
@@ -218,64 +251,30 @@ export class CrosstabsTool extends HBaseWidget {
         this.crosstab.clear(`${$HR('The current result has no records of type')} ${name}. ${$HR('Choose another crosstab')}`);
         return;
       }
-      await this.crosstab.setQuery(query);
+      await this.crosstab.setQuery(query, { count: this._currentCount() });
       return;
     }
-    const own = ownQuery(this.preset.query ?? null, {
-      values: this.values, selection: this.selection ?? this.tool.getSelection?.() ?? [], filterForm: this.preset.settings.filterForm
+    // some values are enough: the empty parameters are left out (review 6)
+    const own = ownCount(this.preset.query ?? null, {
+      values: this.values, selection: this.selection ?? this.tool.getSelection?.() ?? [], filterForm: this.preset.settings.filterForm,
+      dbdefs: this.dbdefs
     });
     if (own.q == null) {
-      this.crosstab.clear('The crosstab has no query of its own');
-      return;
-    }
-    const asked = own.missing.filter((name) => name !== SELECTED_PARAMETER);
-    if (asked.length) {
-      this._renderParams(own);
-      this.crosstab.clear(`${$HR('The query needs a value of')} ${asked.join(', ')}`);
-      return;
-    }
-    if (own.missing.length) {
-      this.crosstab.clear('Select records: the query of the crosstab uses the selection');
+      this.crosstab.clear(own.message || 'The crosstab has no query of its own');
       return;
     }
     await this.crosstab.setQuery(own.q);
   }
 
-  /** @private The Filter Form of the parameters of the own query (hidden without missing values). */
-  _renderParams(own) {
-    if (!own) {
-      if (this.paramsForm) void this.paramsForm.destroy?.();
-      this.paramsForm = null;
-      this.paramsHost.replaceChildren();
-      this.paramsHost.hidden = true;
-      return;
-    }
-    if (this.paramsForm) return;
-    this.paramsHost.hidden = false;
-    this.paramsForm = new HFilterForm();
-    this.paramsForm.attach(this.paramsHost, {
-      definition: { query: this.preset.query, filterForm: this.preset.settings.filterForm },
-      values: this.values,
-      dbdefs: this.dbdefs,
-      apiClient: this.tool.apiClient,
-      composeQuery: (item, values) => resolveQueryParameters(item.query, values, item.filterForm),
-      runtimeMode: 'main',
-      onSubmit: ({ values }) => {
-        this.values = { ...(values || {}) };
-        void this._apply();
-      }
-    }).render();
-  }
-
   // ------------------------------------------------------------------ toolbar
 
-  /** @private Chooser | Source | Edit | New | Publish | Help. */
+  /** @private Chooser | Source | Edit | New; Publish and Help on the header. */
   _renderToolbar() {
     const bar = this.toolbar;
     bar.replaceChildren();
     const select = presetSelector(bar, this.preset?.title || $HR('Choose a crosstab'), (anchor) => void this._toggleList(anchor));
     select.disabled = !this.presets.length;
-    const source = element('select', 'h-select h-compact h-crosstabs-viewer-source');
+    const source = element('select', 'h-select h-crosstabs-viewer-source');
     source.title = $HR('Records counted: the current result of Explorer, or the query of the crosstab');
     for (const [value, text] of [['current', 'Current result'], ['own', 'Own query']]) {
       const option = element('option');
@@ -292,16 +291,36 @@ export class CrosstabsTool extends HBaseWidget {
       await this._apply();
     });
     bar.append(source);
-    toolSeparator(bar);
-    const edit = toolButton(bar, 'fa-pen-ruler', 'Edit', 'Open the crosstab in the designer (full screen)', () => void this._design(this.preset?.id || 0));
-    edit.disabled = !this.preset || !this.tool.openDesigner;
-    const create = toolButton(bar, 'fa-plus', 'New', 'A new crosstab in the designer (full screen)', () => void this._design(0), false);
-    create.disabled = !this.tool.openDesigner;
-    const publish = toolButton(bar, 'fa-globe', 'Publish', 'Publish the crosstab with the records shown as a web page', () => void this._publish(), false);
-    publish.disabled = !this.preset || !this.tool.publish;
-    const help = toolButton(bar, 'fa-circle-question', 'Help', 'Help of the crosstabs', () => this.tool.openManual?.('crosstabs'), false);
-    help.classList.add('h-crosstabs-tool-right');
-    help.hidden = !this.tool.openManual;
+    // Edit / New / Publish: not on a website page (a published Explorer gives no designer, no publish)
+    if (this.tool.openDesigner) {
+      toolSeparator(bar);
+      const edit = toolButton(bar, 'fa-pen-ruler', 'Edit', 'Open the crosstab in the designer (full screen)', () => void this._design(this.preset?.id || 0));
+      edit.classList.add('h-btn-primary');
+      edit.disabled = !this.preset;
+      toolButton(bar, 'fa-plus', 'New', 'A new crosstab in the designer (full screen)', () => void this._design(0), false);
+    }
+    this._renderHeaderActions();
+  }
+
+  /** @private Publish and Help on the header of the pane (icon buttons as the module panels); none on a website. */
+  _renderHeaderActions() {
+    const host = this.tool.headerActions;
+    if (!host) return;
+    host.replaceChildren();
+    const button = (icon, title, run) => {
+      const node = element('button', 'heurist-icon-button');
+      node.type = 'button';
+      node.title = $HR(title);
+      node.setAttribute('aria-label', $HR(title));
+      node.append(element('span', `fa-solid ${icon}`));
+      node.addEventListener('click', run);
+      host.append(node);
+      return node;
+    };
+    if (this.tool.publish) {
+      button('fa-share-nodes', 'Publish the crosstab as a web page', () => void this._publish()).disabled = !this.preset;
+    }
+    if (this.tool.openManual) button('fa-circle-question', 'Help of the crosstabs', () => this.tool.openManual('crosstabs'));
   }
 
   /** @private The crosstabs under the chooser: those for the current result first, the others disabled. */
@@ -313,6 +332,8 @@ export class CrosstabsTool extends HBaseWidget {
     const grouped = groupCrosstabPresets(this.presets, this.sourceMode === 'current' ? this.recordTypes : null);
     const list = element('div', 'h-crosstabs-tool-list');
     list.setAttribute('role', 'listbox');
+    // with headings the items are indented under them
+    list.classList.toggle('has-groups', grouped.other.length > 0);
     const heading = (text) => {
       const node = element('div', 'h-crosstabs-tool-list-heading');
       node.textContent = $HR(text);
@@ -354,8 +375,9 @@ export class CrosstabsTool extends HBaseWidget {
   /** @private Publish the crosstab with the records shown now (presentation-sources.md §6). */
   async _publish() {
     if (!this.preset) return;
-    const query = this.sourceMode === 'current' ? this._currentQuery() : this.crosstab?.query ?? null;
-    await this.tool.publish?.({ presetId: this.preset.id, title: this.preset.title, query });
+    await this.tool.publish?.({
+      presetId: this.preset.id, title: this.preset.title, query: this._currentQuery(), source: this.sourceMode, presets: this.presets
+    });
   }
 
   // ------------------------------------------------------------------ choices kept in the browser

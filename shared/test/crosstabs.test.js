@@ -223,6 +223,11 @@ test('widget: counts, shows the table, Update above the limit, level controls', 
   assert.match(host.querySelector('.h-crosstab-status').textContent, /Update/);
   await widget.load({ force: true });
   assert.equal(requests.length, 2);
+  // the count known by the host: no op=count request
+  service.count = async () => { throw new Error('count must not be asked'); };
+  await widget.setQuery([{ t: '12' }], { count: 10 });
+  await flush();
+  assert.equal(requests.length, 3);
   await widget.destroy();
 });
 
@@ -276,4 +281,128 @@ test('HRangeList (taken out of the thematic map editor): intervals, remove, extr
   assert.equal(changes, 2);
   assert.ok(from);
   await list.destroy();
+});
+
+test('widget: the second line — Rows / Columns as text without pivot, selects with pivot', async () => {
+  const service = { async count() { return 1; }, async tabulate() { return structuredClone(ANSWER); } };
+  const host = document.createElement('div');
+  document.body.append(host);
+  const settings = { rows: { code: '12:133' }, columns: { code: '12:lt5:7:26' }, visitor: { level: 'pivot', fields: ['12:133', '12:lt5:7:26'] } };
+  const shown = new HCrosstab().attach(host, { service, labels, enhance: false, level: 'display', fieldLabel: (code) => `F${code}`, settings }).render();
+  const line = host.querySelector('.h-crosstab-pivot');
+  assert.ok(line.classList.contains('is-readonly'));
+  assert.equal(line.querySelectorAll('select').length, 0);
+  assert.deepEqual([...line.querySelectorAll('.h-crosstab-pivot-value')].map((node) => node.textContent), ['F12:133', 'F12:lt5:7:26']);
+  await shown.destroy();
+  const pivot = new HCrosstab().attach(host, { service, labels, enhance: false, level: 'pivot', fieldLabel: (code) => `F${code}`, settings }).render();
+  const second = host.querySelector('.h-crosstab-pivot');
+  assert.equal(second.classList.contains('is-readonly'), false);
+  assert.equal(second.querySelectorAll('select').length, 3, 'Rows, Columns, Pages in the second line');
+  assert.equal(host.querySelector('.h-crosstab-controls').querySelectorAll('select').length, 2, 'Show and Chart stay in the first');
+  await pivot.destroy();
+});
+
+test('configuration: modes of the form, stored settings, publication', async () => {
+  const { crosstabsConfiguration, crosstabsFormFields, crosstabsAutoLimit } = await import('../src/widgets/crosstabs/crosstabsConfiguration.js');
+  const names = (mode) => crosstabsFormFields(mode, { crosstabPresets: [{ id: '5', label: 'A' }] }).map((field) => field.name);
+  assert.deepEqual(names('website'), ['preset', 'from', 'level', 'ui.showSourceHeader', 'config.defaults.maxAutoReload']);
+  assert.deepEqual(names('publication'), ['preset', 'records', 'level', 'ui.showSourceHeader', 'ui.language']);
+  assert.deepEqual(names('configuration'), ['source', 'level']);
+  assert.deepEqual(crosstabsFormFields('website', { crosstabPresets: [{ id: '5', label: 'A' }] })[0].terms, [{ id: '5', label: 'A' }]);
+  const { normalize, serialize, preparePublication } = crosstabsConfiguration;
+  assert.deepEqual(serialize(normalize({ preset: ['7'], from: ['own', 'links', ''], level: 'bogus', records: 'own' })),
+    { preset: 7, from: ['own', 'links'] });
+  // header and limit kept; the default limit and an unchecked header are not stored
+  assert.deepEqual(serialize(normalize({ preset: 7, ui: { showSourceHeader: true }, config: { defaults: { maxAutoReload: '25000' } } })),
+    { preset: 7, ui: { showSourceHeader: true }, config: { defaults: { maxAutoReload: '25000' } } });
+  // the language of a published page is kept, Automatic is not (review 7: Test module configuration)
+  assert.deepEqual(serialize(normalize({ preset: 7, ui: { language: 'fre' } })), { preset: 7, ui: { language: 'fre' } });
+  assert.deepEqual(serialize(normalize({ preset: 7, ui: { language: 'auto' } })), { preset: 7 });
+  // a value no longer in the list (review 6): the default
+  assert.deepEqual(serialize(normalize({ preset: 7, config: { defaults: { maxAutoReload: '200000' } } })), { preset: 7 });
+  assert.deepEqual(serialize(normalize({ preset: 7, ui: { showSourceHeader: false }, config: { defaults: { maxAutoReload: '50000' } } })),
+    { preset: 7 });
+  assert.equal(crosstabsAutoLimit({ config: { defaults: { maxAutoReload: 'manual' } } }), 0);
+  assert.equal(crosstabsAutoLimit({ config: { defaults: { maxAutoReload: 'always' } } }), undefined);
+  assert.equal(crosstabsAutoLimit({ config: { defaults: { maxAutoReload: '100000' } } }), 100000);
+  assert.equal(crosstabsAutoLimit({}), undefined);
+  assert.deepEqual(preparePublication({ settings: { preset: 7, records: 'current', level: 'view' }, publication: { query: [{ t: '10' }] } }),
+    { settings: { preset: 7, from: ['own'], level: 'view', query: [{ t: '10' }], ui: { language: 'auto' } }, state: null });
+  assert.deepEqual(preparePublication({ settings: { preset: 7, records: 'own' }, publication: { query: [{ t: '10' }] } }).settings,
+    { preset: 7, from: ['own'], ui: { language: 'auto' } });
+  // as Explorer publishes (review 5): the serialized settings lose `records`, the form values keep it
+  const values = normalize({ preset: 7, records: 'own', ui: { showSourceHeader: true, language: 'fre' } });
+  assert.deepEqual(preparePublication({ settings: serialize(values), values, publication: { query: [{ t: '10' }] } }).settings,
+    { preset: 7, from: ['own'], ui: { showSourceHeader: true, language: 'fre' } });
+});
+
+test('configuration: every field of a mode is shown without Advanced (review 6)', async () => {
+  const { crosstabsConfiguration } = await import('../src/widgets/crosstabs/crosstabsConfiguration.js');
+  const { normalizeEditForm, ruleHides } = await import('../src/data/editFormSchema.js');
+  const { form } = normalizeEditForm(crosstabsConfiguration.form);
+  for (const mode of ['website', 'publication', 'configuration']) {
+    const context = { mode, showOptional: false };
+    const shown = form.groups.filter((group) => !ruleHides(group, context))
+      .flatMap((group) => group.children.filter((field) => !ruleHides(field, context)).map((field) => field.name));
+    const all = form.groups.flatMap((group) => group.children).filter((field) => !field.modes || field.modes.includes(mode))
+      .map((field) => field.name);
+    assert.deepEqual(shown, all, mode);
+  }
+});
+
+test('own query: counts with some values, the empty parameters left out (review 6)', async () => {
+  const { ownCount } = await import('../src/widgets/crosstabs/crosstabParams.js');
+  const query = [{ t: '10' }, { title: '$A$' }, { 'f:9': '$B$' }];
+  assert.match(ownCount(query, { values: {} }).message, /needs a value of 'title', 'f:9'/);
+  assert.equal(ownCount(query, { values: {} }).q, null);
+  assert.deepEqual(ownCount(query, { values: { A: 'x' } }).q, [{ t: '10' }, { title: 'x' }]);
+  assert.equal(ownCount([{ ids: '$SELECTED$' }, { title: '$A$' }], { values: { A: 'x' } }).q, null, 'the selection is needed');
+  assert.deepEqual(ownCount([{ t: '10' }], {}).q, [{ t: '10' }]);
+  assert.equal(ownCount(null).q, null);
+});
+
+test('crosstab: the automatic count limit (manual: Update, always: no count request)', async () => {
+  const { autoLimit } = await import('../src/widgets/crosstabs/HCrosstab.js');
+  assert.equal(autoLimit(undefined), 50000);
+  assert.equal(autoLimit(0), 0);
+  assert.equal(autoLimit('manual'), 0);
+  assert.equal(autoLimit('always'), Infinity);
+  assert.equal(autoLimit(100000), 100000);
+});
+
+test('parameter captions: the Filter Form label, else the field, else the name', async () => {
+  const { parameterCaptions, missingValuesText } = await import('../src/widgets/crosstabs/crosstabParams.js');
+  const dbdefs = { fieldGlobal: (id) => (id === 9 ? { id: 9, name: 'Year', type: 'year' } : null), rectypeName: () => '' };
+  const query = [{ t: '10' }, { 'f:9': '$X1$' }, { title: '$X2$' }, { 'f:5': '$X3$' }];
+  const filterForm = { groups: [{ children: [{ input: 'X3', label: 'Country' }] }] };
+  assert.deepEqual(parameterCaptions(['X1', 'X3', 'Q'], query, filterForm, dbdefs), ['Year', 'Country', 'Q']);
+  assert.match(missingValuesText(['X1'], query, null, dbdefs), /needs a value of 'Year'$/);
+});
+
+test('parameter form: shown for a query with parameters, kept for the same crosstab, hidden without them', async () => {
+  const { CrosstabParams, askedParameters } = await import('../src/widgets/crosstabs/crosstabParams.js');
+  assert.deepEqual(askedParameters([{ t: '10' }, { title: '$NAME$' }, { ids: '$SELECTED$' }]), ['NAME']);
+  const host = document.createElement('div');
+  host.className = 'own-class';
+  document.body.append(host);
+  const params = new CrosstabParams(host, { onSubmit: () => {} });
+  const preset = { id: 3, query: [{ t: '10' }, { title: '$NAME$' }], settings: { filterForm: null } };
+  assert.equal(params.show(preset, {}), true);
+  const form = params.form;
+  assert.equal(host.hidden, false);
+  assert.ok(host.classList.contains('own-class') && host.classList.contains('h-crosstab-params'), 'the host keeps its classes');
+  params.show(preset, { NAME: 'x' });
+  assert.equal(params.form, form, 'the same crosstab keeps its form (Filter does not close it)');
+  assert.equal(params.show({ id: 4, query: [{ t: '10' }] }, {}), false);
+  assert.equal(host.hidden, true);
+  // vertical (default) at the left of the crosstab, horizontal above it (review 6); the extent picker goes to the form
+  const layout = document.createElement('div');
+  const selectExtent = () => null;
+  const placed = new CrosstabParams(document.createElement('div'), { layout, selectExtent, onSubmit: () => {} });
+  placed.show(preset, {});
+  assert.equal(layout.classList.contains('h-crosstab-params-left'), true);
+  assert.equal(placed.form.options.selectExtent, selectExtent);
+  placed.show({ ...preset, id: 5, settings: { filterForm: { settings: { orientation: 'horizontal' }, groups: [] } } }, {});
+  assert.equal(layout.classList.contains('h-crosstab-params-left'), false);
+  placed.hide();
 });

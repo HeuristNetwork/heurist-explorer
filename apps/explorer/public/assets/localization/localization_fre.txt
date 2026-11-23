@@ -1660,3 +1660,25 @@
 #The records of the crosstab when it uses its own query: on a website page without other records, and in Explorer with the source Own query. It may have parameters (a value given by the page or the selection).#Les enregistrements du tableau croisé quand il utilise sa propre requête : sur une page web sans autres enregistrements, et dans Explorer avec la source Requête propre. Elle peut avoir des paramètres (une valeur donnée par la page ou la sélection).
 #Only records of this type are counted. Its fields and the fields of the records they point to are offered for rows, columns and pages.#Seuls les enregistrements de ce type sont comptés. Ses champs et ceux des enregistrements pointés sont proposés pour les lignes, colonnes et pages.
 #Each value: a row per value. Dates by period: years, decades … Equal ranges: numbers in round ranges. Own ranges: intervals and groups of values you define and name. What is offered depends on the type of the field.#Chaque valeur : une ligne par valeur. Dates par période : années, décennies … Intervalles égaux : nombres en intervalles ronds. Intervalles propres : intervalles et groupes de valeurs que vous définissez et nommez. Ce qui est proposé dépend du type du champ.
+# Crosstabs reviews 4-7 (2026-11-23)
+#Any of them: the crosstab counts the latest search#N'importe laquelle : le tableau croisé compte la dernière recherche
+#As in the crosstab#Comme dans le tableau croisé
+#Count automatically up to#Compter automatiquement jusqu'à
+#Current result: the page counts the records shown now in Explorer#Résultat actuel : la page compte les enregistrements affichés maintenant dans Explorer
+#Filter form#Formulaire de filtre
+#Lowers what the crosstab allows#Réduit ce que le tableau croisé permet
+#More records: the visitor counts them with Update#Plus d'enregistrements : le visiteur les compte avec Mettre à jour
+#Never (Update button)#Jamais (bouton Mettre à jour)
+#25,000 records#25 000 enregistrements
+#50,000 records#50 000 enregistrements
+#100,000 records#100 000 enregistrements
+#Own query of the crosstab#Requête propre du tableau croisé
+#PNG#PNG
+#Public crosstabs can be seen by visitors#Les tableaux croisés publics sont visibles par les visiteurs
+#Records from#Enregistrements de
+#The name of the crosstab above it#Le nom du tableau croisé au-dessus de lui
+#This crosstab needs a value of#Ce tableau croisé a besoin d'une valeur pour
+#Visitors#Visiteurs
+#At the start of the Crosstabs pane#Au démarrage du panneau Tableaux croisés
+#Close the crosstab editor#Fermer l'éditeur du tableau croisé
+#Publish the crosstab as a web page#Publier le tableau croisé comme page web

@@ -3,7 +3,8 @@
  * @brief Filterable value list: a replacement for `<select>` over long or
  *        uncertain option lists (plan §4.2).
  *
- * Layout: a sticky filter row (filter icon | input | clear) above the list.
+ * Layout: a sticky filter row (filter icon | input | clear) above the list. An item may have `marks` (small labels
+ * after it), `disabled` (shown, not pickable) and `title` (the tooltip of its row).
  * The filter row appears when the list is incomplete or longer than
  * `filterThreshold`. Values come from a value source (`load()` contract); a
  * complete source is filtered locally, an incomplete one is asked again with
@@ -269,6 +270,8 @@ export class HValuePicker extends HBaseWidget {
    * @returns {void}
    */
   pick(item) {
+    // a disabled item is shown (with its reason as the tooltip) but can not be picked
+    if (item?.disabled) return;
     const key = String(item.value);
     if (this.options.multiple) {
       const index = this._values.findIndex((value) => String(value) === key);
@@ -435,6 +438,10 @@ export class HValuePicker extends HBaseWidget {
     row.setAttribute('aria-selected', String(isSelected));
     row.classList.toggle('is-selected', isSelected);
     row.classList.toggle('is-context', Boolean(item.context));
+    if (item.disabled) {
+      row.classList.add('is-disabled');
+      row.setAttribute('aria-disabled', 'true');
+    }
     if (this.options.multiple) {
       const mark = document.createElement('span');
       mark.className = `h-value-picker-check fa-regular ${isSelected ? 'fa-square-check' : 'fa-square'}`;
@@ -448,8 +455,16 @@ export class HValuePicker extends HBaseWidget {
     if (this.options.htmlLabels) label.innerHTML = sanitizeTextHtml(text);
     else label.textContent = text;
     label.title = this.options.htmlLabels ? stripHtml(text) : text;
+    if (item.title) row.title = $HR(item.title);
     if (item.depth) label.style.paddingInlineStart = `${Number(item.depth) * 1.25}em`;
     row.append(label);
+    // marks after the label, e.g. [filter] [parametrized] of the query choices (review 7)
+    for (const text of item.marks || []) {
+      const mark = document.createElement('span');
+      mark.className = 'h-value-picker-mark';
+      mark.textContent = $HR(text);
+      row.append(mark);
+    }
     if (showCounts && item.count != null) {
       const count = document.createElement('span');
       count.className = 'h-value-picker-count';

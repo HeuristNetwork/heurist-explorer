@@ -878,8 +878,15 @@ export async function mountInstance(host, id, config, loaders) {
         sendRecords: sync ? (request, origin) => void sync.setRequest(request, { origin }) : null
       });
       if (!mounted) return null;
-      joinPageSync(config, id, instance, mounted.widget);
-      return mounted.widget;
+      // a target of a Saved filter (review 2026-11-23): the query of the link of a page without other modules
+      if (sync && instanceLinks(instance, config.instances).from.includes('links') && !sync.latest(['links'])) {
+        const search = config.runtime?.filterSearch ?? globalThis.location?.search ?? '';
+        const request = await pageFilterRequest(config.runtime || {}, search).catch(() => null);
+        if (request && !sync.latest(['links'])) sync.remember(request, 'links');
+      }
+      // the member of the page: its api (the Filter Form of a Saved filter link, review 6); removed with it
+      joinPageSync(config, id, instance, mounted.api);
+      return mounted.api;
     } catch (error) {
       console.error(`Unable to show the crosstabs (${id})`, error);
       return showMessage(host, $HR('This part of the page can not be shown'));

@@ -117,7 +117,8 @@ export class WebsiteDetails extends HBaseWidget {
     if (summary.kind === 'website') this._renderPages(root, summary);
     // the result of Check of this record (another record selected: hidden)
     if (this.check && this.check.id === app.selectedId) this._renderCheck(root);
-    if (summary.v4 && summary.kind !== 'page') this._renderGenerated(root, summary);
+    // a website only: a menu page and a standalone page are not generated (review 2026-11-23)
+    if (summary.v4 && summary.kind === 'website') this._renderGenerated(root, summary);
   }
 
   /**

@@ -22,41 +22,31 @@
 
 import { itemKey, normalizePublishedFilter, FILTER_MODES, FILTER_PLACEMENTS } from '../../core/publishedView.js';
 import { UI_LANGUAGES } from '../../core/ExplorerUiConfig.js';
-
-/** Owner group of the saved filters a website may use ("Website filters"). */
-export const WEBSITE_FILTERS_GROUP = 4;
+import { QUERY_CHOICE_FILTER_THRESHOLD, QUERY_CHOICE_MARKS } from '#shared/data/queryChoices.js';
 
 const LANGUAGE_LABELS = { auto: 'Automatic', eng: 'English', fre: 'French', ger: 'German', por: 'Portuguese' };
 const MODE_LABELS = { buttons: 'Buttons', list: 'List', select: 'Select' };
 
 /**
- * The filters a page may offer: `{key, kind, id?, title, parameterized}`; saved filters first,
- * then query sources, then the current query.
+ * The filters a page may offer: `{key, kind, id?, title, parameterized}`; the query sources and saved filters by their
+ * names (the one list, review 7: listQueryChoices with the scope `website`), then the current query.
  *
  * @param {object} lists
- * @param {Array<{id: number, title: string, kind?: string}>} [lists.filters] Saved filters of "Website filters".
- * @param {Array<{id: number, title: string, parametrized?: boolean}>} [lists.sources] Public query sources.
+ * @param {Array<{kind: string, id: number, label: string, parameterized: boolean}>} [lists.choices] Query choices.
  * @param {object|null} [lists.current] The current DataSource (`request.q`).
  * @returns {Array<object>}
  */
-export function publicationFilterChoices({ filters = [], sources = [], current = null } = {}) {
-  const byTitle = (a, b) => String(a.title).localeCompare(String(b.title), undefined, { sensitivity: 'base' });
-  const choices = [
-    ...[...filters].sort(byTitle).map((filter) => ({
-      key: itemKey('filter', filter.id), kind: 'filter', id: Number(filter.id), title: filter.title,
-      parameterized: filter.kind === 'parametrized'
-    })),
-    ...[...sources].sort(byTitle).map((source) => ({
-      key: itemKey('source', source.id), kind: 'source', id: Number(source.id), title: source.title,
-      parameterized: source.parametrized === true
-    }))
-  ];
+export function publicationFilterChoices({ choices = [], current = null } = {}) {
+  const list = (choices || []).filter((choice) => choice.kind === 'filter' || choice.kind === 'source').map((choice) => ({
+    key: itemKey(choice.kind, choice.id), kind: choice.kind, id: Number(choice.id), title: choice.label,
+    parameterized: choice.parameterized === true
+  }));
   if (current?.request?.q) {
     // the presentation too: the columns, geo and time fields of the DataSource
-    choices.push({ key: itemKey('query'), kind: 'query', title: 'Current query', request: structuredClone(current.request),
+    list.push({ key: itemKey('query'), kind: 'query', title: 'Current query', request: structuredClone(current.request),
       presentation: current.presentation ? structuredClone(current.presentation) : null, parameterized: false });
   }
-  return choices;
+  return list;
 }
 
 /**
@@ -66,10 +56,11 @@ export function publicationFilterChoices({ filters = [], sources = [], current =
  * @returns {object} heurist-edit-form/1.
  */
 export function explorerPublicationForm(choices) {
+  // the marks of the one picker (review 7): [filter] [parametrized]
   const term = (choice) => ({
     id: choice.key,
-    label: `${choice.title}${choice.kind === 'filter' ? ' [filter]' : choice.kind === 'source' ? ' [source]' : ''}`
-      + (choice.parameterized ? ' (parameterized)' : '')
+    label: choice.title,
+    marks: [...(choice.kind === 'filter' ? [QUERY_CHOICE_MARKS.filter] : []), ...(choice.parameterized ? [QUERY_CHOICE_MARKS.parameterized] : [])]
   });
   return {
     format: 'heurist-edit-form/1',
@@ -93,12 +84,12 @@ export function explorerPublicationForm(choices) {
         children: [
           {
             name: 'filter.items', type: 'enum', label: 'Available filters', req: 'recommended', mode: 'select',
-            multiple: true, max: 0, terms: choices.map(term),
+            multiple: true, max: 0, terms: choices.map(term), filterThreshold: QUERY_CHOICE_FILTER_THRESHOLD,
             help: 'Saved filters of the group "Website filters" and public query sources; none: the page has no filters'
           },
           {
             name: 'filter.active', type: 'enum', label: 'Active on start', req: 'recommended', mode: 'select',
-            terms: choices.map(term), emptyLabel: 'None (the result of now)',
+            terms: choices.map(term), emptyLabel: 'None (the result of now)', filterThreshold: QUERY_CHOICE_FILTER_THRESHOLD,
             help: 'One of the available filters; it runs when the page opens'
           },
           {

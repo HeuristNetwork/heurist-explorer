@@ -1,7 +1,9 @@
 /**
  * @file querySourceChooser.js
- * @brief The ▾ button of a query field (plan 27n1 §4): a list of query sources (and saved filters) under the button;
- *        the chosen one's query is copied into the field (by value: no id is kept).
+ * @brief The one picker of query sources and saved filters (review 7 of plan 27q2, docs/development/query-choice-picker.md):
+ *        an HValuePicker in a popover under a button — the ▾ of a query field (its query copied by value), the Saved
+ *        filter of the CMS, the query of a report. Items from queryChoiceItems: names, `[filter]` / `[parametrized]`
+ *        marks, parameterized ones disabled where no Filter Form is possible, a search box from more than 10 entries.
  *
  * @project     Heurist academic knowledge management system
  * @package     heurist-shared
@@ -15,110 +17,63 @@
  */
 
 import { showPopover } from '../popover/popover.js';
-import { $HR } from '../../ui/i18n/HResource.js';
+import { HValuePicker } from '../picker/HValuePicker.js';
+import { StaticSource } from '../../data/valueSources/localSources.js';
+import { queryChoiceItems } from '../../data/queryChoices.js';
 import './querySourceChooser.css';
 
-/** A search box above the list from this number of items. */
-const SEARCH_FROM = 10;
+/** The search box of the list from this number of entries on (rule e of review 7: more than 10). */
+export const QUERY_CHOICE_SEARCH_FROM = 10;
 
 /**
- * The items offered for a parameter rule: `with` only query sources with parameters, `without` only those without,
- * `any` all of them.
+ * Show the picker under an anchor; resolves with the `choice` of the item picked (a query choice, or a fixed item such
+ * as Current result), or null (closed).
  *
- * @param {Array<{id: number|string, title?: string, kind?: string, parameterized?: boolean}>} items
- * @param {'any'|'with'|'without'} [parameters='without']
- * @returns {Array<object>}
- */
-export function querySourceChoices(items = [], parameters = 'without') {
-  return (items || []).filter((item) => item && Number(item.id) > 0
-    && (parameters === 'any' || (parameters === 'with' ? Boolean(item.parameterized) : !item.parameterized)));
-}
-
-/**
- * Show the list under an anchor; resolves with the chosen item, or null (closed).
- *
- * @param {HTMLElement} anchor The ▾ button.
- * @param {Array<{id: number|string, title?: string, kind?: string}>} items Items to offer (`kind: 'filter'` gets a mark).
- * @param {Array<{id: string, title: string}>} [first] Fixed items above the list (e.g. Current result), not searched.
+ * @param {HTMLElement} anchor The button.
+ * @param {Array<object>} items Picker items (queryChoiceItems).
+ * @param {{value?: string}} [options] `value`: the item marked as chosen.
  * @returns {Promise<object|null>}
  */
-export function chooseQuerySource(anchor, items, first = []) {
+export function chooseQuerySource(anchor, items, { value = null } = {}) {
   return new Promise((resolve) => {
     let chosen = null;
     const content = document.createElement('div');
     content.className = 'h-query-source-chooser';
-    const menu = document.createElement('div');
-    menu.className = 'h-menu h-query-source-chooser-list';
-    const show = (text = '') => {
-      const needle = text.trim().toLowerCase();
-      menu.replaceChildren();
-      const shown = items.filter((item) => !needle || String(item.title || '').toLowerCase().includes(needle));
-      for (const item of first) {
-        const button = document.createElement('button');
-        button.type = 'button';
-        button.className = 'h-menu-item h-query-source-chooser-first';
-        button.textContent = $HR(item.title);
-        button.addEventListener('click', () => {
-          chosen = item;
-          popover.close();
-        });
-        menu.append(button);
+    const picker = new HValuePicker().attach(content, {
+      source: new StaticSource(items),
+      value,
+      loadOnRender: true,
+      filterThreshold: QUERY_CHOICE_SEARCH_FROM,
+      placeholder: 'Search',
+      onPick: (item) => {
+        chosen = item.choice ?? item;
+        popover.close();
       }
-      if (first.length) {
-        const line = document.createElement('div');
-        line.className = 'h-menu-divider';
-        line.setAttribute('role', 'separator');
-        menu.append(line);
+    }).render();
+    const popover = showPopover(anchor, content, {
+      className: 'h-query-source-chooser-popover',
+      align: 'right',
+      onClose: () => {
+        void picker.destroy();
+        resolve(chosen);
       }
-      for (const item of shown) {
-        const button = document.createElement('button');
-        button.type = 'button';
-        button.className = 'h-menu-item';
-        button.textContent = item.title || `#${item.id}`;
-        if (item.kind === 'filter') {
-          const mark = document.createElement('span');
-          mark.className = 'h-query-source-chooser-kind';
-          mark.textContent = $HR('filter');
-          button.append(mark);
-        }
-        button.addEventListener('click', () => {
-          chosen = item;
-          popover.close();
-        });
-        menu.append(button);
-      }
-      if (!shown.length && !first.length) {
-        const empty = document.createElement('div');
-        empty.className = 'h-query-source-chooser-empty';
-        empty.textContent = $HR(items.length ? 'Nothing found' : 'There is no query source to copy');
-        menu.append(empty);
-      }
-    };
-    if (items.length >= SEARCH_FROM) {
-      const search = document.createElement('input');
-      search.type = 'search';
-      search.className = 'h-input h-query-source-chooser-search';
-      search.placeholder = $HR('Search');
-      search.addEventListener('input', () => show(search.value));
-      content.append(search);
-      setTimeout(() => search.focus(), 0);
-    }
-    content.append(menu);
-    show();
-    const popover = showPopover(anchor, content, { className: 'h-query-source-chooser-popover', align: 'right',
-      onClose: () => resolve(chosen) });
+    });
+    void picker.open();
   });
 }
 
 /**
- * The ▾ action of a special query field (HEditField `special.actions`): choose a query source, copy its query.
+ * The ▾ action of a special query field (HEditField `special.actions`): choose a query source or saved filter, copy its
+ * query (and Filter Form).
  *
  * @param {object} options
- * @param {() => Promise<Array<object>>} options.list Query sources (and saved filters): `[{id, title, kind, parameterized}]`.
- * @param {(item: object) => Promise<{query: *, filterForm?: object|null}|null>} options.definition The query of an item.
- * @param {'any'|'with'|'without'} [options.parameters='without'] Which ones are offered.
- * @param {Array<{id: string, title: string}>} [options.first] Fixed items above the list (Current result, plan 27q2
- *        §17); `definition` gets them as the other items.
+ * @param {() => Promise<Array<object>>} options.list Query choices (listQueryChoices).
+ * @param {(choice: object) => Promise<{query: *, filterForm?: object|null}|null>} options.definition The query of a
+ *        choice (queryChoiceDefinition; also gets the fixed items).
+ * @param {'any'|'without'|function(): string} [options.parameters='without'] `without`: parameterized ones disabled (no
+ *        Filter Form field); a function is asked at the click.
+ * @param {Array<{value: string, label: string}>} [options.first] Fixed items above the list (Current result, plan 27q2
+ *        §17).
  * @param {(definition: object, context: object) => (string|undefined)} options.apply The new value of the field (and other
  *        fields set through the context, e.g. a filter form); undefined: nothing changes.
  * @returns {{label: string, icon: string, title: string, iconOnly: boolean, run: Function}}
@@ -128,12 +83,12 @@ export function querySourceAction({ list, definition, parameters = 'without', ap
     label: '',
     icon: 'fa-caret-down',
     iconOnly: true,
-    title: 'Copy the query of a query source',
+    title: 'Copy the query of a query source or saved filter',
     run: async (value, context, anchor) => {
-      const items = querySourceChoices(await list(), parameters);
-      const item = await chooseQuerySource(anchor, items, first);
-      if (!item) return undefined;
-      const found = await definition(item);
+      const rule = typeof parameters === 'function' ? parameters() : parameters;
+      const choice = await chooseQuerySource(anchor, queryChoiceItems(await list(), { parameters: rule, first }));
+      if (!choice) return undefined;
+      const found = await definition(choice);
       return found ? apply(found, context) : undefined;
     }
   };

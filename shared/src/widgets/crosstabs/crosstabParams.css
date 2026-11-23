@@ -1,0 +1,60 @@
+/* The Filter Form of a crosstab (crosstabParams.js): above it (horizontal) or at its left (vertical). A horizontal form
+ * puts fields and actions in one flow, as in the north pane of Explorer (QuerySourcePanel.css). */
+.h-crosstab-params[hidden] { display: none; }
+
+/* a box of its own, so it is not mixed with the controls of the crosstab (review 7) */
+.h-crosstab-params {
+  box-sizing: border-box;
+  margin: 4px;
+  padding: 4px 8px;
+  border: 1px solid var(--h-color-border);
+  border-radius: var(--h-radius);
+  background: var(--h-color-surface);
+}
+
+.h-crosstab-params .h-filter-form-horizontal .h-filter-form-body {
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: flex-start;
+}
+
+.h-crosstab-params .h-filter-form-horizontal .h-filter-form-group { display: contents; }
+
+.h-crosstab-params .h-filter-form-horizontal .h-filter-form-group > h3 { flex: 0 0 100%; }
+
+.h-crosstab-params .h-filter-form-horizontal .h-filter-form-field { max-width: 300px; }
+
+/* top margin = a field's label line + its gap, so the buttons line up with the inputs */
+.h-crosstab-params .h-filter-form-horizontal .h-filter-form-actions {
+  position: static;
+  max-width: 300px;
+  padding: 0;
+  border-top: 0;
+  flex-wrap: wrap;
+  margin-top: calc(1.2em + var(--h-gap));
+  margin-top: calc(1lh + var(--h-gap));
+}
+
+/* the parent of the form and the crosstab: a horizontal form above the crosstab, a vertical one at its left (review 6) */
+.h-crosstab-params-layout {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+}
+
+.h-crosstab-params-layout.h-crosstab-params-left { flex-direction: row; }
+
+.h-crosstab-params-layout > :not(.h-crosstab-params) {
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 0;
+}
+
+.h-crosstab-params-layout.h-crosstab-params-left > .h-crosstab-params {
+  flex: 0 0 260px;
+  max-width: 40%;
+  max-height: none;
+  overflow: auto;
+}

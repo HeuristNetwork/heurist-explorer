@@ -146,7 +146,7 @@
 #Properties#Propriétés
 #Query Source#Query Source
 #Query Source record id#ID de l'enregistrement Query Source
-#Query Sources with parameters (Filter Form) are not listed.#Les Query Sources avec paramètres (formulaire de filtre) ne sont pas listées.
+#Query sources and saved filters with parameters (Filter Form) can not be chosen.#Les sources de requête et filtres enregistrés avec paramètres (formulaire de filtre) ne peuvent pas être choisis.
 #read only#lecture seule
 #Record#Enregistrement
 #Record set#Ensemble d'enregistrements
@@ -295,4 +295,4 @@
 #Nothing found#Rien trouvé
 #There is no query source to copy#Aucune source de requête à copier
 #Search#Rechercher
-#Choose a query source#Choisissez une source de requête
+#Choose a query source or a saved filter#Choisissez une source de requête ou un filtre enregistré

@@ -29,7 +29,9 @@ export const MODULE_CONFIGURATIONS = Object.freeze({
   timeline: async () => (await import('../../../timeline/src/configuration.js')).timelineConfiguration,
   graph: async () => (await import('../../../graph/src/configuration.js')).graphConfiguration,
   data: async () => (await import('../../../data/src/configuration.js')).dataConfiguration,
-  recordview: async () => (await import('../../../recordview/src/configuration.js')).recordViewConfiguration
+  recordview: async () => (await import('../../../recordview/src/configuration.js')).recordViewConfiguration,
+  // the widget / tool Crosstabs (review 2026-11-23): flat settings of the website element
+  crosstabs: async () => (await import('#shared/widgets/crosstabs/crosstabsConfiguration.js')).crosstabsConfiguration
 });
 
 /**
@@ -273,15 +275,16 @@ function specialEditors(context) {
  */
 async function publishPage(configuration, settings, request, publish, context) {
   const prepared = typeof configuration.preparePublication === 'function'
-    ? configuration.preparePublication({ settings: configuration.serialize(settings), state: request.state ?? null,
-      publish, publication: request.publication ?? null })
+    ? configuration.preparePublication({ settings: configuration.serialize(settings), values: settings,
+      state: request.state ?? null, publish, publication: request.publication ?? null })
     : { settings: configuration.serialize(settings), state: request.state ?? null };
   const envelope = prepared.settings;
   const state = prepared.state;
   const target = publish;
-  // "auto" in a page: the language of now (as the modules did in their own publish)
-  if (!envelope.options.ui?.language || envelope.options.ui.language === 'auto') {
-    envelope.options.ui = { ...(envelope.options.ui || {}), language: context.language || 'eng' };
+  // "auto" in a page: the language of now (as the modules did in their own publish); crosstabs: flat settings (`ui`)
+  const holder = envelope.options || (envelope.ui ? envelope : null);
+  if (holder && (!holder.ui?.language || holder.ui.language === 'auto')) {
+    holder.ui = { ...(holder.ui || {}), language: context.language || 'eng' };
   }
   return publishModuleTo({
     client: context.client,

@@ -15,7 +15,7 @@
  * @since       8.0
  */
 
-import { TOOL_TYPES, UNUSED_REGION } from './ExplorerUiConfig.js';
+import { TOOL_TYPES, UNUSED_REGION, WEBSITE_TOOL_TYPES } from './ExplorerUiConfig.js';
 
 /** Presentation of the filter list in HFilter. */
 export const FILTER_MODES = ['buttons', 'list', 'select'];
@@ -34,7 +34,8 @@ const ITEM_KINDS = ['filter', 'source', 'query'];
  */
 export function publishedUiConfig(value = {}) {
   const regions = { ...(value.regions || {}) };
-  for (const type of TOOL_TYPES) regions[type] = UNUSED_REGION;
+  // the tools are not on a page, but the Crosstabs viewer (review 2026-11-23)
+  for (const type of TOOL_TYPES) if (!WEBSITE_TOOL_TYPES.includes(type)) regions[type] = UNUSED_REGION;
   return {
     ...value,
     toolbar: { ...(value.toolbar || {}), position: 'vertical' },

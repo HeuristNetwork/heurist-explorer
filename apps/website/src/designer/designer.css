@@ -1376,6 +1376,26 @@
   text-overflow: ellipsis;
 }
 
+/* the query source chooser (a button opening the one picker, reviews 6-7): the name, then ▾ at the right */
+.h-cms-saved-filter-source {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+  cursor: pointer;
+}
+
+.h-cms-saved-filter-source-label {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-align: left;
+}
+
 .h-cms-saved-filter-values {
   min-width: 0;
   max-width: 100%;

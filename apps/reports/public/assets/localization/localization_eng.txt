@@ -146,7 +146,7 @@
 #Properties#Properties
 #Query Source#Query Source
 #Query Source record id#Query Source record id
-#Query Sources with parameters (Filter Form) are not listed.#Query Sources with parameters (Filter Form) are not listed.
+#Query sources and saved filters with parameters (Filter Form) can not be chosen.#Query sources and saved filters with parameters (Filter Form) can not be chosen.
 #read only#read only
 #Record#Record
 #Record set#Record set
@@ -295,4 +295,4 @@
 #Nothing found#Nothing found
 #There is no query source to copy#There is no query source to copy
 #Search#Search
-#Choose a query source#Choose a query source
+#Choose a query source or a saved filter#Choose a query source or a saved filter

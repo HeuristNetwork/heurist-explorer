@@ -51,13 +51,11 @@ import { openNewRecordPageForm, recordPageTerms, sitePageTerms } from './recordP
 import { filterPageTerms, recordFilterFieldTerms } from './savedFilterField.js';
 import { cmsFilterHref } from '#shared/site/cmsSavedFilter.js';
 import { QuerySource } from '#shared/data/QuerySource.js';
-import { savedFilterRecord } from '#shared/data/savedFilters.js';
-import { hasQueryParameters } from '#shared/data/queryParameters.js';
 import { cmsInstanceRecords } from '#shared/site/cmsRecords.js';
-import { CMS_WEBSITE_FILTERS_GROUP, resolveCmsFilterItem } from '#shared/site/cmsFilterWidget.js';
+import { resolveCmsFilterItem } from '#shared/site/cmsFilterWidget.js';
 import { LegacySavedFilterConverter } from '#shared/data/legacy/LegacySavedFilterConverter.js';
 import { QuerySourceProvider } from '#shared/data/QuerySourceProvider.js';
-import { listQuerySources } from '#shared/data/querySourceList.js';
+import { listQueryChoices } from '#shared/data/queryChoices.js';
 import { ITEM_COLOR_LABELS, TAB_STYLE_LABELS, openActionMenuForm, openSocialForm, sitePageList } from './actionForms.js';
 import { buildBadgesHtml, openBadgesForm } from './badgesForm.js';
 import {
@@ -91,6 +89,8 @@ const TEXT_MEDIA_TYPES = Object.freeze(['image', 'video', 'audio', 'service']);
  */
 const PANEL_WIDGET_FORMS = Object.freeze({
   menu: 'edit', language: 'edit', breadcrumbs: 'edit', filter: 'edit', email: 'edit', cards: 'edit', gallery: 'edit',
+  // in the Configuration tab, not a popup (review 2026-11-23)
+  storymap: 'edit', crosstabs: 'edit',
   badges: 'dom', actionmenu: 'dom', report: 'dom'
 });
 
@@ -1998,11 +1998,10 @@ export class CmsDesigner {
       // Add and Upload in the record manager of a source
       addRecord: typeof this.bridge?.addRecord === 'function' ? (rectypeId) => this.bridge.addRecord(rectypeId) : undefined,
       mediaItems: (settings) => this._mediaItems(settings),
-      // Saved filter (plan 27j): the public query sources, the definition of one, the target pages; the Filter Form
-      querySources: () => this._publicQuerySources(),
+      // Saved filter (plan 27j): the one list of query sources and saved filters visitors can read (review 7), the
+      // definition of one, the target pages; the Filter Form
+      queryChoices: () => this._queryChoices(),
       querySourceDefinition: (id) => this._querySourceDefinition(id),
-      // saved filters of "Website filters" too (plan 27l §7.2)
-      savedFilters: () => this._websiteSavedFilters(),
       savedFilterDefinition: (id) => this._savedFilterDefinition(id),
       filterPages: () => filterPageTerms(this.site),
       selectExtent: typeof this.bridge?.selectExtent === 'function' ? (current) => this.bridge.selectExtent(current) : null,
@@ -2016,44 +2015,18 @@ export class CmsDesigner {
   }
 
   /**
-   * The public query sources of the database (Saved filter, plan 27j): visitors can read them. Read once per designer.
+   * The query sources and saved filters visitors can read (the one list, review 7): public query sources and the saved
+   * filters of "Website filters", by their names. Read once per designer.
    *
-   * @returns {Promise<Array<{id: number, title: string}>>}
+   * @returns {Promise<Array<object>>} listQueryChoices.
    */
-  _publicQuerySources() {
-    // the shared list (plan 27n1 §4): public ones only, visitors read them
-    this._querySources ||= (async () => {
-      const list = await listQuerySources({ apiClient: this.apiClient, dbdefs: this.options.dbdefs, publicOnly: true });
-      return list.map(({ id, title, parameterized }) => ({ id, title, parameterized }));
-    })().catch((error) => {
-      this._querySources = null;
-      throw error;
-    });
-    return this._querySources;
-  }
-
-  /**
-   * The saved filters of the group "Website filters" (the Filter widget, plan 27l §3): visitors can read them. Read once
-   * per designer.
-   *
-   * @returns {Promise<Array<{id: number, title: string}>>}
-   */
-  _websiteSavedFilters() {
-    this._savedFilters ||= (async () => {
-      const payload = await this.apiClient.get('/sys', {
-        query: { q: { t: 'filter', filterType: ['filter', 'faceted'], owner: String(CMS_WEBSITE_FILTERS_GROUP) }, fields: 'query,filterType,owner' }
+  _queryChoices() {
+    this._choices ||= listQueryChoices({ apiClient: this.apiClient, dbdefs: this.options.dbdefs, scope: 'website' })
+      .catch((error) => {
+        this._choices = null;
+        throw error;
       });
-      const list = Array.isArray(payload) ? payload : payload?.items || payload?.filters || payload?.records || [];
-      // parameters: a faceted search, or $NAME$ in the query (plan 27l §11.3)
-      return list.map(savedFilterRecord).filter(Boolean).map(({ id, title, query, definition }) => ({
-        id, title: title.replace(/<[^>]*>/g, '').trim() || `#${id}`,
-        parameterized: Boolean(definition?.facets) || hasQueryParameters(definition?.q ?? definition?.query ?? query)
-      })).sort((a, b) => a.title.localeCompare(b.title));
-    })().catch((error) => {
-      this._savedFilters = null;
-      throw error;
-    });
-    return this._savedFilters;
+    return this._choices;
   }
 
   /**
@@ -2308,8 +2281,7 @@ export class CmsDesigner {
       await run((extra) => openBreadcrumbsForm({ ...common, ...extra }), setSettings);
     } else if (instance.type === 'filter') {
       // the Filter widget (plan 27l §3): public saved filters and query sources
-      const [filters, sources] = await Promise.all([this._websiteSavedFilters().catch(() => []), this._publicQuerySources().catch(() => [])]);
-      const choices = [...filters.map((item) => ({ kind: 'filter', ...item })), ...sources.map((item) => ({ kind: 'source', ...item }))];
+      const choices = await this._queryChoices().catch(() => []);
       await run((extra) => openFilterWidgetForm({ settings: instance.settings || {}, choices, ...extra }), setSettings);
     } else if (instance.type === 'email') {
       // the email form (plan 27h): inline or a button, the caption of the button in the languages of the website
@@ -2329,6 +2301,7 @@ export class CmsDesigner {
         onRefresh: () => {
           this._presentations = {};
           this._loadPreview();
+          return this._storyMapPresets().catch(() => null);
         },
         ...extra
       }), setSettings);
@@ -2341,9 +2314,11 @@ export class CmsDesigner {
         presets,
         sources,
         onEdit: (id) => this._openPresentationEditor('crosstabs', id),
+        // a crosstab changed in Explorer: the list and the preview again
         onRefresh: () => {
           this._presentations = {};
           this._loadPreview();
+          return this._presentationPresets('crosstabs').catch(() => null);
         },
         ...extra
       }), setSettings);

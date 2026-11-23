@@ -38,8 +38,11 @@ import { extentFromWkt, extentToWkt, isExtent, roundExtent } from '../utils/geoE
 /** Limits of the values of a Saved filter link (SavedFilterLink::LIMITS). */
 export const CMS_FILTER_LIMITS = Object.freeze({ values: 8, length: 200, items: 10, query: 2000 });
 
-/** Module types that show records: the target modules of a Saved filter (not RecordView). */
-export const CMS_FILTER_MODULES = Object.freeze(['explorer', 'data', 'map', 'timeline', 'graph']);
+/**
+ * Module types that show records: the target modules of a Saved filter (not RecordView); also the widget Crosstabs
+ * (review 2026-11-23; Story map later).
+ */
+export const CMS_FILTER_MODULES = Object.freeze(['explorer', 'data', 'map', 'timeline', 'graph', 'crosstabs']);
 
 /** Name of a parameter (`$NAME$` of the query). */
 const NAME = /^[A-Za-z][A-Za-z0-9_]*$/;

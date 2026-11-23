@@ -17,6 +17,7 @@
 .h-crosstab-title[hidden] { display: none; }
 
 .h-crosstab-controls,
+.h-crosstab-pivot,
 .h-crosstab-flags,
 .h-crosstab-pages {
   display: flex;
@@ -25,7 +26,17 @@
   gap: 6px 12px;
 }
 
-.h-crosstab-pages[hidden] { display: none; }
+.h-crosstab-pages[hidden],
+.h-crosstab-pivot[hidden] { display: none; }
+
+/* the second line as text: Rows: <field> Columns: <field> */
+.h-crosstab-pivot-item {
+  display: inline-flex;
+  gap: 4px;
+  white-space: nowrap;
+}
+
+.h-crosstab-pivot-label { color: var(--h-color-text-muted); }
 
 .h-crosstab-control,
 .h-crosstab-check {
@@ -40,6 +51,22 @@
 }
 
 .h-crosstab-status.is-error { color: var(--h-color-danger); }
+
+/* calculating (review 5): the table and the chart hidden, a big spinner in the middle with the text and Stop below */
+.h-crosstab.is-busy .h-crosstab-body,
+.h-crosstab.is-busy .h-crosstab-pages { display: none; }
+
+.h-crosstab.is-busy .h-crosstab-status {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  min-height: 120px;
+}
+
+.h-crosstab.is-busy .h-crosstab-spinner { font-size: var(--h-font-size-icon-large); }
 
 .h-crosstab-body {
   display: flex;

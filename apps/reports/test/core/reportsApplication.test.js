@@ -116,13 +116,18 @@ test('an output is added in the record editor: from the dialog with the owner of
   }]);
 });
 
-test('current result with the record count of the server; parameterized Query Sources are left out', async () => {
-  const application = app(fakeApi({ queryCount: async () => 42 }), {
+test('current result with the record count of the server; the query choices of the host (review 7)', async () => {
+  const application = app(fakeApi({ queryCount: async () => 42, querySourceQuery: async (id) => [{ ids: String(id) }] }), {
     getCurrentQuery: () => ({ query: 't:10', title: 'People', total: 15 }),
-    getQuerySources: () => [{ id: 1, title: 'A' }, { id: 2, title: 'B', parametrized: true }]
+    getQueryChoices: () => [{ value: 'source:1', kind: 'source', id: 1, label: 'A' },
+      { value: 'filter:2', kind: 'filter', id: 2, label: 'B', parameterized: true }],
+    getQueryChoiceDefinition: (choice) => ({ query: [{ t: String(choice.id) }] })
   });
   assert.deepEqual(await application.currentResult(), { query: 't:10', title: 'People', total: 42 });
-  assert.deepEqual((await application.querySourcesForReports()).map((s) => s.id), [1]);
+  // all listed: the picker shows those with parameters disabled
+  assert.deepEqual((await application.queryChoicesForReports()).map((s) => s.value), ['source:1', 'filter:2']);
+  assert.deepEqual(await application.queryChoiceQuery({ kind: 'source', id: 1 }), [{ ids: '1' }]);
+  assert.deepEqual(await application.queryChoiceQuery({ kind: 'filter', id: 2 }), [{ t: '2' }]);
 });
 
 test('test records: the host selection first, else the first records of the current result', async () => {
@@ -177,14 +182,14 @@ test('host adapter fallbacks without a bridge', async () => {
   assert.equal(host.describeQuery('t:10'), 't:10');
   assert.deepEqual(await host.getSelection(), []);
   assert.equal(await host.getCurrentQuery(), null);
-  assert.deepEqual(await host.getQuerySources(), []);
+  assert.deepEqual(await host.getQueryChoices(), []);
   await assert.rejects(() => host.editRecord(5));
   const bridged = new ReportsHostAdapter({
     editRecord: async () => ({ saved: true }), canEditRecords: () => true,
-    getQuerySources: () => [{ id: 3, title: 'Cities' }, { id: 0, title: 'bad' }]
+    getQueryChoices: () => [{ value: 'source:3', kind: 'source', id: 3, label: 'Cities' }, { value: 'source:0', id: 0, label: 'bad' }]
   });
   assert.equal(bridged.canEditRecords(), true);
-  assert.deepEqual(await bridged.getQuerySources(), [{ id: 3, title: 'Cities', parametrized: false }]);
+  assert.deepEqual(await bridged.getQueryChoices(), [{ value: 'source:3', kind: 'source', id: 3, label: 'Cities' }]);
 });
 
 test('configuration normalization', () => {

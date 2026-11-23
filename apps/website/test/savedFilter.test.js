@@ -17,10 +17,12 @@ test('Saved filter designer: target pages are the pages with a record module, no
       { id: 11, title: 'Map', modules: ['map'], children: [{ id: 12, title: 'Search', modules: ['explorer'], children: [] }] },
       { id: 13, title: 'About', modules: [], children: [] },
       { id: 14, title: 'Person', record: true, modules: ['data'], children: [] },
-      { id: 15, title: 'Card', modules: ['recordview'], children: [] }
+      { id: 15, title: 'Card', modules: ['recordview'], children: [] },
+      // a page with crosstabs only (review 2026-11-23)
+      { id: 16, title: 'Counts', modules: ['crosstabs'], children: [] }
     ]
   };
-  assert.deepEqual(filterPageTerms(site).map((term) => [term.id, term.explorer]), [[11, false], [12, true]]);
+  assert.deepEqual(filterPageTerms(site).map((term) => [term.id, term.explorer]), [[11, false], [12, true], [16, false]]);
   // a summary without modules (an older server): every page, Explorer not known
   assert.deepEqual(filterPageTerms({ id: 10, pages: [{ id: 11, title: 'A' }] }).map((term) => [term.id, term.explorer]), [[10, null], [11, null]]);
   assert.deepEqual(filterPageTerms(null), []);
@@ -36,12 +38,12 @@ test('Saved filter designer: checks, values of the Filter Form, summary', () => 
   assert.match(savedFilterIssue({ source: 3 }), /target page/);
   assert.deepEqual(formFilterValues({ X1: 'a', D1: 1900, T: [4, '5'], E: '', N: null, L: [] }), { X1: 'a', D1: '1900', T: ['4', '5'] });
   assert.equal(formFilterValues({ G: { north: 1 } }), null, 'an extent can not be kept in a link');
-  assert.equal(savedFilterSummary(ok, { sources: [{ id: 3, title: 'People' }], pages: [{ id: 7, label: '  Map' }] }), 'People → Map · 1 value');
+  assert.equal(savedFilterSummary(ok, { choices: [{ value: 'source:3', label: 'People' }], pages: [{ id: 7, label: '  Map' }] }), 'People → Map · 1 value');
   assert.deepEqual(storedSavedFilter({ action: 'savedFilter', source: 3, target: 7, values: { X1: 'a' } }), ok);
   assert.equal(storedSavedFilter({ action: 'page', page: 7 }), null);
   // a saved filter in place of the query source (plan 27l §7.2)
   assert.equal(savedFilterIssue({ filter: 5, page: 7, values: { X1: 'a' } }, { parameters: ['X1'] }), null);
-  assert.equal(savedFilterSummary({ filter: 5, page: 7, values: {} }, { filters: [{ id: 5, title: 'Places' }], pages: [{ id: 7, label: 'Map' }] }),
+  assert.equal(savedFilterSummary({ filter: 5, page: 7, values: {} }, { choices: [{ value: 'filter:5', label: 'Places' }], pages: [{ id: 7, label: 'Map' }] }),
     'Places → Map');
   assert.deepEqual(storedSavedFilter({ action: 'savedFilter', filter: 5, target: 7, values: {} }), { filter: 5, page: 7, values: {} });
 });
@@ -131,7 +133,7 @@ test('Saved filter designer: the button stays beside the summary field after the
     values: { action: 'savedFilter', savedFilter: '' }
   }).render();
   const holder = { value: { source: 3, page: 7, values: { X1: 'a' } } };
-  attachSavedFilter(edit, { querySources: async () => [{ id: 3, title: 'People' }], filterPages: () => [{ id: 7, label: 'Map' }] }, holder);
+  attachSavedFilter(edit, { queryChoices: async () => [{ value: 'source:3', kind: 'source', id: 3, label: 'People' }], filterPages: () => [{ id: 7, label: 'Map' }] }, holder);
   await new Promise((resolve) => setTimeout(resolve, 0));
   await new Promise((resolve) => setTimeout(resolve, 0));
   assert.equal(edit.getValues().savedFilter, 'People → Map · 1 value');

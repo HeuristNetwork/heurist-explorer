@@ -45,7 +45,8 @@ export function readQuery(query) {
 }
 
 /**
- * The query AND the record type (`current` source, and the records a configuration counts).
+ * The query AND the record type (`current` source, and the records a configuration counts). A JSON query that has the
+ * predicate `{t: <type>}` at the top level already is unchanged.
  *
  * @param {*} query The query (null: none).
  * @param {number|string|null} rectype Record type id; none: the query unchanged.
@@ -56,7 +57,9 @@ export function recordTypeQuery(query, rectype) {
   const type = Number(rectype) > 0 ? String(Number(rectype)) : '';
   if (value == null || !type) return value;
   if (typeof value === 'string') return `t:${type} ${value}`;
-  return [{ t: type }, ...(Array.isArray(value) ? value : [value])];
+  const list = Array.isArray(value) ? value : [value];
+  const hasType = list.some((item) => item && typeof item === 'object' && Object.keys(item).length === 1 && String(item.t) === type);
+  return hasType ? value : [{ t: type }, ...list];
 }
 
 /**

@@ -121,6 +121,16 @@
     text-overflow: ellipsis;
 }
 
+/* buttons of a tool on its header (Crosstabs: Publish, Help) */
+.h-explorer-tool-workspace-actions {
+    display: inline-flex;
+    flex: 0 0 auto;
+    align-items: center;
+    gap: 2px;
+}
+
+.h-explorer-tool-workspace-actions:empty { display: none; }
+
 .h-explorer-tool-workspace-body {
     flex: 1 1 auto;
     display: grid;

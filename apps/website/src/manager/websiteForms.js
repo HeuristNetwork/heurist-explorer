@@ -18,7 +18,7 @@ import { $HR, HMsg } from '#shared/ui';
 import { hasQueryParameters } from '#shared/data/queryParameters.js';
 import { openEditFormDialog } from '#shared/widgets/edit-form/editFormDialog.js';
 import { querySourceAction } from '#shared/widgets/edit-form/querySourceChooser.js';
-import { listQuerySources } from '#shared/data/querySourceList.js';
+import { listQueryChoices, queryChoiceDefinition } from '#shared/data/queryChoices.js';
 import { createWebsiteFieldsForm } from './websiteFields.js';
 
 const DIALOG_ID = 'h-website-dialog';
@@ -369,7 +369,7 @@ export async function openGenerateForm({ languages = [], recordPages = [], previ
 
 /**
  * The query field of a record page: the Filter Builder from Edit (as the query of Record cards), ▾ copies the query of a
- * query source without parameters (plan 27n1 §4, by value).
+ * query source or saved filter without parameters (plan 27n1 §4, by value; review 7: the one list).
  */
 function querySpecial(services) {
   const edit = typeof services.editQuery === 'function' ? async (value) => {
@@ -378,9 +378,10 @@ function querySpecial(services) {
   } : undefined;
   const actions = edit ? [{ label: 'Edit', icon: 'fa-sliders', title: 'Open the Filter Builder', primary: true, run: edit }] : [];
   if (services.apiClient) {
+    // the one list (review 7): query sources and saved filters, those with parameters disabled
     actions.push(querySourceAction({
-      list: () => listQuerySources({ apiClient: services.apiClient, dbdefs: services.dbdefs }),
-      definition: async (item) => item,
+      list: () => listQueryChoices({ apiClient: services.apiClient, dbdefs: services.dbdefs, scope: 'user' }),
+      definition: (choice) => queryChoiceDefinition(choice, { apiClient: services.apiClient, dbdefs: services.dbdefs }),
       apply: (item) => (typeof item.query === 'string' ? item.query : JSON.stringify(item.query ?? []))
     }));
   }

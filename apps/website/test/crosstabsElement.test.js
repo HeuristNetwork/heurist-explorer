@@ -48,3 +48,13 @@ test('own query parameters from the page URL (v.<NAME>=, within the limits)', as
   assert.deepEqual(urlValues('?v.LIBRARY=77&x=1&v.TYPE=a&v.TYPE=b'), { LIBRARY: '77', TYPE: ['a', 'b'] });
   assert.deepEqual(urlValues(''), {});
 });
+
+test('crosstabs member: a page request goes to applyPageRequest (the Filter Form of a Saved filter link, review 6)', async () => {
+  const sync = new PageSync();
+  const requests = [];
+  const api = { setQuery: async () => { throw new Error('not used'); }, applyPageRequest: async (request) => { requests.push(request); } };
+  const member = sync.register('x1', 'crosstabs', api, { from: ['own', 'links'] });
+  const request = { dataSource: { request: { q: [{ t: '10' }] } }, raw: { request: { q: [{ title: '$A$' }] } }, values: { A: 'x' }, missing: [] };
+  await member.setDataSource(request.dataSource, request);
+  assert.equal(requests[0], request);
+});

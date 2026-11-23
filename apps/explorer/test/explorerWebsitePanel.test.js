@@ -9,14 +9,16 @@ import { installFakeDom } from '../../../shared/test/helpers/fakeDom.js';
 installFakeDom();
 const { createExplorerWebsitePanel } = await import('../src/ui/config/explorerWebsitePanel.js');
 
-const lists = { filters: [{ id: 34, title: 'People' }], sources: [{ id: 12, title: 'Places' }] };
+// the one list of query choices (review 7)
+const choices = [{ value: 'filter:34', kind: 'filter', id: 34, label: 'People', parameterized: false },
+  { value: 'source:12', kind: 'source', id: 12, label: 'Places', parameterized: false }];
 const value = { settings: { filter: { items: [{ key: 'filter:34', kind: 'filter', id: 34, title: 'People' }], active: 'filter:34', mode: 'list' },
   ui: { regions: {}, order: [], panes: {} }, layout: [] }, state: null };
 
 test('the fields of Records and selection go into the filters fieldset; without Own filters no filter items', async () => {
   const recordsSection = document.createElement('div');
   recordsSection.className = 'records';
-  const panel = await createExplorerWebsitePanel({ value, lists, defaults: async () => ({}), recordsSection });
+  const panel = await createExplorerWebsitePanel({ value, choices, defaults: async () => ({}), recordsSection });
   const fieldset = recordsSection.parentElement;
   assert.equal(fieldset?.tagName, 'FIELDSET');
   assert.equal(fieldset.children.find((child) => child.tagName === 'LEGEND').textContent, 'Records and selection');
@@ -34,7 +36,7 @@ test('the fields of Records and selection go into the filters fieldset; without 
 });
 
 test('without the fields of the designer: the filters fieldset as before', async () => {
-  const panel = await createExplorerWebsitePanel({ value, lists, defaults: async () => ({}) });
+  const panel = await createExplorerWebsitePanel({ value, choices, defaults: async () => ({}) });
   const legends = panel.element.querySelectorAll('legend').map((legend) => legend.textContent);
   assert.ok(legends.includes('Filters') && !legends.includes('Records and selection'));
   await panel.destroy();

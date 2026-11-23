@@ -270,8 +270,13 @@ export class ModuleConfigurationTestTool {
   /** The settings envelope (and the problems of a check), and the options table. */
   _showResult(extra = null) {
     if (!this.form || !this.result) return;
-    const settings = this.module.serialize(this._settings());
-    const result = { settings, dirty: this.form.isDirty(), ...(extra || {}) };
+    const values = this._settings();
+    const settings = this.module.serialize(values);
+    // publication: also the settings of the page (the form choices as `records` and the language, review 7)
+    const page = this.settings.mode === 'publication' && typeof this.module.preparePublication === 'function'
+      ? this.module.preparePublication({ settings: this.module.serialize(values), values, state: null, publish: {}, publication: null })?.settings
+      : undefined;
+    const result = { settings, ...(page !== undefined ? { page } : {}), dirty: this.form.isDirty(), ...(extra || {}) };
     this.result.value = JSON.stringify(result, null, 2);
     this._renderTable();
   }

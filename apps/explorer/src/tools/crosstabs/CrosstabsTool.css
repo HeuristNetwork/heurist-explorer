@@ -107,21 +107,22 @@
   font-weight: normal;
 }
 
-/* For the current result / Other configurations */
+/* For the current result / Other configurations: a heading with a background, the items indented under it */
 .h-crosstabs-tool-list-heading {
-  padding: 6px 10px 2px;
-  color: var(--h-color-text-muted);
+  padding: 4px 10px;
+  background: var(--h-color-selected);
+  color: var(--h-color-text);
   font-size: var(--h-font-size-small);
   font-weight: 600;
 }
+
+.h-crosstabs-tool-list.has-groups .h-crosstabs-tool-list-item { padding-left: 22px; }
 
 /* the Filter Form of the parameters of the own query (viewer) */
 .h-crosstabs-viewer-params {
   flex: 0 0 auto;
   max-height: 40%;
   overflow: auto;
-  padding: 4px 8px;
-  border-bottom: 1px solid var(--h-color-border);
 }
 
 .h-crosstabs-viewer-params[hidden] { display: none; }
@@ -136,6 +137,26 @@
   box-sizing: border-box;
   background: var(--h-color-bg, #fff);
 }
+
+/* the header of the designer: "Crosstab editor: <name>" and Close (as the Website manager, review 5) */
+.h-crosstabs-designer-header {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 6px 4px 12px;
+}
+
+.h-crosstabs-designer-title {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--h-font-size-large);
+}
+
+.h-crosstabs-designer-close { display: inline-flex; flex: 0 0 auto; align-items: center; gap: 6px; }
 
 .h-crosstabs-designer-test {
   display: flex;

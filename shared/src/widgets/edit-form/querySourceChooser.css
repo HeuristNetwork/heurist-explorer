@@ -1,6 +1,7 @@
 /**
  * @file querySourceChooser.css
- * @brief The list of query sources under the ▾ button of a query field (querySourceChooser.js, plan 27n1 §4).
+ * @brief The picker of query sources and saved filters under a button (querySourceChooser.js, review 7): an
+ *        HValuePicker in a popover.
  *
  * @project     Heurist academic knowledge management system
  * @package     heurist-shared
@@ -8,11 +9,6 @@
  * @since       8.0
  */
 
-.h-query-source-chooser-popover { width:320px; }
-.h-query-source-chooser { display:flex; flex-direction:column; min-height:0; }
-.h-query-source-chooser-search { margin:6px; }
-/* .h-menu is a positioned dropdown; inside the popover it is the content */
-.h-query-source-chooser-list { position:static; min-width:0; overflow:auto; border:0; border-radius:0; box-shadow:none; }
-.h-query-source-chooser-list .h-menu-item { display:flex; align-items:baseline; gap:6px; }
-.h-query-source-chooser-kind { margin-left:auto; color:var(--h-color-text-muted); font-size:var(--h-font-size-small); }
-.h-query-source-chooser-empty { padding:6px 10px; color:var(--h-color-text-muted); }
+.h-query-source-chooser-popover { width:340px; }
+.h-query-source-chooser { display:flex; flex-direction:column; min-height:0; max-height:60vh; }
+.h-query-source-chooser .h-value-picker-list { overflow:auto; }

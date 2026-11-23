@@ -20,22 +20,27 @@ import {
   explorerPublicationForm, normalizePublicationValues, publicationFilterChoices, publicationSettings
 } from '../src/ui/config/explorerPublication.js';
 
+// the one list (review 7): listQueryChoices, sorted by name
 const choices = publicationFilterChoices({
-  filters: [{ id: 12, title: 'Persons', kind: 'parametrized' }],
-  sources: [{ id: 34, title: 'Map of sites', parametrized: false }],
+  choices: [
+    { value: 'source:34', kind: 'source', id: 34, label: 'Map of sites', parameterized: false },
+    { value: 'filter:12', kind: 'filter', id: 12, label: 'Persons', parameterized: true }
+  ],
   current: { request: { q: [{ t: '10' }] } }
 });
 
-test('published configuration: no toolbar, no tools, no docked lists, not simplified', () => {
+test('published configuration: no toolbar, no tools but Crosstabs, no docked lists, not simplified', () => {
   const value = publishedUiConfig({
     toolbar: { position: 'panes', buttonSize: 'large' }, lists: 'docked', isSimplifiedUI: true,
-    regions: { data: 'west', map: 'center', report: 'center', export: 'center' }, language: 'fre'
+    regions: { data: 'west', map: 'center', report: 'center', export: 'center', crosstabs: 'east' }, language: 'fre'
   });
   assert.equal(value.toolbar.position, 'vertical');
   assert.equal(value.lists, 'popup');
   assert.equal(value.isSimplifiedUI, false);
   assert.equal(value.regions.map, 'center');
-  for (const type of ['report', 'export', 'actions', 'crosstabs']) assert.equal(value.regions[type], 'unused');
+  for (const type of ['report', 'export', 'actions', 'storymap']) assert.equal(value.regions[type], 'unused');
+  // the Crosstabs viewer may be on a page (review 2026-11-23)
+  assert.equal(value.regions.crosstabs, 'east');
   assert.equal(value.language, 'fre');
 });
 
@@ -55,12 +60,15 @@ test('filters of a page are references; the current query keeps its request; unk
 });
 
 test('publication form: one list of saved filters, query sources and the current query', () => {
-  assert.deepEqual(choices.map((choice) => choice.key), ['filter:12', 'source:34', 'current']);
+  assert.deepEqual(choices.map((choice) => choice.key), ['source:34', 'filter:12', 'current']);
   const form = explorerPublicationForm(choices);
   const fields = form.groups.flatMap((group) => group.children);
   const items = fields.find((field) => field.name === 'filter.items');
   assert.equal(items.multiple, true);
-  assert.deepEqual(items.terms.map((term) => term.label), ['Persons [filter] (parameterized)', 'Map of sites [source]', 'Current query']);
+  // marks of the one picker instead of label text; a search row from more than 10 entries
+  assert.deepEqual(items.terms.map((term) => [term.label, term.marks]),
+    [['Map of sites', []], ['Persons', ['filter', 'parametrized']], ['Current query', []]]);
+  assert.equal(items.filterThreshold, 10);
   assert.deepEqual(fields.find((field) => field.name === 'filter.mode').terms.map((term) => term.id), ['buttons', 'list', 'select']);
 });
 

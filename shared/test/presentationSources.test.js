@@ -48,6 +48,7 @@ test('record type query: JSON, JSON text, object, legacy text, without a type', 
   assert.deepEqual(recordTypeQuery('[{"t":"10,12"}]', '12'), [{ t: '12' }, { t: '10,12' }]);
   assert.deepEqual(recordTypeQuery({ any: [] }, 5), [{ t: '5' }, { any: [] }]);
   assert.equal(recordTypeQuery('f:1:smith', 10), 't:10 f:1:smith');
+  assert.deepEqual(recordTypeQuery([{ t: 117 }, { "f:1163": "Niger" }], 117), [{ t: 117 }, { "f:1163": "Niger" }], "the type is there already");
   assert.deepEqual(recordTypeQuery([{ f: '1' }], null), [{ f: '1' }]);
   assert.equal(recordTypeQuery(null, 10), null);
   assert.equal(readQuery('  '), null);
@@ -134,20 +135,23 @@ test('service: through the HeuristApiClient (GET, POST for a long query)', async
   assert.equal(calls[1].options.body.op, 'crosstab');
 });
 
-test('query chooser: fixed items before the list (Current result)', async () => {
+test('query chooser: the one picker (HValuePicker), fixed items first, marks, parameterized disabled (review 7)', async () => {
   const anchor = document.createElement('button');
   document.body.append(anchor);
   const action = querySourceAction({
-    list: async () => [{ id: 3, title: 'Persons' }],
-    definition: async (item) => (item.id === 'current' ? { query: [{ t: '10' }] } : null),
+    list: async () => [{ value: 'source:3', kind: 'source', id: 3, label: 'Persons', parameterized: true },
+      { value: 'filter:4', kind: 'filter', id: 4, label: 'Places', parameterized: false }],
+    definition: async (choice) => (choice.value === 'current' ? { query: [{ t: '10' }] } : null),
     apply: (found) => JSON.stringify(found.query),
-    first: [{ id: 'current', title: 'Current result' }]
+    first: [{ value: 'current', label: 'Current result' }]
   });
   const running = action.run('', {}, anchor);
   await flush();
-  const items = document.body.querySelectorAll('.h-menu-item');
-  assert.deepEqual(items.map((item) => item.textContent), ['Current result', 'Persons']);
-  items[0].dispatchEvent(new Event('click'));
+  const rows = document.body.querySelectorAll('.h-value-picker-item');
+  assert.deepEqual(rows.map((row) => row.querySelector('.h-value-picker-label').textContent), ['Current result', 'Persons', 'Places']);
+  assert.equal(rows[1].classList.contains('is-disabled'), true, 'parameters without a Filter Form field');
+  assert.deepEqual(rows[2].querySelectorAll('.h-value-picker-mark').map((mark) => mark.textContent), ['filter']);
+  rows[0].dispatchEvent(new Event('click', { bubbles: true }));
   assert.equal(await running, '[{"t":"10"}]');
 });
 

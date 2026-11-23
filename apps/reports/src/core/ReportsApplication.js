@@ -343,9 +343,15 @@ export class ReportsApplication extends EventTarget {
     return this.api.querySourceQuery(sourceId);
   }
 
-  /** Query Sources of the host that can be generated (no Filter Form parameters). */
-  async querySourcesForReports() {
-    return (await this.host.getQuerySources()).filter((source) => !source.parametrized);
+  /** Query sources and saved filters of the host (the one list, review 7; those with parameters are shown disabled). */
+  queryChoicesForReports() {
+    return this.host.getQueryChoices();
+  }
+
+  /** The query of a query choice: a query source by its id, a saved filter from the host. */
+  async queryChoiceQuery(choice) {
+    if (choice?.kind === 'source') return this.querySourceQuery(choice.id);
+    return (await this.host.getQueryChoiceDefinition(choice))?.query ?? null;
   }
 
   /**

@@ -92,6 +92,22 @@
   font-size: var(--h-font-size-small);
 }
 
+/* marks after the label ([filter], [parametrized]); a disabled item is shown, not pickable */
+.h-value-picker-mark {
+  flex: none;
+  padding: 0 4px;
+  border: 1px solid var(--h-color-border);
+  border-radius: var(--h-radius);
+  color: var(--h-color-text-muted);
+  font-size: var(--h-font-size-tiny);
+  line-height: 1.5;
+}
+
+.h-value-picker-item.is-disabled {
+  color: var(--h-color-text-muted);
+  cursor: default;
+}
+
 .h-value-picker-check {
   flex: none;
   color: var(--h-color-icon);

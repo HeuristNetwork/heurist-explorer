@@ -6,7 +6,11 @@ of linked records included). **Phases A-F implemented 2026-11-20** (§15 server,
 element, manual). **Review 1 (Artem, 2026-11-22), §17:** viewer pane + full screen designer, sources `current` / `own`
 (topic note `presentation-sources.md`), record type filter, form by field type, Save as, Stop, publication from
 Explorer. Not committed, **no browser check**. Depends on 27q1 (Presentation set, tool pane, CMS element rules) and 17
-(ranges, thematic maps).
+(ranges, thematic maps). Reviews 2-5 (2026-11-23): §18-§21; review 5: Publish with Own query fixed, Publish / Help on the
+pane header, Show header / Language / auto count limit, editor header + Filter Form, field names, ▾ query sources. Review 6
+(§22): fields shown without Advanced, count with some parameter values, vertical form at the left, map extent in
+Explorer, searchable Saved filter chooser, Filter Form of a Saved filter link. Review 7 (§23): website padding, Filter
+Form border, French, language in the test tool, one query / filter picker (query-choice-picker.md).
 
 ## 1. Goal
 
@@ -534,4 +538,124 @@ screen designer, publication from Explorer). Crosstabs are the first type done t
 **Browser check (to do)**: the pane with a mixed result (Persons + Places), the chooser, Own query with a parameter
 and with `$SELECTED$`; Edit → designer, Test on, Save as, Close; field tree; Values by type; All values; Stop on a large
 count; Publish and the page; a website page with `?v.NAME=`; accordion indent in the record editor.
+
+
+## 18. Review 2 (Artem, 2026-11-23): requests of the viewer pane — fixed, not committed
+
+1. With *Current result* the viewer sent `op=count` and then `op=crosstab` for the same query (the trace showed two
+   `/records/aggregate`). The count of the record type is known from the record type aggregate of the result (the
+   chooser), so `HCrosstab.setQuery(query, {count})` skips `op=count`; with *Own query* the count guard stays.
+2. `recordTypeQuery` added `{t:117}` to a query that has it already (`[{"t":"117"},{"t":"117"},...]`): not any more.
+3. A crosstab opened by itself on a new result (`_autoOpen`) counted twice: once now.
+4. A hidden Crosstabs pane still counted every new search. `ExplorerToolModule` (all tools): the tool is created when
+   its pane is shown first; while hidden it gets no DataSource / selection / rules, the last ones are sent when it is
+   shown again (ResizeObserver on the slot). The viewer also skips a DataSource whose query it has counted already.
+
+## 19. Review 3 (Artem, 2026-11-23): toolbar details — done, not committed
+
+1. Designer: one save at a time — Save / Save as are disabled while saving, the clicked one shows a spinner.
+2. Viewer chooser: the headings *For the current result* / *Other configurations* have a background, the items are
+   indented under them.
+3. Primary buttons: Edit in the viewer, Save in the designer.
+4. Viewer: the Source select is not compact (as the other toolbar elements).
+
+## 20. Review 4 (Artem, 2026-11-23) — implemented, not committed, no browser check
+
+Decisions: Edit crosstab opens Explorer in a new window (as before); Explorer on a website page gets the Crosstabs
+viewer only; Saved filter targets are all pages of the website holding Explorer, Data, Map, Timeline, Graph, Crosstabs
+(Story map later); "standalone page" = a page that runs as a one-page site.
+
+1. **Configuration entry** `shared/src/widgets/crosstabs/crosstabsConfiguration.js` (plan 29 shape, flat settings of
+   the website element `{preset, from?, level?, query?}`): modes `website` (Crosstab, Records from, Visitors can),
+   `publication` (Crosstab, Records: Current result / Own query, Visitors can + Publish to), `configuration` (Records
+   counted, Visitors can — shown in the test tool only; the pane keeps its choices in the browser). Registered in
+   `MODULE_CONFIGURATIONS` → in *Test module configuration*. `publishPage` accepts settings without `options`.
+2. **Publish** (pane, icon `fa-share-nodes`): `publishCrosstab` opens the configuration dialog in publication mode
+   (`openModuleConfiguration`), as the modules; `preparePublication` keeps the query of the current result with
+   *Current result*, none with *Own query* (the page asks the parameters in its Filter Form). `WebsiteClient.pages()`
+   finds widget pages too (Update the page).
+3. **CMS element**: crosstabs and story map forms in the Configuration tab (`PANEL_WIDGET_FORMS`), not a popup. The
+   crosstabs form takes its fields from the website mode of the configuration entry (`crosstabsFormFields`).
+   *Deviation*: the CMS builds it with its own `showEditForm` (sections, inline apply), not through the Explorer
+   bridge `createConfigurationPanel` — the lists (crosstabs, page sources) and the Records from default stay there.
+   Buttons *Edit crosstab* / *Edit story map* and *Refresh*, which now reads the list again into the selector
+   (`HEditForm.updateField`) and loads the preview; one helper `presentationActions` for both.
+4. **Explorer on a website**: `WEBSITE_TOOL_TYPES = ['crosstabs']` — the layout editor of the Explorer element offers
+   Crosstabs, `publishedUiConfig` keeps its pane; on a published Explorer the pane has no Edit / New / Publish / Help.
+5. **HCrosstab**: a second line `.h-crosstab-pivot` — Rows / Columns / Pages (and Measure) as selects at level pivot,
+   else `Rows: <field> Columns: <field>` as text.
+6-7. **Filter Form of the own query**: `shared/src/widgets/crosstabs/crosstabParams.js` (`CrosstabParams`) in the
+   pane and on the website: shown while the source is the own query with parameters (other than `$SELECTED$`), kept
+   after Filter, closed with Current result or another crosstab; rendered in an inner element (HFilterForm replaced
+   the class of the host), horizontal orientation as one flow (`crosstabParams.css`). Website: initial values from the
+   URL `v.<NAME>`. Designer preview: unchanged (it reports the missing values).
+8. **Saved filter targets**: srv `WebsiteEditService::moduleTypes()` lists the widgets crosstabs and storymap;
+   `CMS_FILTER_MODULES` + crosstabs; a page with only crosstabs reads the filter of its link (`siteRuntime`). The
+   test websites 209864 / 209879 listed Map / Data pages already; the missing ones were the crosstabs pages.
+9. **Generate**: only for a website (Website manager and srv `buildable()`), not for menu or standalone pages.
+
+## 21. Review 5 (Artem, 2026-11-23) — implemented, not committed, no browser check
+
+Answers: the "selector" is the ▾ of the query field in the editor; auto reload list Manual, 50K (default), 100K, 150K,
+200K, Always.
+
+1. **Publish with Own query** published the current result: `publishPage` (moduleConfigurations.js) gives
+   `preparePublication` the serialized settings, and `serialize` drops `records`. Now it also passes `values` (the
+   normalized form value); crosstabs reads `records` and `ui` from them. Test through serialize → preparePublication.
+2. **Publish and Help on the pane header** (icon buttons as the module panels): `ExplorerToolModule.actions`
+   (`.h-explorer-tool-workspace-actions`), given to the tool as `headerActions`. Toolbar: chooser | Source | Edit | New.
+3. **Configuration** (crosstabsConfiguration.js), settings flat plus `ui` and `config`:
+   - `ui.showSourceHeader` "Show header" (website, publication): the name of the crosstab above it on the page.
+   - `ui.language` "Language" (publication): Automatic → the language of now (publishPage handles flat `ui`); the website
+     element uses it when the page has no site language.
+   - `config.defaults.maxAutoReload` "Count automatically up to" (website, group Default settings): `manual` | 50000 |
+     100000 | 150000 | 200000 | `always`; default 50000 is not stored. HCrosstab `autoLimit`: 0 / `manual` always the
+     Update button, Infinity / `always` no `op=count`.
+   The CMS form keeps the new keys (Presentation section).
+4. **Crosstab editor header**: "Crosstab editor: <name>" with Close (as the Website manager); Close left the toolbar.
+   Title chosen over "Crosstabs Configurator": it edits one crosstab, as the Record / Report editor.
+5. **Editor Filter Form**: with Test on = Own query and parameters, CrosstabParams above the preview; its values count
+   the preview and the record types.
+6. **"This crosstab needs a value of 'Year'"**: `parameterCaptions` / `missingValuesText` (crosstabParams.js): the label
+   of the Filter Form field, else the field of the query (`describeQueryParameters`), else the name; pane, editor,
+   website.
+7. **Calculating**: class `is-busy` on the crosstab: table, chart and pages hidden, a big spinner in the middle, the text
+   and Stop below.
+8. **▾ query sources**: the server returns every readable query source (checked: 7 public ones for a guest). The
+   cause was in `RecordEditorHost`: the ▾ action asked `hasField(DT_FILTER_FORM)` while the query field was rendered,
+   before the hidden Filter form field after it; so the query sources with parameters were left out (and their filter
+   form not copied). Now asked at the click (all forms with a query field).
+
+## 22. Review 6 (Artem, 2026-11-23) — implemented, not committed, no browser check
+
+Answers: the header buttons are OK; a query with several parameters counts when at least one has a value.
+
+1. **New fields hidden in Test module configuration / publish**: the fields had no `req`, which the form schema reads
+   as `optional` (shown only with Advanced in Explorer's dialogs; the CMS form shows all). Every field is now
+   `recommended` (`preset` required); a test checks that every field of each mode is shown without Advanced.
+   **1a.** "Count automatically up to": Never (Update button), 25,000, 50,000 (default), 100,000; a stored value no
+   longer in the list is read as the default.
+2. **Some parameter values are enough**: `ownCount` (crosstabParams.js) — the query counts when at least one asked
+   parameter has a value, the empty ones are left out (as the Filter Form of Explorer); without any value the message
+   names them; `$SELECTED$` still needs the selection. Pane, editor and website.
+3. **Vertical Filter Form at the left** of the crosstab, horizontal above: the form and the crosstab share a parent
+   (`h-crosstab-params-layout`); CrosstabParams sets `h-crosstab-params-left` on it for a vertical form.
+4. **Geo parameter**: CrosstabParams passes `selectExtent` to the form; Explorer gives its map extent picker to the
+   pane and the editor. On a website there is no extent picker (as the website Filter widget): the input stays disabled.
+5. **CMS Saved filter**: the query source / saved filter is chosen with the list of the ▾ of a query field
+   (`chooseQuerySource`: search from 10 items, saved filters marked) instead of a select.
+6. **A Saved filter link brings its own Filter Form**: the crosstab member of PageSync gets the whole request
+   (`applyPageRequest`); a link whose query source has parameters shows that Filter Form (its values filled in, Filter
+   counts it), not the form of the own query; other searches hide the form. `mountCrosstabs` returns `{widget, api}`;
+   the api is the page member and what siteRuntime removes.
+
+## 23. Review 7 (Artem, 2026-11-23) — implemented, not committed, no browser check
+
+1. Website element: `siteCrosstabs.css` (the element as a column, the crosstab with `padding: 4px`).
+2. The Filter Form of a crosstab is a box: border, radius, padding, the surface background (`crosstabParams.css`), in both
+   orientations; it does not mix with the controls of the crosstab.
+3. French: the crosstab texts of reviews 4-7 added (Explorer: all crosstab texts translated; Website: those it shows).
+4. Test module configuration: `serialize` keeps `ui.language` (not Automatic); in publication mode the result also shows
+   `page`, the settings of the published page (`preparePublication`), for every module that has it.
+5. Query source / saved filter pickers: one picker for all places, see the topic note `query-choice-picker.md`.
 

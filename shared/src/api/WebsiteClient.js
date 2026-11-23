@@ -290,7 +290,8 @@ function plainText(value) {
 function holdsModule(configuration, type) {
   try {
     const instances = JSON.parse(String(configuration || '{}'))?.instances || {};
-    return Object.values(instances).some((instance) => instance?.kind === 'module' && instance?.type === type);
+    // a published widget too: crosstabs (srv WebsiteEditService::PUBLISHED_WIDGETS)
+    return Object.values(instances).some((instance) => (instance?.kind === 'module' || instance?.kind === 'widget') && instance?.type === type);
   } catch {
     return false;
   }

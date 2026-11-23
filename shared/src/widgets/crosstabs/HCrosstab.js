@@ -58,7 +58,7 @@ export class HCrosstab extends HBaseWidget {
    * @param {{termLabel?: Function, rectypeName?: Function, userGroupName?: Function}} [options.labels] Bucket labels.
    * @param {(code: string) => string} [options.fieldLabel] Caption of a field path code.
    * @param {(query: Array, title: string) => void} [options.onCellQuery] A click on a count: its records (drill-down).
-   * @param {number} [options.autoLimit] Records counted without Update.
+   * @param {number|string} [options.autoLimit] Records counted without Update (0 / `manual`: never, Infinity / `always`).
    * @param {string} [options.language]
    * @param {string} [options.database] For the export header.
    * @param {string} [options.emptyText] Shown without a query.
@@ -78,6 +78,8 @@ export class HCrosstab extends HBaseWidget {
     root.classList.add('h-widget', 'h-crosstab');
     this.titleElement = element('div', 'h-crosstab-title');
     this.controls = element('div', 'h-crosstab-controls');
+    // the second line: Rows / Columns / Pages to choose, or their fields as text (review 2026-11-23)
+    this.pivotBar = element('div', 'h-crosstab-pivot');
     this.status = element('div', 'h-crosstab-status');
     this.pageBar = element('div', 'h-crosstab-pages');
     this.body = element('div', 'h-crosstab-body');
@@ -86,7 +88,7 @@ export class HCrosstab extends HBaseWidget {
     this.canvas = element('canvas');
     this.chartHost.append(this.canvas);
     this.body.append(this.tableHost, this.chartHost);
-    root.replaceChildren(this.titleElement, this.controls, this.status, this.pageBar, this.body);
+    root.replaceChildren(this.titleElement, this.controls, this.pivotBar, this.status, this.pageBar, this.body);
     this.state = 'rendered';
     this._renderControls();
     if (this.query != null) void this.load();
@@ -114,21 +116,24 @@ export class HCrosstab extends HBaseWidget {
    * Count the records of another query.
    *
    * @param {*} query
+   * @param {{count?: number|null}} [options] count: the number of records counted when the host knows it already (the
+   *        record types of Explorer's result): the request `op=count` before the crosstab is not sent.
    * @returns {Promise<void>}
    */
-  async setQuery(query) {
+  async setQuery(query, { count = null } = {}) {
     this.query = query ?? null;
     this.pageIndex = 0;
-    await this.load();
+    await this.load({ count });
   }
 
   /**
    * Count again (also above the limit).
    *
-   * @param {{force?: boolean}} [options]
+   * @param {{force?: boolean, count?: number|null}} [options] force: also above the limit; count: the number of records
+   *        when known (no `op=count` request).
    * @returns {Promise<void>}
    */
-  async load({ force = false } = {}) {
+  async load({ force = false, count: known = null } = {}) {
     this._abort?.abort();
     this._merged = null;
     if (!this.container) return;
@@ -150,9 +155,10 @@ export class HCrosstab extends HBaseWidget {
     this._busy();
     const query = this.countedQuery();
     try {
-      const limit = Number(this.options.autoLimit) || CROSSTAB_AUTO_LIMIT;
-      if (!force) {
-        const count = await this.options.service.count(query, { signal: abort.signal });
+      const limit = autoLimit(this.options.autoLimit);
+      // Always (no limit): no count first
+      if (!force && limit !== Infinity) {
+        const count = Number.isFinite(known) ? known : await this.options.service.count(query, { signal: abort.signal });
         if (abort.signal.aborted) return;
         if (count > limit) {
           this.answer = null;
@@ -307,13 +313,37 @@ export class HCrosstab extends HBaseWidget {
         bar.append(swap);
       }
     }
-    if (level >= 2) this._renderPivot(bar);
+    this._renderPivot(level >= 2);
   }
 
-  /** @private Rows / Columns / Pages and the measure from the lists of the settings. */
-  _renderPivot(bar) {
+  /**
+   * @private The second line: Rows / Columns / Pages (and the measure) to choose from the lists of the settings when the
+   * visitor may pivot, else the fields of the dimensions as text.
+   * @param {boolean} allowed The level allows pivoting.
+   */
+  _renderPivot(allowed) {
+    const bar = this.pivotBar;
+    if (!bar) return;
+    bar.replaceChildren();
     const fields = [...new Set([...this.settings.visitor.fields,
       ...['rows', 'columns', 'pages'].map((name) => this.settings[name]?.code).filter(Boolean)])];
+    bar.classList.toggle('is-readonly', !allowed);
+    if (!allowed) {
+      for (const [name, label] of [['rows', 'Rows'], ['columns', 'Columns'], ['pages', 'Pages']]) {
+        const caption = this._caption(name);
+        if (!caption) continue;
+        const item = element('span', 'h-crosstab-pivot-item');
+        const term = element('span', 'h-crosstab-pivot-label');
+        term.textContent = `${$HR(label)}:`;
+        const value = element('span', 'h-crosstab-pivot-value');
+        value.textContent = caption;
+        item.append(term, value);
+        bar.append(item);
+      }
+      bar.hidden = !bar.childElementCount;
+      return;
+    }
+    bar.hidden = false;
     if (fields.length) {
       const dimensionOf = (code) => ['rows', 'columns', 'pages'].map((name) => this.settings[name])
         .find((dimension) => dimension?.code === code) || { code, label: {}, buckets: 'values' };
@@ -506,10 +536,14 @@ export class HCrosstab extends HBaseWidget {
   /** @private The status line. */
   _message(text, busy = false, error = false) {
     if (!this.status) return;
+    // while calculating: the spinner big in the middle, the old table and chart hidden (review 5)
+    this.container?.classList.toggle('is-busy', busy);
     this.status.replaceChildren();
     this.status.classList.toggle('is-error', error);
-    if (busy) this.status.append(element('i', 'fa-solid fa-spinner fa-spin'), document.createTextNode(' '));
-    this.status.append(document.createTextNode($HR(text)));
+    if (busy) this.status.append(element('i', 'fa-solid fa-spinner fa-spin h-crosstab-spinner'), document.createTextNode(' '));
+    const caption = element('span', 'h-crosstab-status-text');
+    caption.textContent = $HR(text);
+    this.status.append(caption);
   }
 
   /** @private Calculating…, with Stop. */
@@ -553,6 +587,20 @@ export class HCrosstab extends HBaseWidget {
     this._chart = null;
     this.chartHost?.querySelector('.h-crosstab-png')?.remove();
   }
+}
+
+/**
+ * The records counted without Update (option `autoLimit`): 0 never, Infinity always, else the number; the default without
+ * a value.
+ *
+ * @param {*} value
+ * @returns {number}
+ */
+export function autoLimit(value) {
+  if (value === Infinity || value === 'always') return Infinity;
+  if (value === 0 || value === '0' || value === 'manual') return 0;
+  const limit = Number(value);
+  return Number.isFinite(limit) && limit > 0 ? limit : CROSSTAB_AUTO_LIMIT;
 }
 
 /** A labelled select. */

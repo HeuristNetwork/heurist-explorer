@@ -11,7 +11,27 @@ viewer pane + full screen designer, publication from Explorer; story map, report
 `CrosstabsTool`, full screen `CrosstabsDesigner` (Save as, Test on, Delete by Help, Close), record type filter in
 `HCrosstab`, Values by field type, field tree options, All values, Stop (server cancel in Explorer), Publish (server
 `importModule` accepts the widget `crosstabs`), website own query from `settings.query` + URL parameters. Next: browser
-check (§17.2); delete the stray test pages 209957, 209966 in `osmak_mapping`.
+check (§17.2); delete the stray test pages 209957, 209966 in `osmak_mapping`. **Fix 2026-11-23** (not committed): fewer
+requests — no `op=count` before the crosstab with *Current result* (the count comes from the record type aggregate),
+`recordTypeQuery` does not add `{t}` when the query has it, one count when a crosstab opens by itself; a hidden tool pane
+(`ExplorerToolModule`) is created when first shown and gets the last DataSource / selection only when shown again.
+Review 3 (§19): Save once with spinner, chooser headings, primary Edit / Save, Source select not compact.
+Review 4 (§20, 2026-11-23, both repos, deployed, no browser check): crosstabs configuration entry (Test module
+configuration, Publish dialog, CMS form inline), Refresh reloads the selector, Crosstabs pane in a website Explorer,
+pivot second line, Filter Form of the own query in pane + website, Saved filter targets with crosstabs, no Generate
+for standalone pages.
+Review 5 (§21, 2026-11-23, explorer + website deployed, no browser check): Publish with Own query fixed (serialized
+settings lost `records`), Publish / Help on the pane header, Show header / Language / Count automatically up to in the
+configuration, Crosstab editor header with Close and Filter Form, field names in "needs a value", big spinner, ▾ of the
+query offers the query sources with parameters again.
+Review 6 (§22, 2026-11-23, explorer + website deployed, no browser check): configuration fields `recommended` (were
+hidden without Advanced), auto count list Never/25K/50K/100K, a crosstab counts with some parameter values, vertical
+Filter Form at the left, map extent for geo parameters in Explorer, searchable chooser in the CMS Saved filter, a Saved
+filter link shows its own Filter Form on the crosstab.
+Review 7 (§23, 2026-11-23, explorer + website + reports deployed, no browser check): website padding, Filter Form box,
+French texts, language in Test module configuration; **one picker of query sources and saved filters** everywhere
+(topic note `query-choice-picker.md`: `listQueryChoices`, HValuePicker with marks and disabled items, duplicated list
+functions removed).
 
 **Fix 2026-11-20: child record added from its parent** (plan 26 / plan 21; not committed, no browser check): the Add
 record of the record manager opened from a child pointer field (Browse → Add) had no parent context, so the child showed

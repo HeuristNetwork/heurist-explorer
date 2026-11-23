@@ -101,8 +101,8 @@ test('a query source by id becomes its query when the form opens; the ▾ list o
   assert.equal(await storedQuery('filter:4', services), 't:5', 'a legacy text stays text');
   assert.equal(await storedQuery('source:0', services), undefined);
   assert.equal(await storedQuery('other:3', services), undefined);
-  // Edit and ▾ (only with the query source services)
-  const special = cardsQuerySpecial({ editQuery: async () => null, querySources: async () => [], ...services });
+  // Edit and ▾ (only with the one list of query choices, review 7)
+  const special = cardsQuerySpecial({ editQuery: async () => null, queryChoices: async () => [], ...services });
   assert.deepEqual(special.actions.map((action) => action.icon), ['fa-sliders', 'fa-caret-down']);
   assert.equal(cardsQuerySpecial({}).actions.length, 0);
   // tabs of Record cards: the look only when not the default (plan 27n1 §2d)
