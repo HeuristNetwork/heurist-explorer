@@ -659,3 +659,17 @@ Answers: the header buttons are OK; a query with several parameters counts when 
    `page`, the settings of the published page (`preparePublication`), for every module that has it.
 5. Query source / saved filter pickers: one picker for all places, see the topic note `query-choice-picker.md`.
 
+
+## 24. Review 8 (Artem, 2026-11-24) — implemented, not committed, no browser check
+
+1. Website element, *Show header* ON: the header had the class `heurist-source-header` but the website bundle loads
+   only `heurist-ui.css`; `siteCrosstabs.js` now imports `heurist-module.css` (lazy chunk, only scoped rules), so the
+   header looks as the source headers of the other modules.
+2. Language of a crosstab published from Explorer (`settings.ui.language`, e.g. `fre`, while `runtime.language` is
+   `eng`): the page loaded only the English dictionary. `mountCrosstabs` now overlays the website dictionary in the
+   language of the element (`extendLocale`, as the direct modules do) when it differs from the active one.
+3. Crosstab designer (Explorer, full screen): the form and the preview are in an `HCardinalLayout` — west the
+   configuration form (420 px, min 300), center the preview, with a resizable divider.
+4. DataTables of the crosstab table: `language` option from `$HR` (`dataTablesLanguage` in `crosstabTable.js`, as the
+   Data module): Search, No records, No matching records, Print. New key *No matching records* (Explorer and Website,
+   eng / fre).

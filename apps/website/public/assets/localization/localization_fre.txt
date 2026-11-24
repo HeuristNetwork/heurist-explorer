@@ -857,3 +857,4 @@
 #Show header#Afficher l'en-tête
 #Default settings#Paramètres par défaut
 #Automatic#Automatique
+#No matching records#Aucun enregistrement correspondant

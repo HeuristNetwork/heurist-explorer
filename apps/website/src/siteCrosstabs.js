@@ -20,7 +20,7 @@
  * @since       8.0
  */
 
-import { $HR } from '#shared/ui';
+import { $HR, extendLocale, getActiveLanguage, getAssetBaseUrl } from '#shared/ui';
 import { HeuristApiClient } from '#shared/api';
 import { HDbDefs } from '#shared/data/HDbDefs.js';
 import { normalizeDataSource } from '#shared/data/DataSource.js';
@@ -31,6 +31,8 @@ import { cmsInstanceRecords } from '#shared/site/cmsRecords.js';
 import { CMS_FILTER_LIMITS, normalizeCmsFilterValues } from '#shared/site/cmsSavedFilter.js';
 import { askedParameters, CrosstabParams, ownCount } from '#shared/widgets/crosstabs/crosstabParams.js';
 import { crosstabsAutoLimit } from '#shared/widgets/crosstabs/crosstabsConfiguration.js';
+// the source header (.heurist-source-header) as the other modules
+import '#shared/ui/heurist-module.css';
 import './siteCrosstabs.css';
 
 /** The definitions by database and language (labels of terms, record types and fields). */
@@ -61,6 +63,10 @@ export async function mountCrosstabs(host, instance, config, { id, sendRecords =
   }
   const pageLanguage = settings.ui?.language && settings.ui.language !== 'auto' ? settings.ui.language : '';
   const language = config.site?.language || pageLanguage || runtime.language || '';
+  // the language of the element (a crosstab published from Explorer): its texts as a direct module (extendLocale)
+  if (language && language !== getActiveLanguage()) {
+    await extendLocale(language, getAssetBaseUrl()).catch(() => null);
+  }
   const dbdefs = await definitions(apiBaseUrl, runtime.database, language);
   const container = document.createElement('div');
   container.className = 'h-site-crosstabs-root';

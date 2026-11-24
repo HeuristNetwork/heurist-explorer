@@ -840,3 +840,4 @@
 #Calculating…#Calculating…
 #Stop the calculation#Stop the calculation
 #Stopped#Stopped
+#No matching records#No matching records

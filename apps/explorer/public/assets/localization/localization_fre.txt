@@ -1682,3 +1682,4 @@
 #At the start of the Crosstabs pane#Au démarrage du panneau Tableaux croisés
 #Close the crosstab editor#Fermer l'éditeur du tableau croisé
 #Publish the crosstab as a web page#Publier le tableau croisé comme page web
+#No matching records#Aucun enregistrement correspondant

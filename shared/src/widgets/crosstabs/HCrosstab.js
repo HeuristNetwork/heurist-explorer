@@ -463,7 +463,8 @@ export class HCrosstab extends HBaseWidget {
     const exports = this.settings.visitor.export.filter((item) => item !== 'png');
     const page = table.page.label ? ` – ${this._caption('pages')}: ${table.page.label}` : '';
     const title = `${this.settings.display.title?.def || this._caption('rows')}${page}`;
-    const enhanced = await enhanceCrosstabTable(element$, { exports, title, messageTop: this._exportHeader(), filename: fileName(title) });
+    const enhanced = await enhanceCrosstabTable(element$, { exports, title, messageTop: this._exportHeader(), filename: fileName(title),
+      translate: $HR });
     if (serial !== this._tableSerial) enhanced?.destroy();
     else this._table = enhanced;
   }

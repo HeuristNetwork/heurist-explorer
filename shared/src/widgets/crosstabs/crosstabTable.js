@@ -140,9 +140,11 @@ export function renderCrosstabTable(table, tables, { display, rowCaption = '', c
  * @param {string} [options.title] Title of the exports.
  * @param {string} [options.messageTop] Export header (database, date, N, query, measure).
  * @param {string} [options.filename]
+ * @param {(text: string) => string} [options.translate] Texts of DataTables (Search, buttons) in the language of the UI.
  * @returns {Promise<{destroy: () => void}|null>} null when DataTables can not be loaded (the plain table stays).
  */
-export async function enhanceCrosstabTable(element, { exports = [], title = '', messageTop = '', filename = 'crosstab' } = {}) {
+export async function enhanceCrosstabTable(element, { exports = [], title = '', messageTop = '', filename = 'crosstab',
+  translate = (text) => text } = {}) {
   let DataTable;
   try {
     ({ default: DataTable } = await import('datatables.net-dt'));
@@ -188,9 +190,25 @@ export async function enhanceCrosstabTable(element, { exports = [], title = '', 
     searching: true,
     order: [],
     autoWidth: false,
+    language: dataTablesLanguage(translate),
     layout: { topStart: buttons.length ? { buttons } : null, topEnd: 'search', bottomStart: null, bottomEnd: null }
   });
   return { destroy: () => instance.destroy() };
+}
+
+/**
+ * The texts of DataTables in the language of the UI (as the Data module).
+ *
+ * @param {(text: string) => string} translate
+ * @returns {object} DataTables `language` option.
+ */
+export function dataTablesLanguage(translate) {
+  return {
+    search: `${translate('Search')}:`,
+    emptyTable: translate('No records'),
+    zeroRecords: translate('No matching records'),
+    buttons: { csv: 'CSV', excel: 'Excel', pdf: 'PDF', print: translate('Print') }
+  };
 }
 
 /** A header cell. */

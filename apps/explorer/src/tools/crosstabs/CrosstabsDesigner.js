@@ -25,6 +25,7 @@ import { HBaseWidget } from '#shared/widgets/HBaseWidget.js';
 import { $HR, HMsg } from '#shared/ui';
 import { askChoice, askSaveDiscard } from '#shared/ui/askChoice.js';
 import { HEditForm } from '#shared/widgets/edit-form/HEditForm.js';
+import { HCardinalLayout } from '#shared/widgets/layout/HCardinalLayout.js';
 import { showPopover, closePopover } from '#shared/widgets/popover/popover.js';
 import { HFieldTree } from '#shared/widgets/field-tree/HFieldTree.js';
 import { HRangeList } from '#shared/widgets/symbology/HRangeList.js';
@@ -96,7 +97,7 @@ export class CrosstabsDesigner extends HBaseWidget {
   }
 
   /**
-   * Toolbar, form, test records and the preview.
+   * Toolbar, form (west), test records and the preview (center).
    *
    * @returns {Promise<CrosstabsDesigner>}
    */
@@ -120,7 +121,8 @@ export class CrosstabsDesigner extends HBaseWidget {
     header.append(this.titleElement, close);
     this.toolbar = element('div', 'h-toolbar h-crosstabs-tool-toolbar');
     this.toolbar.setAttribute('role', 'toolbar');
-    const main = element('div', 'h-crosstabs-tool-main');
+    // west: the configuration form; center: the preview (a divider between them, review 2026-11-24)
+    const main = element('div', 'h-crosstabs-designer-main');
     this.formPane = element('div', 'h-crosstabs-tool-form');
     this.formHost = element('div', 'h-crosstabs-tool-form-body');
     this.formPane.append(this.formHost);
@@ -144,8 +146,10 @@ export class CrosstabsDesigner extends HBaseWidget {
     const crosstabHost = element('div', 'h-crosstabs-designer-preview');
     body.append(paramsHost, crosstabHost);
     view.append(this.testBar, body);
-    main.append(this.formPane, view);
     this.container.replaceChildren(header, this.toolbar, main);
+    this.layout = new HCardinalLayout(main, { westSize: 420, minWest: 300, minCenterWidth: 320 });
+    this.layout.setContent('west', this.formPane);
+    this.layout.setContent('center', view);
     this.presets = await loadCrosstabPresets(this.tool.apiClient, this.dbdefs);
     this._renderToolbar();
     this._renderTestBar();
@@ -225,6 +229,8 @@ export class CrosstabsDesigner extends HBaseWidget {
     await this.form?.destroy();
     await this.crosstab?.destroy();
     this.crosstab = null;
+    this.layout?.destroy();
+    this.layout = null;
     await super.destroy();
   }
 

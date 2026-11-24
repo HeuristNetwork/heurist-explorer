@@ -183,6 +183,22 @@
 
 .h-crosstabs-designer-preview > .h-crosstab { flex: 1 1 auto; }
 
+/* HCardinalLayout: west the form, center the preview; both fill their regions */
+.h-crosstabs-designer-main {
+  position: relative;
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 0;
+}
+
+.h-crosstabs-designer-main .h-crosstabs-tool-form,
+.h-crosstabs-designer-main .h-crosstabs-tool-view {
+  box-sizing: border-box;
+  height: 100%;
+}
+
+.h-crosstabs-designer-main .h-crosstabs-tool-form { border-right: 0; }
+
 .h-crosstabs-tool-main {
   display: flex;
   flex: 1 1 auto;

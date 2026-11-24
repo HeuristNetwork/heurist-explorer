@@ -19,7 +19,7 @@ import { crosstabChartConfig } from '../src/widgets/crosstabs/crosstabChart.js';
 import { CrosstabService } from '../src/widgets/crosstabs/crosstabService.js';
 
 installFakeDom();
-const { renderCrosstabTable, crosstabSubColumns } = await import('../src/widgets/crosstabs/crosstabTable.js');
+const { renderCrosstabTable, crosstabSubColumns, dataTablesLanguage } = await import('../src/widgets/crosstabs/crosstabTable.js');
 const { HCrosstab } = await import('../src/widgets/crosstabs/HCrosstab.js');
 
 /** An answer of op=crosstab: Place type (enum) × Country (enum), blank country, one "other". */
@@ -405,4 +405,13 @@ test('parameter form: shown for a query with parameters, kept for the same cross
   placed.show({ ...preset, id: 5, settings: { filterForm: { settings: { orientation: 'horizontal' }, groups: [] } } }, {});
   assert.equal(layout.classList.contains('h-crosstab-params-left'), false);
   placed.hide();
+});
+
+test('the texts of DataTables come from the language of the UI', () => {
+  const fre = { Search: 'Rechercher', 'No records': 'Aucun enregistrement', 'No matching records': 'Aucun enregistrement correspondant', Print: 'Imprimer' };
+  const language = dataTablesLanguage((text) => fre[text] || text);
+  assert.equal(language.search, 'Rechercher:');
+  assert.equal(language.emptyTable, 'Aucun enregistrement');
+  assert.equal(language.zeroRecords, 'Aucun enregistrement correspondant');
+  assert.equal(language.buttons.print, 'Imprimer');
 });
