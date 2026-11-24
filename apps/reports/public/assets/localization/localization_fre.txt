@@ -296,3 +296,48 @@
 #There is no query source to copy#Aucune source de requête à copier
 #Search#Rechercher
 #Choose a query source or a saved filter#Choisissez une source de requête ou un filtre enregistré
+#Changed#Modifié
+#Choose#Choisir
+#Copy the address#Copier l'adresse
+#Delete the page#Supprimer la page
+#Deleted#Supprimé
+#Edit the page#Modifier la page
+#Generate the output#Générer la sortie
+#Help#Aide
+#It has generated reports: delete them first#Il a des rapports générés : supprimez-les d'abord
+#It is not published on a web page yet#Il n'est pas encore publié sur une page web
+#It is used by website pages and can not be deleted#Il est utilisé par des pages de sites web et ne peut pas être supprimé
+#More#Plus
+#More actions#Plus d'actions
+#Name, description, owner and visibility#Nom, description, propriétaire et visibilité
+#Nothing saved yet#Rien n'est encore enregistré
+#Open the editor#Ouvrir l'éditeur
+#Own query#Requête propre
+#Properties: name, description, owner and visibility#Propriétés : nom, description, propriétaire et visibilité
+#Publish#Publier
+#Publish as a web page#Publier comme page web
+#Published pages#Pages publiées
+#Run the preview again#Relancer l'aperçu
+#Save as#Enregistrer sous
+#Save as a new one#Enregistrer comme nouveau
+#Select an item of the list#Sélectionnez un élément de la liste
+#Test on#Tester sur
+#The address is copied#L'adresse est copiée
+#There are unsaved changes. Save changes?#Il y a des modifications non enregistrées. Enregistrer les modifications ?
+#This database has no Presentation sets of this kind (2-1112)#Cette base de données n'a pas de jeux de présentation de ce type (2-1112)
+#in a website#dans un site web
+#Card report editor#Éditeur de rapport fiche
+#Delete the template file#Supprimer le fichier de modèle
+#Download the template with concept codes (.gpl)#Télécharger le modèle avec les codes de concept (.gpl)
+#Register: create the report record of this template#Enregistrer : créer l'enregistrement de rapport de ce modèle
+#Report editor#Éditeur de rapport
+#Report of a record set#Rapport d'un ensemble d'enregistrements
+#Select a report of the list#Sélectionnez un rapport de la liste
+#Template files without a record#Fichiers de modèle sans enregistrement
+#The report is not available#Le rapport n'est pas disponible
+#The template has unsaved changes. Save changes?#Le modèle a des modifications non enregistrées. Enregistrer les modifications ?
+#This template has generated reports: delete them first#Ce modèle a des rapports générés : supprimez-les d'abord
+#Title, description, kind and owner of the report#Titre, description, type et propriétaire du rapport
+#Which kind of report?#Quel type de rapport ?
+#Write the report to a file in the background (a generated report)#Écrire le rapport dans un fichier en arrière-plan (un rapport généré)
+#Write the report to a file in the background (saved first)#Écrire le rapport dans un fichier en arrière-plan (enregistré d'abord)

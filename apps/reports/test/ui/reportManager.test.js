@@ -15,86 +15,105 @@ const LIST = {
   reports: [
     { id: 5, title: 'Person card', file: 'person card.tpl', isCardView: true, ownerGroupId: 1, canEdit: true, schedules: [], fileExists: true },
     { id: 6, title: 'Monthly', file: 'monthly.tpl', isCardView: false, ownerGroupId: 2, canEdit: false, description: 'Every month',
-      schedules: [{ id: 60, title: 'Monthly file', file: 'monthly', format: 'html', intervalMinutes: 1440, canEdit: false }] }
+      outputCount: 1, schedules: [{ id: 60, title: 'Monthly file', file: 'monthly', format: 'html', intervalMinutes: 1440, canEdit: false }] }
   ],
   unregistered: [{ id: null, title: 'old', file: 'old.tpl', canEdit: true, schedules: [] }]
 };
 
-async function mount(list = LIST, jobClient = {}, bridge = { editRecord: async () => ({ saved: false }) }) {
+/** The List of the reports (HPresentationList) without its record list: `select` fills the right side. */
+function fakeList() {
+  const list = {
+    selectedId: null,
+    reloaded: 0,
+    attach(host, options) {
+      list.host = host;
+      list.options = options;
+      list.selectedId = options.selectedId || null;
+      list.outputs = document.createElement('div');
+      host.append(list.outputs);
+      return list;
+    },
+    async render() { await list.select(list.selectedId); },
+    async select(id) {
+      list.selectedId = Number(id) || null;
+      await list.options.renderOutputs(list.selectedId, list.outputs);
+    },
+    async reload() { list.reloaded += 1; await list.select(list.selectedId); },
+    async destroy() {}
+  };
+  return list;
+}
+
+async function mount(list = LIST, jobClient = {}, bridge = { editRecord: async () => ({ saved: false }), addRecord: async () => ({ saved: false }) }) {
   const application = new ReportsApplication({
     config: { language: 'eng' },
     reportApi: {
       apiClient: { buildUrl: (p) => `http://x/api/db${p}` },
       list: async () => list,
-      exportUrl: (ref) => `http://x/api/db/reports/${ref}/export`
+      outputs: async () => [],
+      exportUrl: (ref) => `http://x/api/db/presentation/${ref}/export`,
+      renderUrl: (id, recordId) => `http://x/api/db/presentation/${id}/execute?recordId=${recordId}`
     },
     jobClient,
     host: new ReportsHostAdapter(bridge)
   });
+  application.loadDbDefs = async () => null;
   const host = document.createElement('div');
   document.body.append(host);
-  const view = new ReportManager().attach(host, { application, loadEditor: async () => { throw new Error('no editor in tests'); } });
+  const reportList = fakeList();
+  const view = new ReportManager().attach(host, {
+    application, loadEditor: async () => { throw new Error('no editor in tests'); }, createList: () => reportList
+  });
   application.setView(view);
   await application.initialize();
-  return { application, host, view };
+  await flush();
+  return { application, host, view, list: reportList };
 }
 
-const visible = (button) => !button.hidden;
-const label = (button) => button.querySelector('.h-reports-tool-label')?.textContent;
-
-test('toolbar without a selection: every button after the report selector is hidden', async () => {
-  const { view } = await mount();
-  assert.equal(view.reportTools.hidden, true);
-  assert.equal(view.runTools.hidden, true, 'Test and Generate hidden too');
-  assert.equal(view.buttons.test.disabled, true);
-  assert.equal(view.buttons.generate.disabled, true);
-  assert.equal(view.buttons.generated.disabled, true);
-  assert.equal(view.selectLabel.textContent, 'Select template');
+test('the pane is the List of the reports (plan 27q3): Card and List Report, New and Import', async () => {
+  const { list } = await mount();
+  assert.deepEqual(list.options.kinds, ['listreport', 'cardreport']);
+  assert.equal(typeof list.options.onNew, 'function');
+  assert.deepEqual(list.options.barTools.map((tool) => tool.label), ['Import']);
+  assert.equal(await list.options.describeUse(6), '!This template has generated reports: delete them first (1)', 'a report with outputs is not deleted');
+  assert.equal(await list.options.describeUse(5), '');
 });
 
-test('a record-set report you cannot edit: Template, Export, Test, Generate, Generated reports; no Edit or Delete', async () => {
-  const { view, application, host } = await mount();
-  await application.selectReport('6');
-  assert.equal(view.selectLabel.textContent, 'Monthly');
-  assert.equal(view.reportTools.hidden, false);
-  assert.ok(visible(view.buttons.template) && visible(view.buttons.export));
-  assert.equal(visible(view.buttons.properties), false);
-  assert.equal(visible(view.buttons.delete), false);
-  assert.equal(view.buttons.test.disabled, false);
-  assert.equal(view.buttons.generate.disabled, false);
-  assert.equal(view.buttons.generated.disabled, false);
-  assert.equal(host.querySelector('.h-reports-info-title').textContent, 'Monthly');
-  assert.equal(host.querySelector('.h-reports-description').textContent, 'Every month');
+test('without a selection: the template files without a record (Register, Delete)', async () => {
+  const { list } = await mount();
+  await list.select(null);
+  assert.match(list.outputs.textContent, /old\.tpl/);
 });
 
-test('a card report: Edit and Delete; Generate disabled', async () => {
-  const { view, application } = await mount();
-  await application.selectReport('5');
-  assert.equal(label(view.buttons.properties), 'Edit');
-  assert.ok(visible(view.buttons.properties) && visible(view.buttons.delete));
-  assert.equal(view.buttons.generate.disabled, true);
-  assert.equal(view.buttons.generated.disabled, true);
+test('a List Report: Test, Generate and more beside the List, with its generated reports', async () => {
+  const { list, view, application } = await mount();
+  await list.select(6);
+  assert.equal(application.selectedRef, '6');
+  assert.match(list.outputs.querySelector('.h-reports-details-title').textContent, /Monthly/);
+  assert.ok(view.detailButtons.refresh && view.detailButtons.generate && view.detailButtons.more);
+  assert.ok(view.outputsPanel, 'the generated reports are in the panel, not in a popup');
+  await view.destroy();
 });
 
-test('a template without a record: Register and Delete only, it can not run', async () => {
-  const { view, application } = await mount();
-  await application.selectReport('old.tpl');
-  assert.equal(label(view.buttons.properties), 'Register');
-  assert.equal(visible(view.buttons.template), false);
-  assert.equal(visible(view.buttons.export), false);
-  assert.equal(visible(view.buttons.delete), true);
-  assert.equal(view.buttons.test.disabled, true);
-  assert.equal(view.buttons.generate.disabled, true);
-  assert.ok(visible(view.buttons.properties));
+test('a card report: Test without Generate; the preview of the first selected record', async () => {
+  const bridge = { editRecord: async () => ({ saved: false }), getSelection: () => [77] };
+  const { list, view } = await mount(LIST, {}, bridge);
+  const shown = [];
+  await list.select(5);
+  view.viewer.showUrl = (url) => shown.push(url);
+  await view.previewCard(LIST.reports[0]);
+  assert.equal(view.detailButtons.generate, undefined);
+  assert.equal(view.outputsPanel, null);
+  assert.deepEqual(shown, ['http://x/api/db/presentation/5/execute?recordId=77']);
+  await view.destroy();
 });
 
-test('without a record editor: no New, Edit or Register', async () => {
-  const { view, application } = await mount(LIST, {}, {});
-  assert.equal(view.buttons.create.disabled, true);
-  await application.selectReport('5');
-  assert.equal(visible(view.buttons.properties), false);
-  await application.selectReport('old.tpl');
-  assert.equal(visible(view.buttons.properties), false);
+test('without a record editor: no New, Properties or Register', async () => {
+  const { list } = await mount(LIST, {}, {});
+  assert.equal(list.options.onNew, null);
+  assert.equal(list.options.editRecord, null);
+  await list.select(null);
+  assert.equal(list.outputs.querySelector('[title="Register: create the report record of this template"]'), null);
 });
 
 test('report list: accordions by group, no file names, type and text filters', async () => {
@@ -105,14 +124,12 @@ test('report list: accordions by group, no file names, type and text filters', a
   assert.deepEqual(titles(), ['Person card', 'Monthly', 'old']);
   assert.equal(list.querySelectorAll('.h-reports-picker-section').length, 3);
   assert.ok(!list.textContent.includes('.tpl'), 'file names are not shown');
-
   const type = list.querySelector('.h-reports-picker-type');
   type.value = 'set';
   type.fire('change');
   assert.deepEqual(titles(), ['Monthly']);
   type.value = 'all';
   type.fire('change');
-
   const search = list.querySelector('.h-reports-picker-search');
   search.value = 'person';
   search.fire('input');
@@ -149,25 +166,17 @@ test('a job maps to its report by record id', async () => {
   assert.equal(application.reportOfJob({ params: {} }), null);
 });
 
-test('a generation still running after a reload is shown again, and hidden for another report', async () => {
+test('a generation still running after a reload is shown with its report, and hidden for another report', async () => {
   const jobs = runningJobs();
-  const { application, view } = await mount(LIST, jobs);
-  await flush();
-  assert.equal(application.selectedRef, '6', 'its report is selected');
+  const { application, view, list } = await mount(LIST, jobs);
   assert.equal(application.generateJob.id, 'j1');
+  await list.select(6);
   assert.equal(view.followingId, 'j1', 'its progress is followed');
   assert.equal(view.viewer.jobHost.hidden, false);
-
-  await application.selectReport('5');
-  assert.equal(view.followingId, null);
-  assert.equal(view.viewer.jobHost.hidden, true, 'progress hidden for another report; the job continues');
+  await list.select(5);
+  assert.equal(view.followingId, null, 'another report: the job continues');
   assert.deepEqual(jobs.cancelled, []);
-
-  const { buildReportList } = await import('../../src/ui/ReportList.js');
-  const list = buildReportList(application, { onSelect: () => {} });
-  assert.equal(list.querySelectorAll('.h-reports-running').length, 1, 'the report list marks the report');
-
-  await application.selectReport('6');
+  await list.select(6);
   assert.equal(view.followingId, 'j1', 'shown again for its report');
   await view.destroy();
 });
@@ -179,12 +188,12 @@ test('Generate while a generation runs shows the running one instead of starting
   HMsg.showMsgFlash = (message) => messages.push(message);
   try {
     const jobs = runningJobs();
-    const { application, view } = await mount(LIST, { ...jobs, list: async () => [] });
+    const { application, view, list } = await mount(LIST, { ...jobs, list: async () => [] });
     jobs.start = async () => assert.fail('no second generation');
-    await application.selectReport('5');
+    await list.select(5);
     application.jobs.list = jobs.list;
     await view.generate();
-    assert.equal(application.selectedRef, '6', 'the report of the running generation is selected');
+    assert.equal(list.selectedId, 6, 'the report of the running generation is selected');
     assert.equal(view.followingId, 'j1');
     assert.equal(messages.length, 1);
     await view.destroy();
@@ -201,34 +210,35 @@ test('closing the manager stops its own test run, not a generation', async () =>
   assert.deepEqual(jobs.cancelled, ['t1']);
 });
 
-test('JavaScript not allowed: toolbar warning and an output frame without scripts', async () => {
-  const { view, application } = await mount({ ...LIST, settings: { javaScriptAllowed: false, testRecordLimit: 50 } });
+test('JavaScript not allowed: a warning and an output frame without scripts', async () => {
+  const { view, list } = await mount({ ...LIST, settings: { javaScriptAllowed: false, testRecordLimit: 50 } });
+  await list.select(6);
   assert.equal(view.jsWarning.hidden, false);
   assert.ok(!view.viewer.frame.getAttribute('sandbox').includes('allow-scripts'));
-
-  application.data.settings.javaScriptAllowed = true;
-  view.update();
+  view.app.data.settings.javaScriptAllowed = true;
+  await list.select(6);
   assert.equal(view.jsWarning.hidden, true);
   assert.ok(view.viewer.frame.getAttribute('sandbox').includes('allow-scripts'));
-  assert.ok(view.viewer.frame.getAttribute('sandbox').includes('allow-same-origin'));
   await view.destroy();
 });
 
 test('no settings in the list (anonymous): no warning', async () => {
-  const { view } = await mount();
+  const { view, list } = await mount();
+  await list.select(6);
   assert.equal(view.jsWarning.hidden, true);
   await view.destroy();
 });
 
 test('record types not installed, database manager: explanation and Install; Install loads the definitions again', async () => {
-  const missing = { ...LIST, installed: false, missingDefinitions: ['RT_REPORT_TEMPLATE'], reports: [] };
+  const missing = { ...LIST, installed: false, missingDefinitions: ['RT_PRESENTATION_SET'], reports: [] };
   let changed = 0;
   const { application, host } = await mount(missing, {}, { editRecord: async () => ({ saved: false }), definitionsChanged: () => { changed += 1; } });
   assert.match(host.querySelector('.h-setup-notice-text').textContent, /install the new record types/);
-  assert.match(host.querySelector('.h-setup-notice').textContent, /Missing: RT_REPORT_TEMPLATE/);
+  assert.match(host.querySelector('.h-setup-notice').textContent, /Missing: RT_PRESENTATION_SET/);
   let installed = false;
   application.api.setup = async () => { installed = true; return { report: ['Imported'] }; };
   application.api.list = async () => (installed ? LIST : missing);
+  application.loadDbDefs = async () => null;
   const { HMsg } = await import('#shared/ui');
   const dialog = HMsg.showMsgDlg;
   const shown = [];

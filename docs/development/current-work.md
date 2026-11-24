@@ -4,6 +4,14 @@ Status of the open development plans: what is done, committed, checked in a brow
 `CLAUDE.md` on 2026-11-18. The Status line at the top of each plan in this folder is the source; update both when a plan
 changes. Newest first.
 
+**`docs/development/27q3 Presentation-Workflow-Plan.md`** (agreed 2026-11-24; **phases 1-7 implemented 2026-11-24**, §7,
+not committed, no browser check; explorer, reports, website deployed): reports merged into Presentation Set (kinds Card
+Report 2-10645 / List Report 2-10646, entity `report` gone, only `/presentation/{id}`), page back link 2-1204 set on page
+saves; shared shell `shared/src/widgets/presentation/` (header, fixed toolbar, HPresentationList, pages panel);
+Crosstabs / Story map: viewer pane + List + full screen editor; Reports: List + editor; Export: saved exports; Website
+manager on the shell. Open (§7.2): export *Keep* output, story map Publish, CMS editor toolbar, French manuals. Next:
+browser check.
+
 **`docs/development/27q2 Crosstabs-Plan.md`** (agreed 2026-11-20; phases A-F implemented 2026-11-20; **review 1
 implemented 2026-11-22** (§17), not committed, no browser check): general model in the new topic note
 `presentation-sources.md` (configuration / instance, sources `current` / `own`, `$SELECTED$`, chooser by record type,

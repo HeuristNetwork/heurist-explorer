@@ -1,10 +1,10 @@
 /**
  * @file ReportEditorPanel.js
- * @brief Template editor of the reports manager, shown over the whole screen in
- *        three panes (HCardinalLayout): west - patterns and fields to add,
- *        center - Smarty text (HSmartyEditor) with Save / Save As / Close,
- *        east - test area (language, error level, Test, output). West and east fold to a
- *        narrow strip with a vertical title.
+ * @brief Template editor of the reports manager, shown over the whole screen: the header "Report editor: <name>"
+ *        with Close and the common toolbar of the presentations (plan 27q3 §3, presentationShell.js): New |
+ *        selector | Properties | Save | Save as ‖ Test ‖ Generate (a List Report) ‖ ⋯ Export; below in three panes
+ *        (HCardinalLayout): west - patterns and fields to add, center - Smarty text (HSmartyEditor), east - test area
+ *        (language, error level, output). West and east fold to a narrow strip with a vertical title.
  *
  * Fields are marked in the tree (several at once, "Select all visible options")
  * and added with "Add Selected Fields": one dialog goes through the marked
@@ -35,6 +35,7 @@ import {
 } from '#shared/smarty/smartySnippetBuilder.js';
 import { HFieldTree } from '#shared/widgets/field-tree/HFieldTree.js';
 import { HCardinalLayout } from '#shared/widgets/layout/HCardinalLayout.js';
+import { createSourceHeader, renderPresentationToolbar, togglePresentationList } from '#shared/widgets/presentation/presentationShell.js';
 import { ReportsApplication } from '../../core/ReportsApplication.js';
 import { openFormDialog } from '../formDialog.js';
 import { openInsertFieldsDialog } from './insertFieldsDialog.js';
@@ -64,6 +65,11 @@ export class ReportEditorPanel extends HBaseWidget {
    * @param {ReportsApplication} options.application Controller.
    * @param {object} options.report Report to edit.
    * @param {function(): void} options.onClose Called by the Close button.
+   * @param {function(): void} [options.onNew] New report (none: no button).
+   * @param {function(number): void} [options.onOpen] Another report of the selector.
+   * @param {function(): void} [options.onProperties] The record editor of the report.
+   * @param {function(): void} [options.onGenerate] Generate (a List Report).
+   * @param {function(): void} [options.onExport] Download the template (.gpl).
    * @returns {ReportEditorPanel}
    */
   attach(container, options = {}) {
@@ -83,10 +89,16 @@ export class ReportEditorPanel extends HBaseWidget {
     return this;
   }
 
-  /** Build the three panes. */
+  /** Build the header, the toolbar and the three panes. */
   render() {
+    const kind = this.report.isCardView ? 'Card report editor' : 'Report editor';
+    this.header = createSourceHeader({
+      title: `${$HR(kind)}: ${this.report.title}`, closeTitle: 'Close the editor', onClose: () => void this.run(() => this.close())
+    });
+    this.toolbar = el('div', '');
     const root = el('div', 'h-reports-editor');
-    this.container.replaceChildren(root);
+    this.container.replaceChildren(this.header.element, this.toolbar, root);
+    this.renderToolbar();
     const width = root.getBoundingClientRect?.().width || globalThis.innerWidth || 1200;
     this.layout = new HCardinalLayout(root, {
       westSize: 340,
@@ -183,24 +195,45 @@ export class ReportEditorPanel extends HBaseWidget {
     this.treeHost = el('div', 'h-reports-editor-tree', body);
   }
 
-  /** Center: "Edit: <name>", Save / Save As / Close, the Smarty text. */
+  /**
+   * The common toolbar (27q3 §3): New | selector | Properties | Save | Save as ‖ Test ‖ Generate ‖ ⋯ Export (Close on
+   * the header).
+   */
+  renderToolbar() {
+    const options = this.options;
+    const made = renderPresentationToolbar(this.toolbar, {
+      new: options.onNew ? { label: 'New report', title: 'New report', run: () => options.onNew() } : null,
+      selector: options.onOpen ? {
+        icon: 'fa-file-lines', label: this.report.title, title: 'Report',
+        run: (anchor) => togglePresentationList(anchor, this.app.allReports().filter((item) => item.id != null), {
+          current: this.report.id,
+          onSelect: (item) => { if (item.id !== this.report.id) options.onOpen(item.id); }
+        })
+      } : null,
+      properties: options.onProperties ? { title: 'Title, description, kind and owner of the report', disabled: this.readOnly, run: () => options.onProperties() } : null,
+      save: { title: 'Save the template (Ctrl+S)', disabled: this.readOnly, run: () => void this.run(() => this.save()) },
+      saveAs: { title: 'Save as a new report', run: () => void this.run(() => this.saveAs()) },
+      refresh: { icon: 'fa-flask', label: 'Test', title: this.app.testTip(this.report), run: () => void this.run(() => this.test()) },
+      generate: options.onGenerate && !this.report.isCardView
+        ? { title: 'Write the report to a file in the background (saved first)', run: () => options.onGenerate() } : null,
+      more: options.onExport ? [{ icon: 'fa-file-export', label: 'Export', title: 'Download the template with concept codes (.gpl)', run: () => options.onExport() }] : []
+    });
+    this.saveButton = made.save;
+    this.testButton = made.refresh;
+  }
+
+  /** Center: the name with the unsaved mark, the Smarty text. */
   renderCenter() {
     const root = el('section', 'h-reports-editor-pane h-reports-editor-center');
     const header = el('div', 'heurist-source-header h-reports-editor-pane-header', root);
     const title = el('span', 'h-reports-editor-pane-title h-reports-editor-title', header);
-    title.textContent = `${$HR('Edit')}: ${this.report.title}`;
+    title.textContent = this.report.file || this.report.title;
     title.title = this.report.file || this.report.title;
     this.modifiedMark = el('span', 'h-reports-editor-modified', header);
     this.modifiedMark.textContent = '*';
     this.modifiedMark.hidden = true;
     this.modifiedMark.title = $HR('Unsaved changes');
     if (this.readOnly) el('span', 'h-reports-kind', header).textContent = $HR('read only');
-    const tools = el('span', 'h-reports-editor-pane-tools h-reports-editor-center-tools', header);
-    this.saveButton = this.button(tools, 'h-btn h-btn-primary', 'fa-solid fa-floppy-disk', 'Save', () => this.save(), 'Save the template (Ctrl+S)');
-    this.saveButton.disabled = this.readOnly;
-    this.button(tools, 'h-btn', 'fa-solid fa-copy', 'Save As', () => this.saveAs(), 'Save as a new report');
-    el('span', 'h-reports-editor-separator', tools).setAttribute('aria-hidden', 'true');
-    this.button(tools, 'h-btn', 'fa-solid fa-xmark', 'Close', () => this.close(), 'Close the editor');
     this.editorHost = el('div', 'h-reports-editor-pane-body h-reports-editor-text', root);
     this.layout.setContent('center', root);
   }
@@ -220,8 +253,6 @@ export class ReportEditorPanel extends HBaseWidget {
       level.append(option($HR(label), String(value)));
     }
     this.levelSelect = level;
-    this.testButton = this.button(tools, 'h-btn', 'fa-solid fa-flask', 'Test', () => this.test(),
-      this.app.testTip(this.report));
     this.output = new ReportViewer().attach(body, { jobClient: this.app.jobs });
     this.output.setScriptsAllowed(this.app.scriptsAllowed());
     const hint = el('div', 'h-reports-placeholder h-muted');

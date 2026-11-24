@@ -175,7 +175,7 @@ async function previewCards(settings, runtime, language) {
   const records = (found?.records || found?.ids || []).slice(0, PREVIEW_CARDS)
     .map((item) => ({ id: Number(item?.rec_ID ?? item), title: String(item?.rec_Title ?? '').replace(/<[^>]*>/g, '').trim() }));
   const cards = await Promise.all(records.map(async ({ id, title }) => {
-    const url = `${api}/report/${encodeURIComponent(settings.template)}/execute?recordId=${id}&lang=${encodeURIComponent(language)}`;
+    const url = `${api}/presentation/${encodeURIComponent(settings.template)}/execute?recordId=${id}&lang=${encodeURIComponent(language)}`;
     const response = await fetch(url, { credentials: 'same-origin' });
     const label = settings.presentation === 'tabs' && title ? ` data-h-label="${escapeAttribute(title)}"` : '';
     return response.ok ? `<div class="h-site-card" data-h-rec="${id}"${label}>${await response.text()}</div>` : '';

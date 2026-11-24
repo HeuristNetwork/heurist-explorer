@@ -105,7 +105,8 @@ export function geoKindOf(rty, dty, dbdefs) {
  */
 export function reportRecordStructure(structure, dbdefs, recordId) {
   const id = (code) => Number(dbdefs?.dbconst?.(code)) || 0;
-  if (!structure || !(recordId > 0) || !(id('RT_REPORT_TEMPLATE') > 0) || Number(structure.rty) !== id('RT_REPORT_TEMPLATE')) return structure;
+  // a report is a Presentation set of kind Card / List Report (plan 27q3); other kinds have no file name
+  if (!structure || !(recordId > 0) || !(id('RT_PRESENTATION_SET') > 0) || Number(structure.rty) !== id('RT_PRESENTATION_SET')) return structure;
   const file = id('DT_FILE_NAME');
   return {
     ...structure,
@@ -123,7 +124,7 @@ export function reportRecordStructure(structure, dbdefs, recordId) {
 const FILE_EXT_VOCABULARIES = Object.freeze({
   RT_TILED_IMAGE_SOURCE: 'TRM_TILE_FORMATS', // png jpg jpeg gif webp
   RT_REPORT_OUTPUT: 'TRM_REPORT_FORMATS', // html csv txt xml json js css
-  RT_REPORT_TEMPLATE: 'TRM_REPORT_FORMATS' // the output type moves to the template (plan 30)
+  RT_PRESENTATION_SET: 'TRM_REPORT_FORMATS' // the output type of a report (plan 30; reports are Presentation sets, 27q3)
 });
 
 /**

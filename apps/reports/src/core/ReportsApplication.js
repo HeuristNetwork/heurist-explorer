@@ -215,13 +215,26 @@ export class ReportsApplication extends EventTarget {
   }
 
   /**
+   * The values of a new report record: a Presentation set of kind Card Report or List Report (plan 27q3).
+   *
+   * @param {'card'|'list'} kind
+   * @param {Object<number, *>} [values] Other values by field id.
+   * @returns {Promise<Object<number, *>>}
+   */
+  async reportValues(kind, values = {}) {
+    const [type, card, list] = await this.definitionId('DT_PRESENTATION_TYPE', 'TRM_PRESENTATION_CARD_REPORT', 'TRM_PRESENTATION_LIST_REPORT');
+    return { ...values, [type]: kind === 'card' ? card : list };
+  }
+
+  /**
    * New report in the record editor; it starts with a starter template. A file name of a template
    * without a record takes that template.
    *
+   * @param {'card'|'list'} [kind='list'] Card Report (one record) or List Report.
    * @returns {Promise<object|null>} The report, or null when it was not saved.
    */
-  async newReport() {
-    const result = await this.host.addRecord('RT_REPORT_TEMPLATE');
+  async newReport(kind = 'list') {
+    const result = await this.host.addRecord('RT_PRESENTATION_SET', { values: await this.reportValues(kind) });
     if (!result?.saved) return null;
     await this.refresh();
     const report = this.findReport(result.recordId);
@@ -246,9 +259,9 @@ export class ReportsApplication extends EventTarget {
     return this.findReport(id);
   }
 
-  /** Import a .gpl/.tpl file and select the new report. */
-  async importFile(file) {
-    const report = await this.api.importFile(file);
+  /** Import a .gpl/.tpl file and select the new report (`kind`: card or list). */
+  async importFile(file, kind = 'list') {
+    const report = await this.api.importFile(file, kind);
     await this.refresh();
     await this.selectReport(ReportsApplication.reference(report));
     return report;
@@ -269,7 +282,9 @@ export class ReportsApplication extends EventTarget {
    */
   async registerReport(report) {
     const [name, fileName] = await this.definitionId('DT_NAME', 'DT_FILE_NAME');
-    const result = await this.host.addRecord('RT_REPORT_TEMPLATE', { values: { [name]: report.title, [fileName]: report.file } });
+    const result = await this.host.addRecord('RT_PRESENTATION_SET', {
+      values: await this.reportValues('list', { [name]: report.title, [fileName]: report.file })
+    });
     if (!result?.saved) return null;
     await this.refresh();
     await this.selectReport(String(result.recordId));

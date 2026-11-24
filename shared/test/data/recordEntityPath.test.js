@@ -41,26 +41,28 @@ test('recordEntityPath: the entity of a record type, nothing for other types', (
   assert.equal(recordEntityPath(dbdefs, 10), null);
   assert.equal(recordEntityPath(dbdefs, 0), null);
   assert.equal(recordEntityPath(null, 51), null);
-  assert.equal(Object.keys(RECORD_ENTITIES).length, 5);
+  // a report is a Presentation set (plan 27q3): no entity of its own
+  assert.equal(recordEntityPath(dbdefs, 60), null);
+  assert.equal(Object.keys(RECORD_ENTITIES).length, 4);
 });
 
 test('RecordEditClient: entity records use their URL, relationship records and unknown types stay on /records', async () => {
   const { client, paths } = recordingClient({ entityPath: (type) => recordEntityPath(dbdefs, type) });
-  await client.load(5, { recordType: 60 });
+  await client.load(5, { recordType: 138 });
   await client.insert({ rec_ID: '0', rec_RecTypeID: '61' });
   await client.update({ rec_ID: '5', rec_RecTypeID: 51, rec_Modified: 'x' });
   await client.duplicate(5, { recordType: 52 });
-  await client.validate({ rec_ID: '5', rec_RecTypeID: 60 });
+  await client.validate({ rec_ID: '5', rec_RecTypeID: 138 });
   // the editor of a website also writes its relationship records and steps through other records
   await client.insert({ rec_ID: '0', rec_RecTypeID: 1 });
   await client.load(7);
   await client.remove(8);
   assert.deepEqual(paths, [
-    'GET /report/5',
+    'GET /presentation/5',
     'POST /output/0',
     'PUT /website/5',
     'POST /page/5/duplicate',
-    'POST /report/5/validate',
+    'POST /presentation/5/validate',
     'POST /records/0',
     'GET /records/7',
     'DELETE /records/8'

@@ -127,52 +127,16 @@
 
 .h-crosstabs-viewer-params[hidden] { display: none; }
 
-/* the designer over the whole screen (as the Website manager) */
-.h-crosstabs-designer-host {
-  position: fixed;
-  inset: 0;
-  z-index: 10000;
-  display: flex;
-  flex-direction: column;
-  box-sizing: border-box;
-  background: var(--h-color-bg, #fff);
-}
+/* the designer over the whole screen: host, header and toolbar of presentationShell.css (plan 27q3) */
 
-/* the header of the designer: "Crosstab editor: <name>" and Close (as the Website manager, review 5) */
-.h-crosstabs-designer-header {
-  display: flex;
-  flex: 0 0 auto;
-  align-items: center;
-  gap: 8px;
-  padding: 4px 6px 4px 12px;
-}
-
-.h-crosstabs-designer-title {
+/* the List of the crosstabs in the pane (plan 27q3 §2.1) */
+.h-crosstabs-tool-list-mode {
+  position: relative;
   flex: 1 1 auto;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  font-size: var(--h-font-size-large);
+  min-height: 0;
 }
 
-.h-crosstabs-designer-close { display: inline-flex; flex: 0 0 auto; align-items: center; gap: 6px; }
-
-.h-crosstabs-designer-test {
-  display: flex;
-  flex: 0 0 auto;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 6px 12px;
-  padding-bottom: 6px;
-  border-bottom: 1px solid var(--h-color-border);
-  margin-bottom: 6px;
-}
-
-.h-crosstabs-designer-note {
-  color: var(--h-color-text-muted);
-  font-size: var(--h-font-size-small);
-}
+.h-crosstabs-tool > [hidden] { display: none; }
 
 .h-crosstabs-designer-preview {
   display: flex;

@@ -1,0 +1,176 @@
+/* The common parts of the presentation editors and lists (plan 27q3): the full screen host, its header (title, Close),
+   the toolbar with the fixed groups, the list popup of the selector and the ⋯ menu. */
+
+/* a full screen view: an editor or the Website manager */
+.h-presentation-fullscreen {
+  position: fixed;
+  inset: 0;
+  z-index: 10000;
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+  background: var(--h-color-bg, #fff);
+  container-type: inline-size;
+}
+
+/* the header: "<Kind> editor: <name>" and Close */
+.h-presentation-header {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 6px 4px 12px;
+}
+
+.h-presentation-header-title {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--h-font-size-large);
+}
+
+.h-presentation-header-close {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 6px;
+}
+
+/* the toolbar: New | Selector | Properties | Save | Save as ‖ Scope | Refresh ‖ Publish | Generate ‖ ⋯ | Help */
+.h-presentation-toolbar {
+  container-type: inline-size;
+  display: flex;
+  flex: 0 0 auto;
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: var(--h-gap, 6px);
+  min-width: 0;
+  padding: 6px 8px;
+  overflow: hidden;
+  border-bottom: 1px solid var(--h-color-border);
+}
+
+.h-presentation-btn {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 4px;
+  white-space: nowrap;
+}
+
+.h-presentation-btn[hidden] { display: none; }
+
+.h-presentation-separator {
+  flex: 0 0 auto;
+  align-self: stretch;
+  width: 1px;
+  margin: 2px 4px;
+  background: var(--h-color-border);
+}
+
+/* the last group (⋯, Help) at the right end */
+.h-presentation-toolbar-fill { flex: 1 1 auto; min-width: 0; }
+
+.h-presentation-selector {
+  display: inline-flex;
+  flex: 0 1 280px;
+  align-items: center;
+  gap: 6px;
+  min-width: 80px;
+}
+
+.h-presentation-selector-label {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-align: left;
+}
+
+.h-presentation-scope {
+  display: inline-flex;
+  flex: 0 1 auto;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+  white-space: nowrap;
+}
+
+.h-presentation-scope-select { flex: 0 1 160px; min-width: 0; }
+
+@container (max-width: 640px) {
+  .h-presentation-btn-label,
+  .h-presentation-scope-label { display: none; }
+}
+
+/* the list of the saved configurations under the selector */
+.h-presentation-list-popup {
+  display: flex;
+  flex-direction: column;
+  min-width: 220px;
+  max-height: 60vh;
+  overflow: auto;
+  padding: 4px 0;
+}
+
+.h-presentation-list-item {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  padding: 5px 10px;
+  border: 0;
+  background: none;
+  color: var(--h-color-text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.h-presentation-list-item:hover:not(:disabled) { background: var(--h-color-surface-hover); }
+.h-presentation-list-item.is-active { font-weight: bold; color: var(--h-color-primary); }
+.h-presentation-list-item:disabled { color: var(--h-color-text-muted); cursor: default; }
+
+.h-presentation-list-note {
+  margin-left: auto;
+  color: var(--h-color-text-muted);
+  font-size: var(--h-font-size-small);
+  font-weight: normal;
+}
+
+.h-presentation-list-heading {
+  padding: 4px 10px;
+  background: var(--h-color-selected);
+  color: var(--h-color-text);
+  font-size: var(--h-font-size-small);
+  font-weight: 600;
+}
+
+.h-presentation-list-popup.has-groups .h-presentation-list-item { padding-left: 22px; }
+.h-presentation-list-empty { padding: 6px 10px; }
+
+/* the ⋯ menu */
+.h-presentation-menu {
+  display: flex;
+  flex-direction: column;
+  min-width: 180px;
+  padding: 4px 0;
+}
+
+.h-presentation-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 10px;
+  border: 0;
+  background: none;
+  color: var(--h-color-text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.h-presentation-menu-item:hover:not(:disabled) { background: var(--h-color-surface-hover); }
+.h-presentation-menu-item:disabled { color: var(--h-color-text-muted); cursor: default; }

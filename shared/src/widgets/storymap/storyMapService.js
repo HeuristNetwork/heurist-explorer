@@ -2,7 +2,7 @@
  * @file storyMapService.js
  * @brief Data of the story map (plan 27q1): the Presentation set, the source records, the story elements with their
  *        places and the Smarty cards. Only existing endpoints: `/records`, `/map` (GeoJSON), `/records/querysource/{id}`
- *        and `/report/{id}/execute`. Used by Explorer (tool pane) and the website (element `storymap`).
+ *        and `/presentation/{id}/execute` (a card report, plan 27q3). Used by Explorer (tool pane) and the website (element `storymap`).
  *
  *   const service = new StoryMapService({ apiBaseUrl: runtime.apiBaseUrl, database: runtime.database });
  *   const preset = await service.loadPreset(12);            // {id, title, query, settings, kind}
@@ -241,7 +241,7 @@ export class StoryMapService {
     if (!(Number(template) > 0) || !(Number(recordId) > 0)) return '';
     const key = `${template}:${recordId}:${language}`;
     if (!this._cards.has(key)) {
-      this._cards.set(key, this.get(`/report/${Number(template)}/execute`, { recordId: Number(recordId), lang: language || null }, 'text')
+      this._cards.set(key, this.get(`/presentation/${Number(template)}/execute`, { recordId: Number(recordId), lang: language || null }, 'text')
         .catch(() => ''));
     }
     return this._cards.get(key);

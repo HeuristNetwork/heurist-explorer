@@ -70,7 +70,10 @@ test('outputs of a report with the same query: JSON text and values compare equa
   assert.equal(sameQuery(null, ''), true);
 });
 
-const DEFINITIONS = { RT_REPORT_TEMPLATE: 24, DT_NAME: 1, DT_QUERY_STRING: 12, DT_FILE_NAME: 62, DT_IS_CARD_VIEW: 75, DT_REPORT: 76, TRM_YES: 9 };
+const DEFINITIONS = {
+  RT_PRESENTATION_SET: 24, DT_NAME: 1, DT_QUERY_STRING: 12, DT_FILE_NAME: 62, DT_PRESENTATION_TYPE: 1203, DT_REPORT: 76,
+  TRM_PRESENTATION_CARD_REPORT: 45, TRM_PRESENTATION_LIST_REPORT: 46
+};
 
 /** An application with the definitions and a host that saves new records. */
 function editing(api, answer = { saved: true, recordId: 6 }) {
@@ -89,7 +92,8 @@ test('a template without a record: the record editor with its name; the record t
   const { application, added } = editing(api);
   await application.refresh();
   await application.registerReport(application.findReport('old.tpl'));
-  assert.deepEqual(added, [['RT_REPORT_TEMPLATE', { values: { 1: 'old', 62: 'old.tpl' } }]]);
+  // a report is a Presentation set of kind List Report (plan 27q3)
+  assert.deepEqual(added, [['RT_PRESENTATION_SET', { values: { 1: 'old', 62: 'old.tpl', 1203: 46 } }]]);
   assert.deepEqual(api.calls, []);
   assert.equal(application.selectedRef, '6');
 });
@@ -158,7 +162,7 @@ test('a new report starts with a starter template; a template that has a text ke
   const { application, added } = editing(api);
   await application.refresh();
   await application.newReport();
-  assert.deepEqual(added, [['RT_REPORT_TEMPLATE', {}]]);
+  assert.deepEqual(added, [['RT_PRESENTATION_SET', { values: { 1203: 46 } }]]);
   assert.deepEqual(api.calls, [['saveTemplate', 6, starterTemplate(false)]]);
   assert.equal(application.selectedRef, '6');
   const kept = fakeApi({ readTemplate: async () => ({ body: 'text' }) });

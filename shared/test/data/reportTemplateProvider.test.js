@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { ReportTemplateProvider } from '../../src/data/ReportTemplateProvider.js';
 
-test('ReportTemplateProvider lists the card reports of /report by record id', async () => {
+test('ReportTemplateProvider lists the card reports of /presentation by record id (plan 27q3)', async () => {
   const requested = [];
   const provider = new ReportTemplateProvider({
     baseUrl: 'http://localhost/heurist/', database: 'db1',
@@ -17,7 +17,7 @@ test('ReportTemplateProvider lists the card reports of /report by record id', as
   });
   const templates = await provider.list();
   assert.equal(requested.length, 1);
-  assert.equal(requested[0].pathname, '/heurist/api/db1/report');
+  assert.equal(requested[0].pathname, '/heurist/api/db1/presentation');
   assert.deepEqual(templates, [{ value: '5', label: 'Person card', file: 'person card' }]);
 });
 
@@ -44,7 +44,7 @@ test('ReportTemplateProvider falls back to the legacy list when report records a
   ]);
 });
 
-test('ReportTemplateProvider falls back to the legacy list when /report is missing', async () => {
+test('ReportTemplateProvider falls back to the legacy list when /presentation is missing', async () => {
   const provider = new ReportTemplateProvider({
     baseUrl: 'http://localhost/heurist', database: 'db1',
     fetchImpl: async (url) => (String(url).includes('/api/')

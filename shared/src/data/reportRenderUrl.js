@@ -2,7 +2,7 @@
  * @file reportRenderUrl.js
  * @brief URL that renders one record with a Smarty report template.
  *
- * A report record: `/api/{db}/report/{id}/execute?recordId=N` (plan 30). Templates of the legacy
+ * A report record: `/api/{db}/presentation/{id}/execute?recordId=N` (plan 30; a report is a Presentation set, 27q3). Templates of the legacy
  * default folder (`def/...`) and template names stored in older configurations use the legacy
  * `?template=..&q=ids:N` URL: the API takes record ids only.
  *
@@ -30,7 +30,7 @@ export function buildReportRenderUrl(baseUrl, database, template, recordId) {
   const base = new URL(baseUrl, globalThis.location?.href || 'http://localhost/');
   const name = String(template || '').trim();
   if (/^\d+$/.test(name)) {
-    const url = new URL(`api/${encodeURIComponent(String(database))}/report/${name}/execute`, base);
+    const url = new URL(`api/${encodeURIComponent(String(database))}/presentation/${name}/execute`, base);
     url.searchParams.set('recordId', String(recordId));
     return url;
   }

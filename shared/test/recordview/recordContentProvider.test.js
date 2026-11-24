@@ -19,7 +19,7 @@ test("RecordContentProvider batches lazy Smarty presentation requests", async ()
   });
   assert.equal(result.get(3), "<p>record</p>");
   assert.equal(urls.length, 2);
-  assert.equal(urls[0], "https://example.test/heurist/api/demo/report/12/execute?recordId=3");
+  assert.equal(urls[0], "https://example.test/heurist/api/demo/presentation/12/execute?recordId=3");
 });
 
 test("RecordContentProvider preserves successful content when one request fails", async () => {
@@ -48,7 +48,7 @@ test("RecordContentProvider uses the standard renderer for 'standard'", () => {
 
 test("buildReportRenderUrl: a report by its id on the API; def/ templates and stored names on the legacy URL", () => {
   assert.equal(String(buildReportRenderUrl("https://x.test/h/", "db 1", "12", 5)),
-    "https://x.test/h/api/db%201/report/12/execute?recordId=5");
+    "https://x.test/h/api/db%201/presentation/12/execute?recordId=5");
   assert.equal(buildReportRenderUrl("https://x.test/h/", "demo", "Basic (initial).tpl", 5).searchParams.get("template"), "Basic (initial).tpl");
   const legacy = buildReportRenderUrl("https://x.test/h/", "demo", "def/cards", 5);
   assert.equal(legacy.searchParams.get("template"), "def/cards");

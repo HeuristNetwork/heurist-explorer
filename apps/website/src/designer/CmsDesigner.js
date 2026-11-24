@@ -1962,20 +1962,21 @@ export class CmsDesigner {
 
   /** The Smarty report of the template Team: made when the database has no template file of this name. */
   async _ensureTeamReport() {
-    const list = await this.apiClient.get('/report', { query: { fields: 'rec_ID', limit: 5000 } });
+    // reports are Presentation sets of kind Card / List Report (plan 27q3)
+    const list = await this.apiClient.get('/presentation', { query: { fields: 'rec_ID', limit: 5000 } });
     if (Object.values(list?.meta?.items ?? {}).some((report) => report.file === CMS_TEAM_TEMPLATE)) return;
     const id = (code) => Number(this.options.dbdefs?.dbconst?.(code)) || 0;
-    const created = await this.apiClient.post('/report/0', { body: {
-      rec_RecTypeID: id('RT_REPORT_TEMPLATE'),
+    const created = await this.apiClient.post('/presentation/0', { body: {
+      rec_RecTypeID: id('RT_PRESENTATION_SET'),
       details: {
         [id('DT_NAME')]: ['Team member'],
-        [id('DT_EXTENDED_DESCRIPTION')]: ['A card of one person (website template Team)'],
+        [id('DT_SHORT_SUMMARY')]: ['A card of one person (website template Team)'],
         [id('DT_FILE_NAME')]: [CMS_TEAM_TEMPLATE.replace(/\.tpl$/, '')],
-        [id('DT_IS_CARD_VIEW')]: [id('TRM_YES')]
+        [id('DT_PRESENTATION_TYPE')]: [id('TRM_PRESENTATION_CARD_REPORT')]
       }
     } });
     const reportId = Number(created?.records?.[0]?.rec_ID) || 0;
-    await this.apiClient.request(`/report/${reportId}/asset`, { method: 'PUT', body: { body: teamReportBody(this.options.dbdefs) } });
+    await this.apiClient.request(`/presentation/${reportId}/asset`, { method: 'PUT', body: { body: teamReportBody(this.options.dbdefs) } });
   }
 
   /** Services of the forms of semi-static content (plan 27e): one record manager per kind for the life of the designer. */
@@ -1988,7 +1989,7 @@ export class CmsDesigner {
       describeQuery: typeof this.bridge?.describeQuery === 'function' ? (query) => this.bridge.describeQuery(query) : null,
       // the card templates of Record cards (plan 27e §29): reports marked "Single record (card)"
       cardTemplates: async () => {
-        const response = await this.apiClient.get('/report', { query: { fields: 'rec_ID', limit: 5000 } });
+        const response = await this.apiClient.get('/presentation', { query: { fields: 'rec_ID', limit: 5000 } });
         return Object.values(response?.meta?.items ?? {}).filter((report) => report.isCardView && report.id != null);
       },
       // record pages of the website: links of records, Define new record page (plan 27g §6)

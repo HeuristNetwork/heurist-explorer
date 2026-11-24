@@ -396,3 +396,40 @@
 .h-reports-schedules.is-compact .h-reports-pick-language {
   max-width: 100%;
 }
+
+/* the List of the reports (plan 27q3 §2.1): the setup notice above it when the definitions are missing */
+.h-reports-setup[hidden] { display: none; }
+
+.h-reports-list {
+  position: relative;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+/* the selected report at the right of the List: title, Test | Generate | ⋯, generated reports, output */
+.h-reports-details {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-height: 100%;
+}
+
+.h-reports-details-title {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  font-weight: 600;
+  font-size: var(--h-font-size-large);
+}
+
+.h-reports-details .h-presentation-toolbar { padding: 4px 0; }
+
+.h-reports-details .h-reports-viewer-host {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-height: 240px;
+}
+
+.h-reports-unregistered { margin: 4px 0; padding-left: 18px; }
+.h-reports-unregistered li { display: flex; align-items: center; gap: 6px; }

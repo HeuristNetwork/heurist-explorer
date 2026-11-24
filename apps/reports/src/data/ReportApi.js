@@ -1,7 +1,8 @@
 /**
  * @file ReportApi.js
- * @brief Client of the entities `report` and `output` (plan 30): reports and generated reports are
- *        named by their record id; the file names stay on the server.
+ * @brief Client of the reports and of the entity `output` (plan 30): reports and generated reports are
+ *        named by their record id; the file names stay on the server. A report is a Presentation set of kind
+ *        Card Report or List Report (plan 27q3): its URLs are those of the entity `presentation`.
  *
  * @project     Heurist academic knowledge management system
  * @package     heurist-reports
@@ -37,7 +38,7 @@ export class ReportApi {
    *   missingDefinitions: string[], canSetup: boolean, allowDynamicReports: boolean, settings: object}>}
    */
   async list() {
-    const status = await this.apiClient.get('/report/setup');
+    const status = await this.apiClient.get('/presentation/setup');
     const reports = status?.installed ? await this.reports() : [];
     return {
       ...status,
@@ -47,9 +48,11 @@ export class ReportApi {
     };
   }
 
-  /** @returns {Promise<Array<object>>} The visible reports, with their values (`meta.items`). */
+  /** @returns {Promise<Array<object>>} The visible reports, with their values (`meta.items`: reports only). */
   async reports() {
-    return described(await this.apiClient.get('/report', { query: { fields: 'rec_ID,rec_Title', limit: SEARCH_LIMIT } }));
+    const response = await this.apiClient.get('/presentation', { query: { fields: 'rec_ID,rec_Title', limit: SEARCH_LIMIT } });
+    const items = response?.meta?.items || {};
+    return described({ ...response, records: (response?.records || []).filter((record) => items[record.rec_ID]) });
   }
 
   /** @returns {Promise<Array<object>>} The visible outputs, with their report, query, language and file. */
@@ -70,12 +73,12 @@ export class ReportApi {
   /**
    * Create a report record; its template file comes with it (ReportEntityHandler, without a file name from the title).
    *
-   * @param {number} rectypeId Record type Custom Report.
+   * @param {number} rectypeId Record type Presentation set (with the kind in the details).
    * @param {Object<number, Array>} details Values by field id.
    * @returns {Promise<number>} Record id.
    */
   async createRecord(rectypeId, details) {
-    const response = await this.apiClient.post('/report/0', { body: { rec_RecTypeID: rectypeId, details } });
+    const response = await this.apiClient.post('/presentation/0', { body: { rec_RecTypeID: rectypeId, details } });
     return Number(response?.records?.[0]?.rec_ID) || 0;
   }
 
@@ -98,7 +101,7 @@ export class ReportApi {
 
   /** Delete a template file without a record (parameter `name`: the root router sends any `?file=` to fileDownload.php). */
   async removeFile(file) {
-    return this.apiClient.request('/report/setup', { method: 'DELETE', query: { name: file } });
+    return this.apiClient.request('/presentation/setup', { method: 'DELETE', query: { name: file } });
   }
 
   /** Delete an output and its file. */
@@ -113,19 +116,21 @@ export class ReportApi {
 
   /** Install the report record types and convert old schedules (managers). */
   async setup() {
-    return this.apiClient.post('/report/setup', { body: {} });
+    return this.apiClient.post('/presentation/setup', { body: {} });
   }
 
   /**
    * Import a .gpl/.tpl file.
    *
    * @param {File} file Uploaded file.
+   * @param {'list'|'card'} [kind='list'] Kind of the new report.
    * @returns {Promise<object>} The new report.
    */
-  async importFile(file) {
+  async importFile(file, kind = 'list') {
     const form = new FormData();
     form.append('import_template', file, file.name);
-    const response = await this.apiClient.fetchImpl(this.apiClient.buildUrl('/report/import'), {
+    form.append('kind', kind === 'card' ? 'card' : 'list');
+    const response = await this.apiClient.fetchImpl(this.apiClient.buildUrl('/presentation/import'), {
       method: 'POST',
       body: form,
       credentials: 'same-origin',
@@ -211,11 +216,11 @@ function described(response) {
   }));
 }
 
-/** `/report/<id>` */
+/** `/presentation/<id>` (a report is a Presentation set, plan 27q3) */
 function path(reportId) {
   const id = Number(reportId);
   if (!(id > 0)) throw new TypeError('A report record id is required');
-  return `/report/${id}`;
+  return `/presentation/${id}`;
 }
 
 /** `/output/<id>` */

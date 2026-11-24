@@ -115,6 +115,11 @@
   download it, and it is kept for 24 hours. You can switch to another module or reload the page: a running
   export continues and is shown again when you open Export. <strong>Stop</strong> ends it.
   <strong>Export results</strong> lists your finished exports: download them, open them in a new tab, or mark them and remove them. A new export is refused while your export results take more than 100 MB.</p>
+  <p>The toolbar is the one of all presentations: <em>New</em> (the default settings); the list of <em>saved
+  exports</em>; the pen edits the record of a saved export (name, owner, visibility); <em>Save</em> keeps the settings
+  in the saved export shown (a new one is named in the record editor); <em>Save as</em> makes a new saved export;
+  <em>Export</em> writes the file; ⋯ <em>Delete</em> removes the saved export. A saved export is a record (Presentation
+  set) that others can use.</p>
   <ul>
     <li><strong>Scope</strong>: the current result, the selected records, or one record type of
     the result. The tool follows the current data source and selection.</li>
@@ -146,11 +151,15 @@
   the records that describe it in time and on the map, the <em>story elements</em> (the life events of the person, the
   campsites of the expedition). The story is shown in the tool pane; the current element is shown on the Map. A story
   map is saved as a record (Presentation set) and can be placed on a website page.</p>
+  <p>The <strong>Story map pane</strong> shows a story map: choose it in the list; <strong>Edit</strong> and
+  <strong>New</strong> open the editor over the whole screen. The <strong>List</strong> button on the header of the pane
+  shows all story maps: the pen-and-ruler icon opens the editor, the pen edits the record, the bin deletes it (refused
+  while website pages use it); on the right, the website pages that show the selected story map.</p>
   <ul>
-    <li><strong>Toolbar</strong>: <em>New story</em>; the list of story maps; <em>Story editor</em> shows or hides the
-    configuration; the pen edits the record (name, owner, visibility); Save; Delete (refused while website pages use
-    the story map); <em>Run</em> shows the story topics as the result and the story of the first one. Select another
-    record of the result to see its story.</li>
+    <li><strong>Editor toolbar</strong>: <em>New story</em>; the list of story maps; the pen edits the record (name,
+    owner, visibility); <em>Save</em>; <em>Save as</em>; <em>Run</em> shows the story topics as the result and the story
+    of the first one; Help; <em>Close</em> on the header asks about unsaved changes. Select another record of the result
+    to see its story.</li>
     <li><strong>Source</strong>: the query of the story topics; the story elements, found by an expansion rule from
     the topic (all of one record type); their order (a date, as found, or by hand for each story); the start and end
     info (a text or a template run on the topic); the most elements read.</li>
@@ -181,12 +190,17 @@
     the parameter <code>$SELECTED$</code> takes the selected records.</li>
     <li><strong>Edit</strong> and <strong>New</strong> open the designer; <strong>Publish</strong> makes a web page
     with the crosstab and the records shown now.</li>
+    <li><strong>List</strong> (on the header of the pane): all crosstabs. The pen-and-ruler icon opens the designer,
+    the pen edits the record, the bin deletes the crosstab (refused while website pages use it). On the right, the
+    website pages that show the selected crosstab: open, copy the address, edit, delete a standalone page.</li>
   </ul>
   <p>The <strong>designer</strong> fills the whole screen: the configuration on the left, a preview on the right.
-  <em>Test on</em>: the current result (as it was when the designer opened) or the own query; the main search does not
-  change the preview. Toolbar: <em>New crosstab</em>; the list of crosstabs; the pen edits the record (name, owner,
-  visibility); <em>Save</em>; <em>Save as</em> (a new crosstab with the Name of the form, "(copy)" added when the Name
-  is not changed); <em>Delete</em> (refused while website pages use the crosstab); Help; <em>Close</em>.</p>
+  The toolbar is the one of all presentations: <em>New crosstab</em>; the list of crosstabs; the pen edits the record
+  (name, owner, visibility); <em>Save</em>; <em>Save as</em> (a new crosstab with the Name of the form, "(copy)" added
+  when the Name is not changed); <em>Test on</em>: the current result (as it was when the designer opened) or the own
+  query, the main search does not change the preview; <em>Refresh</em> counts again (with the current result of now);
+  <em>Publish</em> saves the crosstab and makes a web page; Help. <em>Close</em> is on the header. A crosstab is deleted
+  in the List of the pane.</p>
   <ul>
     <li><strong>Source</strong>: the name; the <em>Query</em> (its own records; ▾ copies the current result or a saved
     filter; it may have parameters); the <em>Record type</em>: the types of the test records with their number. Only

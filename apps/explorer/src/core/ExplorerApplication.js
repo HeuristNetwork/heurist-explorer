@@ -1963,7 +1963,7 @@ export class ExplorerApplication {
         report: (body) => this._createReportsTool(body),
         export: (body) => this._createExportTool(body),
         actions: (body) => this._createActionsTool(body),
-        storymap: (body) => this._createStoryMapTool(body),
+        storymap: (body, module) => this._createStoryMapTool(body, module),
         crosstabs: (body, module) => this._createCrosstabsTool(body, module)
       }[definition.type] || null
     });
@@ -2020,9 +2020,9 @@ export class ExplorerApplication {
   async openWebsiteManager({ recordId = null, design = null } = {}) {
     try {
       if (!this._websiteManager) {
-        const host = document.createElement('div');
-        host.className = 'h-website-manager-host';
-        document.body.append(host);
+        // the full screen host of the presentation views (plan 27q3 §2.3)
+        const { openFullScreenHost } = await import('#shared/widgets/presentation/presentationShell.js');
+        const host = openFullScreenHost('h-website-manager-host');
         const mount = this._websiteMounter || mountDirectWebsite;
         this._websiteManager = mount(this._websiteMountOptions(host, () => this.closeWebsiteManager()));
         this._websiteManager.host = host;
@@ -2455,7 +2455,10 @@ export class ExplorerApplication {
       getDataSource: () => (this.sync?.dataSource ? cloneDataSource(this.sync.dataSource) : null),
       getSelection: () => [...(this.sync?.selection || [])],
       database: this.config.database,
-      language: this.config.language
+      language: this.config.language,
+      // saved export settings are Presentation sets of kind Export (plan 27q3): named in the record editor
+      addRecord: this.config.published ? null : (type, options) => this.addRecord(type, options),
+      editRecord: this.config.published ? null : (id) => this.editRecord(id)
     });
     body.replaceChildren();
     tool.attach(body);
@@ -2500,16 +2503,38 @@ export class ExplorerApplication {
   }
 
   /**
-   * Create the Story map tool (plan 27q1 §7) in its body: the story of the selected record, its current element on
-   * the Map module of Explorer. Loaded only now (its own chunk).
+   * Create the Story map tool (plan 27q1 §7) in its body: the viewer of story maps (plan 27q3), the story of the selected
+   * record, its current element on the Map module of Explorer; Edit / New open the full screen editor. Loaded only now
+   * (its own chunk).
    *
    * @private
    * @param {HTMLElement} body Tool body.
+   * @param {object} [module] Its ExplorerToolModule (`actions`: the buttons on the header).
    * @returns {Promise<object>} The StoryMapTool.
    */
-  async _createStoryMapTool(body) {
+  async _createStoryMapTool(body, module = null) {
     const { StoryMapTool } = await (this._storyMapLoader || loadStoryMapTool)();
-    const tool = new StoryMapTool({
+    const tool = new StoryMapTool(this._storyMapOptions({
+      mode: 'viewer',
+      headerActions: module?.actions || null,
+      openDesigner: this.config.published ? null : (presetId) => this.openStoryMapDesigner(presetId),
+      editPage: this.config.published ? null : (id) => void this.openWebsiteManager({ recordId: id })
+    }));
+    body.replaceChildren();
+    tool.attach(body);
+    await tool.render();
+    return tool;
+  }
+
+  /**
+   * The options of the Story map viewer and editor.
+   *
+   * @private
+   * @param {object} own Options of the mode.
+   * @returns {object}
+   */
+  _storyMapOptions(own) {
+    return {
       apiClient: this.apiClient,
       getDbDefs: () => this._ensureDbDefs(),
       getDataSource: () => (this.sync?.dataSource ? cloneDataSource(this.sync.dataSource) : null),
@@ -2527,13 +2552,46 @@ export class ExplorerApplication {
       formServices: () => this.recordEditing.formServices(),
       editSymbology: (value, options) => this.recordEditing.symbology.edit(value, options),
       // Help: the Story map section of the Explorer manual
-      openManual: (anchor) => this.openManual(anchor),
-      runtime: this._reportsRuntime()
-    });
-    body.replaceChildren();
-    tool.attach(body);
-    await tool.render();
-    return tool;
+      openManual: this.config.published ? null : (anchor) => this.openManual(anchor),
+      runtime: this._reportsRuntime(),
+      ...own
+    };
+  }
+
+  /**
+   * The story map editor over the whole screen (plan 27q3 §2.3, as the crosstab editor): the form and the story.
+   * Resolves when it is closed (unsaved changes are asked first).
+   *
+   * @param {number} [presetId] Presentation set id, 0: a new story map.
+   * @returns {Promise<{presetId: number}|null>} The story map shown when it was closed; null when it could not open.
+   */
+  async openStoryMapDesigner(presetId = 0) {
+    if (this._storyMapDesigner) return this._storyMapDesigner.closed;
+    const { openFullScreenHost } = await import('#shared/widgets/presentation/presentationShell.js');
+    const host = openFullScreenHost('h-storymap-designer-host');
+    let resolveClosed;
+    const closed = new Promise((resolve) => { resolveClosed = resolve; });
+    const entry = { host, closed, designer: null };
+    this._storyMapDesigner = entry;
+    const finish = (result) => {
+      if (this._storyMapDesigner !== entry) return;
+      this._storyMapDesigner = null;
+      void Promise.resolve(entry.designer?.destroy()).catch(() => {}).finally(() => host.remove());
+      resolveClosed(result);
+    };
+    try {
+      const { StoryMapTool } = await (this._storyMapLoader || loadStoryMapTool)();
+      const designer = new StoryMapTool(this._storyMapOptions({ mode: 'editor', onClose: (result) => finish(result) }));
+      entry.designer = designer;
+      designer.attach(host);
+      await designer.render();
+      if (Number(presetId) > 0) await designer.openPreset(Number(presetId));
+      else await designer.newStoryMap();
+    } catch (error) {
+      HMsg.showMsgErr?.(error?.message || String(error));
+      finish(null);
+    }
+    return closed;
   }
 
   /**
@@ -2556,6 +2614,9 @@ export class ExplorerApplication {
       // a published Explorer (a website page): the viewer only (review 2026-11-23)
       openDesigner: this.config.published ? null : (presetId) => this.openCrosstabsDesigner(presetId),
       publish: this.config.published ? null : (options) => this.publishCrosstab(options),
+      // the List of the crosstabs (plan 27q3 §2.1): Properties, and Edit of a page that shows a crosstab
+      editRecord: this.config.published ? null : (id) => this.editRecord(id),
+      editPage: this.config.published ? null : (id) => void this.openWebsiteManager({ recordId: id }),
       openManual: this.config.published ? null : (anchor) => this.openManual(anchor),
       // Publish and Help on the header of the pane, as the modules (review 5)
       headerActions: module?.actions || null,
@@ -2578,9 +2639,9 @@ export class ExplorerApplication {
    */
   async openCrosstabsDesigner(presetId = 0) {
     if (this._crosstabsDesigner) return this._crosstabsDesigner.closed;
-    const host = document.createElement('div');
-    host.className = 'h-crosstabs-designer-host';
-    document.body.append(host);
+    // the full screen host of the presentation editors (plan 27q3 §2.3)
+    const { openFullScreenHost } = await import('#shared/widgets/presentation/presentationShell.js');
+    const host = openFullScreenHost('h-crosstabs-designer-host');
     let resolveClosed;
     const closed = new Promise((resolve) => { resolveClosed = resolve; });
     const entry = { host, closed, designer: null };
@@ -2604,6 +2665,8 @@ export class ExplorerApplication {
         formServices: () => this.recordEditing.formServices(),
         openManual: (anchor) => this.openManual(anchor),
         selectExtent: this.config.moduleUrls?.map ? (current) => this.selectFilterExtent(current) : null,
+        // Publish of the editor (plan 27q3 §3): the crosstab is saved first
+        publish: (options) => this.publishCrosstab(options),
         onClose: (result) => finish(result),
         runtime: this._reportsRuntime()
       });
@@ -2660,21 +2723,20 @@ export class ExplorerApplication {
   }
 
   /**
-   * Open a story map in its tool (the CMS designer: Edit in new window, `?tool=storymap&preset=<id>`): the tool is
-   * shown, its source records become the result and the first one is selected.
+   * Open a story map in its editor (the CMS designer: Edit in new window, `?tool=storymap&preset=<id>`, plan 27q3); when
+   * it is closed the Story map pane (if placed) shows it, its source records become the result and the first one is
+   * selected.
    *
    * @param {number} presetId Presentation set id.
-   * @returns {Promise<boolean>} False when the tool or the story map is not there.
+   * @returns {Promise<boolean>} False when the editor or the story map is not there.
    */
   async openStoryMap(presetId) {
+    const result = await this.openStoryMapDesigner(Number(presetId) || 0);
+    if (!result) return false;
     const module = await this.showPresentation('storymap');
-    if (!module) {
-      HMsg.showMsgErr?.($HR('Place the Story map tool in a pane (Options > Layout)'));
-      return false;
-    }
-    const tool = await module.ready?.();
-    if (!tool?.openPreset) return false;
-    const opened = await tool.openPreset(Number(presetId), { showSource: true });
+    const tool = await module?.ready?.();
+    if (!tool?.openPreset || !result.presetId) return Boolean(result);
+    const opened = await tool.openPreset(Number(result.presetId), { showSource: true });
     // the first source record is selected: its story is shown
     if (opened && tool.preset?.query != null) {
       const [first] = await tool.service.queryIds(tool.preset.query, 1).catch(() => []);
@@ -2695,7 +2757,7 @@ export class ExplorerApplication {
       // report records are system records: Explorer's record editor (plan 14)
       editRecord: (id) => this.editRecord(id),
       addRecord: (rt, options) => this.addRecord(rt, options),
-      canEditRecords: () => this.canEditRecordType('RT_REPORT_TEMPLATE'),
+      canEditRecords: () => this.canEditRecordType('RT_PRESENTATION_SET'),
       // the report record types were installed: load the definitions again
       definitionsChanged: () => this._definitionsChanged(),
       describeQuery: (query) => this._describeQuery(query),

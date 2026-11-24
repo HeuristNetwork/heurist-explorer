@@ -3,8 +3,10 @@
  * @brief The Crosstabs pane of Explorer (plan 27q2 §17, presentation-sources.md): the viewer of crosstabs. It changes no
  *        configuration: Edit and New open the full screen designer (CrosstabsDesigner, through Explorer).
  *
- * Toolbar: crosstab chooser | Source (Current result / Own query) | Edit | New; Publish and Help on the header of the pane
- * (as the modules, review 5). With the source *Current
+ * Toolbar: crosstab chooser | Source (Current result / Own query) | Edit | New; List, Publish and Help on the header of the
+ * pane (as the modules, review 5). **List** (plan 27q3 §2.1) shows the crosstabs of the database in the pane instead of the
+ * viewer: Edit opens the designer, Properties the record editor, Delete asks first; the right side lists the website pages
+ * that show the selected crosstab (field 2-1204). With no crosstab yet the List opens the designer at once. With the source *Current
  * result* the pane counts Explorer's result (AND the record type of the crosstab) and the chooser lists first the crosstabs
  * whose record type is in the result (with the count), the others below and disabled; when exactly one fits and none is
  * chosen it is opened. With *Own query* it counts the query of the crosstab; `$SELECTED$` gets the selection, other
@@ -28,6 +30,8 @@ import { HCrosstab } from '#shared/widgets/crosstabs/HCrosstab.js';
 import { CrosstabService } from '#shared/widgets/crosstabs/crosstabService.js';
 import { CrosstabParams, ownCount } from '#shared/widgets/crosstabs/crosstabParams.js';
 import { ownQuery, SELECTED_PARAMETER } from '#shared/data/presentationSource.js';
+import { HPresentationList } from '#shared/widgets/presentation/HPresentationList.js';
+import { describePresentationUse, renderPresentationPages } from '#shared/widgets/presentation/presentationPages.js';
 import { loadScopeRecordTypes } from '../toolScope.js';
 import {
   crosstabFieldLabel, crosstabLabels, element, groupCrosstabPresets, loadCrosstabPresets, presetSelector, toolButton,
@@ -49,6 +53,8 @@ export class CrosstabsTool extends HBaseWidget {
    * @param {function(number): Promise<{presetId: number}|null>} [options.openDesigner] The full screen designer of a
    *        crosstab (0: a new one); resolves when it is closed.
    * @param {function({presetId: number, query: *}): Promise<void>} [options.publish] Publish the crosstab with the query.
+   * @param {function(number): Promise<{saved?: boolean}>} [options.editRecord] The record editor (Properties of the List).
+   * @param {function(number): *} [options.editPage] Edit a website page that shows a crosstab (the List).
    * @param {function(string): void} [options.openManual] Explorer manual at a section (Help: `crosstabs`).
    * @param {Function} [options.selectExtent] Map extent picker of geo parameters of the Filter Form.
    * @param {HTMLElement|null} [options.headerActions] The buttons on the header of the pane (Publish, Help).
@@ -97,6 +103,7 @@ export class CrosstabsTool extends HBaseWidget {
     });
     this.view = element('div', 'h-crosstabs-tool-view');
     body.append(this.paramsHost, this.view);
+    this.bodyElement = body;
     this.container.replaceChildren(this.toolbar, body);
     this.crosstab = new HCrosstab().attach(this.view, {
       service: this.service,
@@ -174,8 +181,62 @@ export class CrosstabsTool extends HBaseWidget {
     await this._apply();
   }
 
+  /**
+   * The List of the crosstabs in the pane (27q3 §2.1), or the viewer again.
+   *
+   * @param {boolean} [show] Show the List; default: the other one.
+   * @returns {Promise<void>}
+   */
+  async toggleList(show = !this.list) {
+    if (!show) {
+      await this.list?.destroy();
+      this.list = null;
+      this.listHost?.remove();
+      this.listHost = null;
+      this.toolbar.hidden = false;
+      this.bodyElement.hidden = false;
+      this._renderHeaderActions();
+      return;
+    }
+    if (this.list) return;
+    this.toolbar.hidden = true;
+    this.bodyElement.hidden = true;
+    this.listHost = element('div', 'h-crosstabs-tool-list-mode');
+    this.container.append(this.listHost);
+    this._renderHeaderActions();
+    const publish = this.tool.publish;
+    this.list = new HPresentationList().attach(this.listHost, {
+      apiClient: this.tool.apiClient,
+      dbdefs: this.dbdefs,
+      kinds: ['crosstabs'],
+      title: 'Crosstabs',
+      newLabel: 'New crosstab',
+      selectedId: this.preset?.id || null,
+      canEdit: Boolean(this.tool.openDesigner),
+      onNew: this.tool.openDesigner ? () => void this._design(0) : null,
+      onEdit: this.tool.openDesigner ? (id) => void this._design(id) : null,
+      editRecord: this.tool.editRecord || null,
+      describeUse: (id) => describePresentationUse(this.tool.apiClient, this.dbdefs, id),
+      onDeleted: (id) => void this._deleted(id),
+      // no crosstab yet: the designer at once (27q3 §2.2)
+      onEmpty: this.tool.openDesigner ? () => void this._design(0) : null,
+      renderOutputs: (id, host) => renderPresentationPages(host, {
+        apiClient: this.tool.apiClient,
+        dbdefs: this.dbdefs,
+        presentationId: id,
+        editPage: this.tool.editPage || null,
+        publish: publish ? () => void this._publishPreset(id) : null
+      }),
+      baseUrl: this.tool.runtime?.baseUrl,
+      database: this.tool.runtime?.database
+    });
+    await this.list.render();
+  }
+
   /** @returns {Promise<void>} */
   async destroy() {
+    await this.list?.destroy();
+    this.list = null;
     this.params?.hide();
     this.tool.headerActions?.replaceChildren();
     await this.crosstab?.destroy();
@@ -302,7 +363,7 @@ export class CrosstabsTool extends HBaseWidget {
     this._renderHeaderActions();
   }
 
-  /** @private Publish and Help on the header of the pane (icon buttons as the module panels); none on a website. */
+  /** @private List, Publish and Help on the header of the pane (icon buttons as the module panels); none on a website. */
   _renderHeaderActions() {
     const host = this.tool.headerActions;
     if (!host) return;
@@ -317,7 +378,13 @@ export class CrosstabsTool extends HBaseWidget {
       host.append(node);
       return node;
     };
-    if (this.tool.publish) {
+    // the List of the crosstabs and their pages (27q3 §2.1), not on a website
+    if (this.tool.openDesigner) {
+      const list = button(this.list ? 'fa-table-cells' : 'fa-list-ul', this.list ? 'Back to the crosstab' : 'List of the crosstabs and their published pages',
+        () => void this.toggleList());
+      list.classList.toggle('is-active', Boolean(this.list));
+    }
+    if (this.tool.publish && !this.list) {
       button('fa-share-nodes', 'Publish the crosstab as a web page', () => void this._publish()).disabled = !this.preset;
     }
     if (this.tool.openManual) button('fa-circle-question', 'Help of the crosstabs', () => this.tool.openManual('crosstabs'));
@@ -366,10 +433,27 @@ export class CrosstabsTool extends HBaseWidget {
     showPopover(anchor, list, { className: 'h-crosstabs-tool-popover' });
   }
 
-  /** @private The designer (full screen); the pane shows the crosstab closed there. */
+  /** @private The designer (full screen); the pane shows the crosstab closed there (and the List is read again). */
   async _design(presetId) {
     const result = await this.tool.openDesigner?.(presetId);
     await this.reload(result?.presetId || 0);
+    if (this.list) {
+      this.list.selectedId = result?.presetId || this.list.selectedId;
+      await this.list.reload();
+    }
+  }
+
+  /** @private A crosstab was deleted in the List. */
+  async _deleted(id) {
+    if (this.preset?.id === id) this.preset = null;
+    await this.reload(0);
+  }
+
+  /** @private Publish a crosstab of the List (with its own query). */
+  async _publishPreset(id) {
+    const item = this.presets.find((preset) => preset.id === Number(id));
+    await this.tool.publish?.({ presetId: Number(id), title: item?.title || '', query: null, source: 'own', presets: this.presets });
+    await this.list?.select(Number(id));
   }
 
   /** @private Publish the crosstab with the records shown now (presentation-sources.md §6). */

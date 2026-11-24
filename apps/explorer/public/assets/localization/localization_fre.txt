@@ -1683,3 +1683,44 @@
 #Close the crosstab editor#Fermer l'éditeur du tableau croisé
 #Publish the crosstab as a web page#Publier le tableau croisé comme page web
 #No matching records#Aucun enregistrement correspondant
+#Changed#Modifié
+#Choose#Choisir
+#Copy the address#Copier l'adresse
+#Delete the page#Supprimer la page
+#Edit the page#Modifier la page
+#Generate#Générer
+#Generate the output#Générer la sortie
+#It has generated reports: delete them first#Il a des rapports générés : supprimez-les d'abord
+#It is not published on a web page yet#Il n'est pas encore publié sur une page web
+#It is used by website pages and can not be deleted#Il est utilisé par des pages de sites web et ne peut pas être supprimé
+#More actions#Plus d'actions
+#Name, description, owner and visibility#Nom, description, propriétaire et visibilité
+#Nothing saved yet#Rien n'est encore enregistré
+#Open the editor#Ouvrir l'éditeur
+#Properties#Propriétés
+#Properties: name, description, owner and visibility#Propriétés : nom, description, propriétaire et visibilité
+#Publish as a web page#Publier comme page web
+#Published pages#Pages publiées
+#Refresh#Actualiser
+#Run the preview again#Relancer l'aperçu
+#Save as a new one#Enregistrer comme nouveau
+#Select an item of the list#Sélectionnez un élément de la liste
+#The address is copied#L'adresse est copiée
+#There are unsaved changes. Save changes?#Il y a des modifications non enregistrées. Enregistrer les modifications ?
+#This database has no Presentation sets of this kind (2-1112)#Cette base de données n'a pas de jeux de présentation de ce type (2-1112)
+#in a website#dans un site web
+#A new story map in the editor (full screen)#Une nouvelle carte narrative dans l'éditeur (plein écran)
+#Apply new map document?#Appliquer le nouveau document cartographique ?
+#Apply new queries?#Appliquer les nouvelles requêtes ?
+#Back to the crosstab#Retour au tableau croisé
+#Back to the story map#Retour à la carte narrative
+#Close the story map editor#Fermer l'éditeur de carte narrative
+#Count the test records again (Current result: the result of now)#Compter à nouveau les enregistrements de test (Résultat actuel : le résultat de maintenant)
+#List of the crosstabs and their published pages#Liste des tableaux croisés et de leurs pages publiées
+#List of the story maps and their published pages#Liste des cartes narratives et de leurs pages publiées
+#Open the story map in the editor (full screen)#Ouvrir la carte narrative dans l'éditeur (plein écran)
+#Publish the crosstab as a web page (saved first)#Publier le tableau croisé comme page web (enregistré d'abord)
+#Save the changes as a new story map#Enregistrer les modifications comme nouvelle carte narrative
+#Story map editor#Éditeur de carte narrative
+#Story maps#Cartes narratives
+#The records of the preview: a snapshot of the current result (Refresh takes it again), or the query of the crosstab. The main search does not change the preview.#Les enregistrements de l'aperçu : un instantané du résultat actuel (Actualiser le reprend), ou la requête du tableau croisé. La recherche principale ne change pas l'aperçu.

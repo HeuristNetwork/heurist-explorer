@@ -121,3 +121,11 @@
 @media (max-width: 800px) {
   .h-reports-editor-center-tools .h-reports-tool-label { display: none; }
 }
+
+/* under the header and the common toolbar (plan 27q3 §2.3) the panes fill the rest of the screen */
+.h-reports-editor-frame > .h-reports-editor {
+  position: relative;
+  flex: 1 1 auto;
+  height: auto;
+  min-height: 0;
+}

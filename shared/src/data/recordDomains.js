@@ -47,9 +47,9 @@ export const RECORD_TYPE_DOMAINS = Object.freeze({
 export const RECORD_ENTITIES = Object.freeze({
   RT_CMS_HOME: 'website',
   RT_CMS_PAGE: 'page',
-  RT_REPORT_TEMPLATE: 'report',
   RT_REPORT_OUTPUT: 'output',
-  // stored settings of a story map, crosstabs or export (plan 27q1)
+  // stored settings of a story map, crosstabs, export or report (plan 27q1; reports: plan 27q3, the entity `report` of
+  // RT_REPORT_TEMPLATE is gone)
   RT_PRESENTATION_SET: 'presentation'
 });
 

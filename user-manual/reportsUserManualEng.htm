@@ -14,10 +14,16 @@
 </head>
 <body>
 <h1>Heurist Reports</h1>
-<p>The reports manager lists the Smarty report templates of the database. A report
-is a <i>Custom Report</i> record (title, description, template file, card flag); the
-template text is kept in a file. Templates without a record are listed under
-<i>Templates without a report record</i> and can be given one.</p>
+<p>The Report pane is the list of the Smarty reports of the database (the same list as
+crosstabs and story maps). A report is a <i>Presentation set</i> record of the kind
+<i>Card Report</i> or <i>List Report</i> (title, short summary, template file); the
+template text is kept in a file. <b>New report</b> asks the kind and opens the record editor;
+<b>Import</b> reads a <code>.gpl</code> or <code>.tpl</code> file. In the list the
+pen-and-ruler icon opens the template editor, the pen edits the record, the bin deletes the
+report (refused while it has generated reports). On the right: <b>Test</b>, <b>Generate</b>
+and ⋯ (<i>Edit the template</i>, <i>Export</i>) for the selected report, then its generated
+reports (a List Report) or a preview of the first selected record (a Card Report). With no
+report selected, the template files without a record are listed: register them or delete them.</p>
 
 <h2 id="types">Two kinds of report</h2>
 <ul>
@@ -28,7 +34,11 @@ popups, cards and Record view in Map, Data, Graph and Record view.</li>
 </ul>
 
 <h2 id="editor">Editing a template</h2>
-<p>Choose a report and click <b>Edit template</b>. Place the cursor in the text, choose
+<p>The template editor fills the whole screen; its toolbar is the one of all presentations:
+<b>New report</b>, the list of reports, the pen (the record), <b>Save</b>, <b>Save as</b>,
+<b>Test</b>, <b>Generate</b> (a List Report; the template is saved first), ⋯ <b>Export</b>;
+<b>Close</b> is on the header and asks about unsaved changes.</p>
+<p>Open the editor of a report from the list. Place the cursor in the text, choose
 a record type on the right and click a field to insert it. The insert options decide
 whether the field name, a line break, a test for an empty value or a loop for
 repeating values are added. For an enumeration field choose its label, code or

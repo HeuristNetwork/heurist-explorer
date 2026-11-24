@@ -1,0 +1,117 @@
+/* The List of a presentation type (plan 27q3 §2.1): configurations at the left, the outputs of the selected one at the
+   right; the pages panel (presentationPages.js). */
+.h-presentation-list {
+  position: relative;
+  box-sizing: border-box;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  font-size: var(--h-font-size);
+}
+
+.h-presentation-list-west,
+.h-presentation-list-outputs {
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+}
+
+.h-presentation-list-outputs { padding: 8px; overflow: auto; }
+
+/* the title of the type and New */
+.h-presentation-list-bar {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--h-color-border);
+}
+
+.h-presentation-list-title {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 600;
+  font-size: var(--h-font-size-large);
+}
+
+.h-presentation-list-records {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.h-presentation-list-records > .h-record-manager { flex: 1 1 auto; min-height: 0; }
+
+.h-presentation-list-hint { margin: 8px 0; }
+
+/* a row: Edit first, the kind at the right, the summary on its own line */
+.h-presentation-list .h-recordlist-item { flex-wrap: wrap; }
+
+.h-presentation-row { display: contents; }
+
+.h-presentation-row-tool.is-edit { order: -1; color: var(--h-color-primary); }
+.h-presentation-row-tool.is-properties,
+.h-presentation-row-tool.is-delete { order: 20; }
+
+.h-presentation-row-kind {
+  order: 10;
+  margin-left: auto;
+  padding: 0 6px;
+  border: 1px solid var(--h-color-border);
+  border-radius: 8px;
+  color: var(--h-color-text-muted);
+  font-size: var(--h-font-size-tiny);
+  white-space: nowrap;
+}
+
+.h-presentation-row-summary {
+  order: 30;
+  flex: 1 0 100%;
+  padding-left: 24px;
+  overflow: hidden;
+  color: var(--h-color-text-muted);
+  font-size: var(--h-font-size-small);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* the pages of a presentation */
+.h-presentation-pages { display: flex; flex-direction: column; gap: 6px; }
+
+.h-presentation-pages-title { font-weight: 600; }
+
+.h-presentation-pages-table { width: 100%; border-collapse: collapse; }
+
+.h-presentation-pages-table th {
+  padding: 3px 6px;
+  border-bottom: 1px solid var(--h-color-border);
+  color: var(--h-color-text-muted);
+  font-size: var(--h-font-size-small);
+  font-weight: normal;
+  text-align: left;
+}
+
+.h-presentation-pages-table td {
+  padding: 3px 6px;
+  border-bottom: 1px solid var(--h-color-border);
+  vertical-align: middle;
+}
+
+.h-presentation-pages-name { overflow-wrap: anywhere; }
+
+.h-presentation-pages-note {
+  margin-left: 6px;
+  color: var(--h-color-text-muted);
+  font-size: var(--h-font-size-small);
+}
+
+.h-presentation-pages-date { white-space: nowrap; color: var(--h-color-text-muted); }
+.h-presentation-pages-tools { white-space: nowrap; text-align: right; }

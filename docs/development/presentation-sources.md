@@ -1,7 +1,8 @@
 # Presentation sources: configuration, instance, viewer and designer
 
 **Status.** Agreed with Artem 2026-11-22 (review 1 of plan 27q2). First applied to Crosstabs (27q2 §17). Story map,
-Report and Export follow later, each as its own step.
+Report and Export follow later, each as its own step. The common UI (Viewer / List / Editor, toolbar slots, outputs)
+is in `27q3 Presentation-Workflow-Plan.md` (2026-11-24).
 
 ## 1. The problem
 

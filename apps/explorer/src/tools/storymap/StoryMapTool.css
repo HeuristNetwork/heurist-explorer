@@ -175,3 +175,15 @@
   max-height: 60vh;
   overflow: auto;
 }
+
+/* the List of the story maps in the pane (plan 27q3 §2.1) */
+.h-storymap-tool-list-mode {
+  position: relative;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.h-storymap-tool > [hidden] { display: none; }
+
+/* the editor over the whole screen (host and header of presentationShell.css): the form is always open */
+.h-storymap-tool.is-editor { flex: 1 1 auto; min-height: 0; }

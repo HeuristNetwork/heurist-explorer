@@ -48,7 +48,8 @@ export class ReportTemplateProvider {
     if (!this.isConfigured()) return [];
     let payload = null;
     try {
-      payload = await this._json(this._apiUrl('report', { fields: 'rec_ID,rec_Title', limit: '5000' }), signal);
+      // reports are Presentation sets (plan 27q3): meta.items has the reports only
+      payload = await this._json(this._apiUrl('presentation', { fields: 'rec_ID,rec_Title', limit: '5000' }), signal);
     } catch (error) {
       if (error?.name === 'AbortError') throw error;
       payload = null; // report records are not installed: legacy list below

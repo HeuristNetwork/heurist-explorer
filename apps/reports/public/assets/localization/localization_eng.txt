@@ -296,3 +296,48 @@
 #There is no query source to copy#There is no query source to copy
 #Search#Search
 #Choose a query source or a saved filter#Choose a query source or a saved filter
+#Changed#Changed
+#Choose#Choose
+#Copy the address#Copy the address
+#Delete the page#Delete the page
+#Deleted#Deleted
+#Edit the page#Edit the page
+#Generate the output#Generate the output
+#Help#Help
+#It has generated reports: delete them first#It has generated reports: delete them first
+#It is not published on a web page yet#It is not published on a web page yet
+#It is used by website pages and can not be deleted#It is used by website pages and can not be deleted
+#More#More
+#More actions#More actions
+#Name, description, owner and visibility#Name, description, owner and visibility
+#Nothing saved yet#Nothing saved yet
+#Open the editor#Open the editor
+#Own query#Own query
+#Properties: name, description, owner and visibility#Properties: name, description, owner and visibility
+#Publish#Publish
+#Publish as a web page#Publish as a web page
+#Published pages#Published pages
+#Run the preview again#Run the preview again
+#Save as#Save as
+#Save as a new one#Save as a new one
+#Select an item of the list#Select an item of the list
+#Test on#Test on
+#The address is copied#The address is copied
+#There are unsaved changes. Save changes?#There are unsaved changes. Save changes?
+#This database has no Presentation sets of this kind (2-1112)#This database has no Presentation sets of this kind (2-1112)
+#in a website#in a website
+#Card report editor#Card report editor
+#Delete the template file#Delete the template file
+#Download the template with concept codes (.gpl)#Download the template with concept codes (.gpl)
+#Register: create the report record of this template#Register: create the report record of this template
+#Report editor#Report editor
+#Report of a record set#Report of a record set
+#Select a report of the list#Select a report of the list
+#Template files without a record#Template files without a record
+#The report is not available#The report is not available
+#The template has unsaved changes. Save changes?#The template has unsaved changes. Save changes?
+#This template has generated reports: delete them first#This template has generated reports: delete them first
+#Title, description, kind and owner of the report#Title, description, kind and owner of the report
+#Which kind of report?#Which kind of report?
+#Write the report to a file in the background (a generated report)#Write the report to a file in the background (a generated report)
+#Write the report to a file in the background (saved first)#Write the report to a file in the background (saved first)

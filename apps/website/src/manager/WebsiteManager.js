@@ -5,7 +5,9 @@
  *        standalone pages (HRecordManager), center - the toolbar and the details of the
  *        selected record.
  *
- * Toolbar: New website | for the selection: Open editor, Open, Check, Delete (Generate is in the details since 2026-11-17; Edit and
+ * The List of the websites (plan 27q3 §2.1: Website has no viewer, its List is over the whole screen): the header and the
+ * buttons of the common shell of the presentations (presentationShell.js). Toolbar: New website | for the selection: Open
+ * editor, Open, Check, Delete (Generate is in the details since 2026-11-17; Edit and
  * Add to menu are hidden since 2026-10-31: the record is edited with the pen beside the title of
  * the details; Delete is back since 2026-11-09). Legacy websites (format 1-3) are listed with their mark and can only
  * be opened. In a narrow pane only the icons are shown. "Publish this view" is in Explorer's
@@ -25,6 +27,7 @@
 import { HBaseWidget } from '#shared/widgets';
 import { HRecordManager } from '#shared/widgets/record-manager/HRecordManager.js';
 import { HCardinalLayout } from '#shared/widgets/layout/HCardinalLayout.js';
+import { createSourceHeader, presentationButton } from '#shared/widgets/presentation/presentationShell.js';
 import { $HR, HMsg } from '#shared/ui';
 import { setupNotice } from '#shared/ui/setupNotice.js';
 import { WebsiteDetails, el } from './WebsiteDetails.js';
@@ -55,16 +58,15 @@ export class WebsiteManager extends HBaseWidget {
   /** Build the header, the two panes and the list. */
   render() {
     const root = el('div', 'h-website-manager');
-    const header = el('div', 'heurist-source-header h-website-manager-header', root);
-    el('span', 'h-website-manager-title', header).textContent = $HR('Websites and published pages');
-    if (typeof this.options.onClose === 'function') {
-      const close = el('button', 'h-btn h-website-close', header);
-      close.type = 'button';
-      close.title = $HR('Close the Website manager');
-      el('i', 'fa-solid fa-xmark', close).setAttribute('aria-hidden', 'true');
-      el('span', '', close).textContent = $HR('Close');
-      this.listen(close, 'click', () => this.options.onClose());
-    }
+    // the header of the full screen views (plan 27q3 §2.3): the title and Close
+    const header = createSourceHeader({
+      title: $HR('Websites and published pages'),
+      closeTitle: 'Close the Website manager',
+      className: 'h-website-manager-header',
+      onClose: typeof this.options.onClose === 'function' ? () => this.options.onClose() : null
+    });
+    header.close?.classList.add('h-website-close');
+    root.append(header.element);
     const body = el('div', 'h-website-manager-body', root);
     this.container.replaceChildren(root);
     // the details (preview) pane: a third of the width at first
@@ -117,15 +119,11 @@ export class WebsiteManager extends HBaseWidget {
     await this.createWebsite();
   }
 
-  /** Toolbar button with icon and caption (the caption is hidden on narrow screens). */
+  /** Toolbar button with icon and caption (the button of the presentation shell; the caption is hidden on narrow screens). */
   tool(parent, icon, label, title, onClick) {
-    const button = el('button', 'h-btn h-website-tool', parent);
-    button.type = 'button';
-    button.title = $HR(title);
-    button.setAttribute('aria-label', $HR(label));
-    el('i', `fa-solid ${icon}`, button).setAttribute('aria-hidden', 'true');
-    el('span', 'h-website-tool-label', button).textContent = $HR(label);
-    this.listen(button, 'click', () => this.run(onClick));
+    const button = presentationButton(parent, { icon, label, title, run: () => void this.run(onClick) });
+    button.classList.add('h-website-tool');
+    button.querySelector('.h-presentation-btn-label')?.classList.add('h-website-tool-label');
     return button;
   }
 

@@ -9,7 +9,7 @@
  *   const story = new HStoryMap().attach(host, { service, binding, settings, sourceQuery, language }).render();
  *   story.setSelection([151]);     // the last selected record; one source record shows its story without a selection
  *
- * The cards are Smarty reports (`/report/{id}/execute`), loaded lazily by HRecordList when they come into view. The
+ * The cards are Smarty reports (`/presentation/{id}/execute`), loaded lazily by HRecordList when they come into view. The
  * start / end info is a record of the list (as the first / last element, or a tab) or a card above / below it.
  *
  * @project     Heurist academic knowledge management system
