@@ -1968,6 +1968,8 @@ export class CmsDesigner {
     const id = (code) => Number(this.options.dbdefs?.dbconst?.(code)) || 0;
     const created = await this.apiClient.post('/presentation/0', { body: {
       rec_RecTypeID: id('RT_PRESENTATION_SET'),
+      // Presentation sets are public (27q3 review 4)
+      rec_NonOwnerVisibility: 'public',
       details: {
         [id('DT_NAME')]: ['Team member'],
         [id('DT_SHORT_SUMMARY')]: ['A card of one person (website template Team)'],

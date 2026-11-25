@@ -28,6 +28,13 @@ import { formatDate, formatSize, LARGE_FILE } from './GeneratedFiles.js';
 const DIALOG_ID = 'h-reports-outputs';
 
 /**
+ * The columns of the reports pane (visibility, generate, Lang, Name, Query, Scheduled, Generated, Size, actions) and
+ * when they are hidden: `l1` in a narrow pane, `l2` in a very narrow one (Name stays), 27q3 review 4.
+ */
+const TEMPLATE_COLUMNS = Object.freeze(['h-reports-col-l2', 'h-reports-col-l2', 'h-reports-col-l1', '', 'h-reports-col-l1',
+  'h-reports-col-l1', 'h-reports-col-l1', 'h-reports-col-l1', 'h-reports-col-l2']);
+
+/**
  * Open the dialog of the generated reports.
  *
  * @param {import('../core/ReportsApplication.js').ReportsApplication} app Controller.
@@ -64,9 +71,13 @@ export async function openOutputsDialog(app, report = null, { mode = 'list', onS
  * @param {function(): void} [options.onClose] Closes the dialog of the panel.
  * @param {{languages?: string[], files?: Object<string, number>, onChange?: function(Object<string, number>, object[]): void}} [options.pick]
  *        Choice of outputs (CMS designer): one per language (`def`: all languages), no Delete, no card reports.
+ * @param {boolean} [options.template] The generated reports of `report` only (the reports pane, 27q3 review 3): no
+ *        Report column, no report filter, no New Report (Generate is on the toolbar); Search | Sort (by date, by size).
  * @returns {Promise<{element: HTMLElement, ready: Promise<void>, destroy: function(): void}>}
  */
-export async function createOutputsPanel(app, report = null, { mode = 'list', onShow = null, onGenerate = null, onClose = null, pick = null } = {}) {
+export async function createOutputsPanel(app, report = null, {
+  mode = 'list', onShow = null, onGenerate = null, onClose = null, pick = null, template = false
+} = {}) {
   let outputs = await app.loadOutputs();
   const languages = (pick?.languages || []).map((code) => String(code).toLowerCase());
   // chosen outputs by language: {eng: 12, def: 14}
@@ -75,10 +86,12 @@ export async function createOutputsPanel(app, report = null, { mode = 'list', on
   // the docked panel of the website editor (plan 27n §14.16): visibility, choice, language, name and size only; the
   // search, no report filter
   root.classList.toggle('is-compact', Boolean(pick?.compact));
+  // the reports pane (27q3 review 4): columns hidden in a narrow pane, the name opens the file in a new window
+  root.classList.toggle('is-template', template);
   const source = el('div', 'h-reports-source', root);
   source.hidden = true;
   const controls = el('div', 'h-reports-schedules-controls', root);
-  const search = el('input', 'h-input', controls);
+  const search = el('input', template ? 'h-input h-compact' : 'h-input', controls);
   search.type = 'search';
   search.placeholder = $HR('Search generated reports');
   const filter = el('select', 'h-select', controls);
@@ -89,7 +102,14 @@ export async function createOutputsPanel(app, report = null, { mode = 'list', on
   add.append(` ${$HR('New Report')}`);
   // choosing outputs for a website: the full list (popup) has New Report with its report filter (plan 27n §17.16a); the
   // docked compact list without the filter shows it for the report of the chosen output (§18.16b)
-  add.hidden = Boolean(pick?.compact);
+  add.hidden = Boolean(pick?.compact) || template;
+  // the reports pane: one report, its sort instead of the report filter
+  filter.hidden = template;
+  const sort = template ? el('select', 'h-select h-compact', controls) : null;
+  if (sort) {
+    sort.setAttribute('aria-label', $HR('Sort'));
+    sort.append(option($HR('Sort: by date'), 'date'), option($HR('Sort: by size'), 'size'));
+  }
   const jobHost = el('div', 'h-reports-job', root);
   jobHost.hidden = true;
   const hint = el('p', '', root);
@@ -131,9 +151,15 @@ export async function createOutputsPanel(app, report = null, { mode = 'list', on
   const shownOutputs = () => {
     if (newReport) return newQuery == null ? [] : outputsOfQuery(outputs, newReport, newQuery);
     const text = search.value.trim().toLowerCase();
-    return outputs.filter((output) => (!filter.value || String(output.reportId) === filter.value)
+    const shown = outputs.filter((output) => (!filter.value || String(output.reportId) === filter.value)
       && !(pick && app.findReport(output.reportId)?.isCardView)
       && (!text || `${output.title} ${output.reportTitle || ''}`.toLowerCase().includes(text)));
+    // newest or largest first; not generated yet last
+    if (sort) {
+      const key = (output) => (sort.value === 'size' ? Number(output.generated?.size) : Date.parse(output.generated?.modified || '')) || -1;
+      shown.sort((a, b) => key(b) - key(a));
+    }
+    return shown;
   };
 
   const render = () => {
@@ -155,9 +181,12 @@ export async function createOutputsPanel(app, report = null, { mode = 'list', on
     labels.unshift('');
     const shift = labels.length - 9;
     labels.forEach((label, index) => {
+      // one report: no Report column
+      if (template && label === 'Report') return;
       const cell = el('th', extra.has(index - shift) ? 'h-reports-col-extra' : '', head);
       cell.textContent = label ? $HR(label) : '';
     });
+    markColumns(head);
     const body = el('tbody', '', table);
     if (!shown.length) {
       const cell = el('td', 'h-muted', el('tr', '', body));
@@ -175,7 +204,15 @@ export async function createOutputsPanel(app, report = null, { mode = 'list', on
       else languageCell(row, output);
       const name = el('td', 'h-reports-schedule-name', row);
       name.title = output.title;
-      if (output.generated && onShow) {
+      if (output.generated && template) {
+        // the reports pane: the file in a new window (27q3 review 4)
+        const link = el('a', 'h-reports-generated-name', name);
+        link.href = app.api.outputUrl(output.id);
+        link.target = '_blank';
+        link.rel = 'noopener';
+        link.textContent = output.title;
+        link.title = $HR('Open in a new window');
+      } else if (output.generated && onShow) {
         const link = el('button', 'h-reports-generated-name', name);
         link.type = 'button';
         link.textContent = output.title;
@@ -184,9 +221,11 @@ export async function createOutputsPanel(app, report = null, { mode = 'list', on
       } else {
         name.textContent = output.title;
       }
-      const template = el('td', 'h-muted h-reports-schedule-report h-reports-col-extra', row);
-      template.textContent = output.reportTitle || '';
-      template.title = template.textContent;
+      if (!template) {
+        const reportCell = el('td', 'h-muted h-reports-schedule-report h-reports-col-extra', row);
+        reportCell.textContent = output.reportTitle || '';
+        reportCell.title = reportCell.textContent;
+      }
       const query = el('td', 'h-reports-schedule-query h-reports-col-extra', row);
       query.textContent = app.host.describeQuery(output.query);
       query.title = output.query || '';
@@ -203,8 +242,20 @@ export async function createOutputsPanel(app, report = null, { mode = 'list', on
         linkIcon(actions, 'fa-solid fa-up-right-from-square', 'Open in a new window', app.api.outputUrl(output.id), { target: '_blank', rel: 'noopener' });
         linkIcon(actions, 'fa-solid fa-download', 'Download', app.api.outputUrl(output.id, { download: true }));
       }
+      markColumns(row);
     }
   };
+
+  /**
+   * The reports pane: the columns hidden first in a narrow pane (Lang, Query, Scheduled, Generated, Size), then all
+   * but Name (27q3 review 4); CSS container queries on `.is-template`.
+   */
+  function markColumns(row) {
+    if (!template) return;
+    const cells = Array.from(row.children || []);
+    if (cells.length !== TEMPLATE_COLUMNS.length) return;
+    cells.forEach((cell, index) => { if (TEMPLATE_COLUMNS[index]) cell.classList.add(TEMPLATE_COLUMNS[index]); });
+  }
 
   const reload = async () => {
     outputs = await app.loadOutputs();
@@ -435,12 +486,13 @@ export async function createOutputsPanel(app, report = null, { mode = 'list', on
   }));
   search.addEventListener('input', render);
   filter.addEventListener('change', render);
+  sort?.addEventListener('change', render);
 
   fillFilter();
   const hasOutputs = outputs.some((output) => String(output.reportId) === String(report?.id));
   const canRun = report?.id != null && report.fileExists !== false;
   let ready = Promise.resolve();
-  if (canRun && (mode === 'new' || (!hasOutputs && !pick))) {
+  if (canRun && !template && (mode === 'new' || (!hasOutputs && !pick))) {
     // the list is not shown while the source loads
     controls.hidden = true;
     table.hidden = true;

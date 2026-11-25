@@ -31,6 +31,33 @@
   font-size: var(--h-font-size-large);
 }
 
+.h-presentation-header-actions {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 2px;
+}
+
+.h-presentation-header-actions:empty { display: none; }
+
+/* a warning on the header (the JS/CSS note of the report editor) */
+.h-presentation-header-note {
+  display: inline-flex;
+  flex: 0 1 auto;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--h-color-text-muted);
+  font-size: var(--h-font-size-small);
+  font-weight: normal;
+  white-space: nowrap;
+}
+
+.h-presentation-header-note[hidden] { display: none; }
+.h-presentation-header-note .fa-triangle-exclamation { color: var(--h-color-warning, #b45309); }
+.h-presentation-header-note-text { overflow: hidden; text-overflow: ellipsis; }
+
 .h-presentation-header-close {
   display: inline-flex;
   flex: 0 0 auto;
@@ -43,13 +70,24 @@
   container-type: inline-size;
   display: flex;
   flex: 0 0 auto;
-  flex-wrap: nowrap;
+  flex-wrap: wrap;
   align-items: center;
-  gap: var(--h-gap, 6px);
+  gap: 4px var(--h-gap, 6px);
   min-width: 0;
   padding: 6px 8px;
-  overflow: hidden;
   border-bottom: 1px solid var(--h-color-border);
+}
+
+/* all groups after the first: right aligned together, the next row in a narrow pane (27q3 review 4) */
+.h-presentation-toolbar-end {
+  display: inline-flex;
+  flex: 0 1 auto;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 4px var(--h-gap, 6px);
+  min-width: 0;
+  margin-left: auto;
 }
 
 .h-presentation-btn {
@@ -62,6 +100,37 @@
 
 .h-presentation-btn[hidden] { display: none; }
 
+/* its place is kept (the Reports List: Show for stays where it is in the View, 27q3 review 3) */
+.is-placeholder { visibility: hidden; pointer-events: none; }
+
+/* a number badge: the generated reports of a report template (27q3 review 4) */
+.h-presentation-count {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 3px;
+  color: var(--h-color-text-muted);
+  font-size: var(--h-font-size-small);
+  font-weight: normal;
+  white-space: nowrap;
+}
+
+/* card / list: the same width for both words */
+.h-presentation-badge {
+  display: inline-block;
+  flex: 0 0 auto;
+  width: 3.2em;
+  padding: 0 4px;
+  border: 1px solid var(--h-color-border);
+  border-radius: var(--h-radius, 3px);
+  color: var(--h-color-text-muted);
+  font-size: var(--h-font-size-tiny);
+  font-weight: normal;
+  line-height: 1.5;
+  text-align: center;
+  box-sizing: border-box;
+}
+
 .h-presentation-separator {
   flex: 0 0 auto;
   align-self: stretch;
@@ -69,9 +138,6 @@
   margin: 2px 4px;
   background: var(--h-color-border);
 }
-
-/* the last group (⋯, Help) at the right end */
-.h-presentation-toolbar-fill { flex: 1 1 auto; min-width: 0; }
 
 .h-presentation-selector {
   display: inline-flex;

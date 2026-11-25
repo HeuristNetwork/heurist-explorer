@@ -1,8 +1,9 @@
 /**
  * @file ReportEditorPanel.js
  * @brief Template editor of the reports manager, shown over the whole screen: the header "Report editor: <name>"
- *        with Close and the common toolbar of the presentations (plan 27q3 §3, presentationShell.js): New |
- *        selector | Properties | Save | Save as ‖ Test ‖ Generate (a List Report) ‖ ⋯ Export; below in three panes
+ *        with the JS/CSS note, Help and Close, and the common toolbar of the presentations (plan 27q3 §3, review 3,
+ *        presentationShell.js): New | selector | Properties | Save | Save as ‖ Show for (a List Report) | Test ‖
+ *        Import | Export (Generate is in the pane only); below in three panes
  *        (HCardinalLayout): west - patterns and fields to add, center - Smarty text (HSmartyEditor), east - test area
  *        (language, error level, output). West and east fold to a narrow strip with a vertical title.
  *
@@ -68,8 +69,12 @@ export class ReportEditorPanel extends HBaseWidget {
    * @param {function(): void} [options.onNew] New report (none: no button).
    * @param {function(number): void} [options.onOpen] Another report of the selector.
    * @param {function(): void} [options.onProperties] The record editor of the report.
-   * @param {function(): void} [options.onGenerate] Generate (a List Report).
+   * @param {function(): void} [options.onImport] Import a template file.
    * @param {function(): void} [options.onExport] Download the template (.gpl).
+   * @param {function(): void} [options.onHelp] Help (on the header).
+   * @param {function(function(): void): HTMLElement} [options.createShowFor] *Show for* of a list report (the choice of
+   *        the pane); the callback draws the toolbar again after a change.
+   * @param {function(): Promise<*>} [options.testQuery] The query of *Show for* (undefined: the selection or the result).
    * @returns {ReportEditorPanel}
    */
   attach(container, options = {}) {
@@ -92,8 +97,14 @@ export class ReportEditorPanel extends HBaseWidget {
   /** Build the header, the toolbar and the three panes. */
   render() {
     const kind = this.report.isCardView ? 'Card report editor' : 'Report editor';
+    // the JS/CSS note on the header, in the editor only (27q3 review 3); Help | Close
     this.header = createSourceHeader({
-      title: `${$HR(kind)}: ${this.report.title}`, closeTitle: 'Close the editor', onClose: () => void this.run(() => this.close())
+      title: `${$HR(kind)}: ${this.report.title}`,
+      closeTitle: 'Close the editor',
+      onClose: () => void this.run(() => this.close()),
+      note: this.app.data.settings && !this.app.scriptsAllowed()
+        ? 'CSS and Javascript are disabled by default. Request authorisation from server admin if required' : '',
+      actions: [this.options.onHelp ? { icon: 'fa-circle-question', label: 'Help of the reports', run: () => this.options.onHelp() } : null]
     });
     this.toolbar = el('div', '');
     const root = el('div', 'h-reports-editor');
@@ -196,16 +207,20 @@ export class ReportEditorPanel extends HBaseWidget {
   }
 
   /**
-   * The common toolbar (27q3 §3): New | selector | Properties | Save | Save as ‖ Test ‖ Generate ‖ ⋯ Export (Close on
-   * the header).
+   * The common toolbar (27q3 §3, review 3): New | selector | Properties | Save | Save as, and right aligned (review 4)
+   * Show for (a list report) | Test (primary) ‖ Import | Export (Help | Close on the header).
    */
   renderToolbar() {
     const options = this.options;
+    const kind = (item) => (item.isCardView ? 'card' : 'list');
     const made = renderPresentationToolbar(this.toolbar, {
       new: options.onNew ? { label: 'New report', title: 'New report', run: () => options.onNew() } : null,
       selector: options.onOpen ? {
-        icon: 'fa-file-lines', label: this.report.title, title: 'Report',
-        run: (anchor) => togglePresentationList(anchor, this.app.allReports().filter((item) => item.id != null), {
+        icon: 'fa-file-lines', label: this.report.title, title: 'Report', badge: kind(this.report),
+        // the number of the generated reports in a badge (review 4)
+        count: ReportsApplication.outputCountBadge(this.report),
+        run: (anchor) => togglePresentationList(anchor, this.app.allReports().filter((item) => item.id != null)
+          .map((item) => ({ id: item.id, title: item.title, count: ReportsApplication.outputCountBadge(item), note: $HR(kind(item)) })), {
           current: this.report.id,
           onSelect: (item) => { if (item.id !== this.report.id) options.onOpen(item.id); }
         })
@@ -213,10 +228,14 @@ export class ReportEditorPanel extends HBaseWidget {
       properties: options.onProperties ? { title: 'Title, description, kind and owner of the report', disabled: this.readOnly, run: () => options.onProperties() } : null,
       save: { title: 'Save the template (Ctrl+S)', disabled: this.readOnly, run: () => void this.run(() => this.save()) },
       saveAs: { title: 'Save as a new report', run: () => void this.run(() => this.saveAs()) },
-      refresh: { icon: 'fa-flask', label: 'Test', title: this.app.testTip(this.report), run: () => void this.run(() => this.test()) },
-      generate: options.onGenerate && !this.report.isCardView
-        ? { title: 'Write the report to a file in the background (saved first)', run: () => options.onGenerate() } : null,
-      more: options.onExport ? [{ icon: 'fa-file-export', label: 'Export', title: 'Download the template with concept codes (.gpl)', run: () => options.onExport() }] : []
+      // the records of the test: the same choice as the pane (a list report only)
+      scope: options.createShowFor && !this.report.isCardView ? options.createShowFor(() => this.renderToolbar()) : null,
+      // Test is the primary button of the editor (Generate in the pane, review 4)
+      refresh: { icon: 'fa-flask', label: 'Test', caption: true, primary: true, title: this.app.testTip(this.report), run: () => void this.run(() => this.test()) },
+      tools: [
+        options.onImport ? { icon: 'fa-file-import', label: 'Import', title: 'Import a report template (.gpl or .tpl)', run: () => options.onImport() } : null,
+        options.onExport ? { icon: 'fa-file-export', label: 'Export', title: 'Download the template with concept codes (.gpl)', run: () => options.onExport() } : null
+      ]
     });
     this.saveButton = made.save;
     this.testButton = made.refresh;
@@ -504,7 +523,9 @@ export class ReportEditorPanel extends HBaseWidget {
 
   /** Start the test job and show its output in the test area (opened when folded). */
   async runTest() {
-    const records = await this.app.testRecordIds(this.report);
+    // Show for of a list report: a query source or saved filter, else the selection or the current result
+    const query = this.report.isCardView ? undefined : await this.options.testQuery?.();
+    const records = await this.app.testRecordIds(this.report, query);
     if (!records.ids.length) {
       HMsg.showMsgFlash($HR('Select records, or search for records first: the test runs on them.'), { showDelay: 3000 });
       return;

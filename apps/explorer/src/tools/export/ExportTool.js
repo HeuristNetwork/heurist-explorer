@@ -44,7 +44,10 @@ import { HBaseWidget } from '#shared/widgets/HBaseWidget.js';
 import { $HR, HMsg } from '#shared/ui';
 import { showPopover, closePopover } from '#shared/widgets/popover/popover.js';
 import { askChoice } from '#shared/ui/askChoice.js';
-import { confirmLeave, renderPresentationToolbar, togglePresentationList } from '#shared/widgets/presentation/presentationShell.js';
+import {
+  confirmLeave, presentationButton, renderPresentationToolbar, togglePresentationList
+} from '#shared/widgets/presentation/presentationShell.js';
+import { openEditFormDialog } from '#shared/widgets/edit-form/editFormDialog.js';
 import { presentationErrorText } from '#shared/widgets/presentation/HPresentationList.js';
 import { HFieldSelectionEditor } from '../../widgets/query-source/helpers/HFieldSelectionEditor.js';
 import { HRuleBuilder, describeExpansionRule } from '../../widgets/query-source/helpers/HRuleBuilder.js';
@@ -932,7 +935,7 @@ export class ExportTool extends HBaseWidget {
     return true;
   }
 
-  /** @private New: the default settings, no saved export. */
+  /** @private Reset: the default settings, no saved export (review 4 of Export, 2026-11-25). */
   async _newPreset() {
     if (!(await this._confirmLeave())) return;
     this.preset = null;
@@ -943,8 +946,8 @@ export class ExportTool extends HBaseWidget {
   }
 
   /**
-   * @private Save the settings: in the shown export (PATCH), or a new one named in the record editor (`asNew`, or none
-   * shown yet).
+   * @private Save the settings: in the shown export (PATCH), or a new one (`asNew`, or none shown yet) named in a small
+   * popup and created in the background, public (27q3, Export review 2026-11-25).
    * @returns {Promise<boolean>}
    */
   async _savePreset({ asNew = false } = {}) {
@@ -962,13 +965,17 @@ export class ExportTool extends HBaseWidget {
         return true;
       }
       if (!this.addRecord) return false;
-      const title = this.preset ? `${this.preset.title} (${$HR('copy')})` : '';
-      const result = await this.addRecord('RT_PRESENTATION_SET', {
-        values: { ...(title ? { [ids.name]: title } : {}), [ids.type]: ids.export, [ids.configuration]: configuration }
-      });
-      if (!result?.saved) return false;
+      const name = await askPresetName(this.preset ? `${this.preset.title} (${$HR('copy')})` : '');
+      if (!name) return false;
+      const created = await this.apiClient.post('/presentation/0', { body: {
+        rec_RecTypeID: ids.rectype,
+        rec_NonOwnerVisibility: 'public',
+        details: { [ids.name]: [name], [ids.type]: [ids.export], [ids.configuration]: [configuration] }
+      } });
+      const id = Number((created?.data ?? created)?.records?.[0]?.rec_ID) || 0;
+      if (!id) return false;
       await this._loadPresets();
-      await this.openPreset(Number(result.recordId));
+      await this.openPreset(id);
       return true;
     } catch (error) {
       HMsg.showMsgErr?.(presentationErrorText(error));
@@ -976,7 +983,7 @@ export class ExportTool extends HBaseWidget {
     }
   }
 
-  /** @private Delete the shown saved export (Export has no List: in ⋯). */
+  /** @private Delete the shown saved export (Export has no List: the trash after Save as). */
   async _deletePreset() {
     if (!this.preset) return;
     const answer = await askChoice(`${$HR('Delete')} "${this.preset.title}"?`, $HR('Delete'), [['delete', $HR('Delete')]]);
@@ -1003,14 +1010,14 @@ export class ExportTool extends HBaseWidget {
   }
 
   /**
-   * @private The common toolbar (27q3 §3): New | saved exports | Properties | Save | Save as ‖ Export, Export results ‖
-   * ⋯ Delete.
+   * @private The common toolbar (27q3 §3): Reset | saved exports | Properties | Save | Save as | Delete ‖ Export, Export
+   * results (Export review 2026-11-25: Reset instead of New, Delete next to Save as).
    */
   _renderToolbar() {
     if (!this._toolbar) return;
     const disabled = this._exportButton?.disabled ?? true;
     const made = renderPresentationToolbar(this._toolbar, {
-      new: { label: 'New', title: 'New export settings (the defaults)', caption: false, run: () => void this._newPreset() },
+      new: { icon: 'fa-rotate-left', label: 'Reset', title: 'Reset export settings', caption: false, run: () => void this._newPreset() },
       selector: {
         icon: 'fa-file-export', label: this.preset?.title || $HR('Saved exports'), title: 'Saved export settings', disabled: !this.presets.length,
         run: (anchor) => togglePresentationList(anchor, this.presets, {
@@ -1022,14 +1029,19 @@ export class ExportTool extends HBaseWidget {
       },
       properties: { title: 'Name, description, owner and visibility of the saved export', disabled: !this.preset || !this.editRecord, run: () => void this._properties() },
       save: {
-        primary: false, title: this.preset ? 'Save the settings in this saved export' : 'Save the settings as a saved export (named in the record editor)',
+        primary: false, title: this.preset ? 'Save the settings in this saved export' : 'Save the settings as a saved export',
         disabled: !this.preset && !this.addRecord, run: () => void this._savePreset()
       },
       saveAs: { title: 'Save the settings as a new saved export', disabled: !this.addRecord, run: () => void this._savePreset({ asNew: true }) },
       // Export = Generate: the file of the current settings (a job result, 27q3 §3.1)
-      generate: { icon: 'fa-file-export', label: 'Export', title: 'Export the records into a file', primary: true, disabled, run: () => this._start() },
-      more: [{ icon: 'fa-trash-can', label: 'Delete', title: 'Delete the saved export', disabled: !this.preset, run: () => void this._deletePreset() }]
+      generate: { icon: 'fa-file-export', label: 'Export', title: 'Export the records into a file', primary: true, disabled, run: () => this._start() }
     });
+    // Delete next to Save as, enabled for a saved export
+    const remove = presentationButton(this._toolbar, {
+      icon: 'fa-trash-can', label: 'Delete', title: 'Delete the saved export', caption: false, disabled: !this.preset,
+      run: () => void this._deletePreset()
+    });
+    made.saveAs.after(remove);
     this._exportButton = made.generate;
     made.generate.classList.add('h-export-start');
     made.generate.after(this._resultsButton);
@@ -1200,4 +1212,21 @@ function formatSize(bytes) {
 /** 50 → "50", 1000 → "1K", 500000 → "500K". */
 function formatCount(value) {
   return value >= 1000 ? `${value / 1000}K` : String(value);
+}
+
+/**
+ * The name of a new saved export: a small popup with the Name only (the form dialog of the Publish popups).
+ *
+ * @param {string} [value] The name shown first (Save as: "<name> (copy)").
+ * @returns {Promise<string>} The name; empty when cancelled.
+ */
+async function askPresetName(value = '') {
+  const answer = await openEditFormDialog({
+    title: 'Save export settings',
+    className: 'h-export-name-dialog',
+    form: { groups: [{ id: 'export', children: [{ name: 'name', type: 'freetext', label: 'Name', max: 1, required: true }] }] },
+    values: { name: value },
+    buttons: [{ id: 'save', label: 'Save', primary: true }, { id: 'cancel', label: 'Cancel' }]
+  });
+  return String([answer?.values?.name].flat()[0] ?? '').trim();
 }

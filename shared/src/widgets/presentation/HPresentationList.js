@@ -3,11 +3,13 @@
  * @brief The List of a presentation type (plan 27q3 §2.1): its configurations on the left (HRecordManager of the
  *        Presentation sets of some kinds), the outputs of the selected one on the right.
  *
- * Left: the title of the type and **New**; the list with search, sort and *Show owners*. A row shows the Edit icon
- * (leftmost, opens the Editor), visibility and owner, the title, the kind and the short summary (2-3), and the row
- * tools Properties (the record editor) and Delete. A click selects the row and shows its outputs on the right; a double
- * click opens the Editor. Delete asks first and tells the use of the item (`describeUse`). The list is in a pane or full
- * screen; with no configuration yet `onEmpty` is called (the Editor at once, 27q3 §2.2).
+ * Left: the title of the type and **New** (`showBar: false`: none, the host puts New on its header; Crosstabs, 27q3
+ * review 1); the list with search, sort and *Show owners*. A row shows the Edit icon (leftmost, opens the Editor),
+ * visibility and owner, the title, the kind and the short summary (2-3); on mouse over the pen (Properties: the record
+ * editor, as in every other list) and the trash (Delete). The record type icon is not shown. A click selects the row
+ * and shows its outputs on the right; a double click opens the Editor. Delete asks first and tells the use of the item
+ * (`describeUse`). The list is in a pane or full screen; with no configuration yet `onEmpty` is called (the Editor at
+ * once, 27q3 §2.2).
  *
  * The view mode is `list` (one row and the summary under it): the Extended view of HRecordManager shows the whole record
  * with its Configuration JSON (deviation from 27q3 §2.1, 2026-11-24).
@@ -29,7 +31,7 @@ import { HCardinalLayout } from '../layout/HCardinalLayout.js';
 import { $HR } from '../../ui/i18n/HResource.js';
 import { HMsg } from '../../ui/HMsg.js';
 import { askChoice } from '../../ui/askChoice.js';
-import { element, presentationButton } from './presentationShell.js';
+import { element, presentationButton, presentationCount } from './presentationShell.js';
 import { presentationKindTerms } from './presentationKinds.js';
 import './HPresentationList.css';
 
@@ -59,6 +61,12 @@ export class HPresentationList extends HBaseWidget {
    * @param {boolean} [options.canEdit=true] The user may change records (Properties, Delete, New).
    * @param {string} [options.baseUrl] Heurist base URL (record type icons).
    * @param {string} [options.database] Database name.
+   * @param {boolean} [options.showBar=true] The bar with the title and New above the list.
+   * @param {string} [options.selectHint] The text of the right panel when nothing is selected.
+   * @param {function(object): string} [options.kindBadge] A short word of the kind of a row just after Edit (card /
+   *        list of the reports); without it the kind label is at the right.
+   * @param {function(object): ({text: string, icon?: string, title?: string}|null)} [options.rowCount] A number badge at
+   *        the right of a row (the generated reports of a template, presentationCount).
    * @returns {HPresentationList}
    */
   attach(container, options = {}) {
@@ -87,13 +95,15 @@ export class HPresentationList extends HBaseWidget {
     this.container.replaceChildren(root);
     this.layout = new HCardinalLayout(root, { westRatio: 0.5, minWest: 240, minCenterWidth: 260 });
     const west = element('div', 'h-presentation-list-west');
-    const bar = element('div', 'h-presentation-list-bar', west);
-    element('span', 'h-presentation-list-title', bar).textContent = $HR(this.options.title || '');
-    if (typeof this.options.onNew === 'function' && this.options.canEdit !== false) {
-      presentationButton(bar, { icon: 'fa-plus', label: this.options.newLabel || 'New', title: this.options.newLabel || 'New',
-        run: () => this.options.onNew() });
+    if (this.options.showBar !== false) {
+      const bar = element('div', 'h-presentation-list-bar', west);
+      element('span', 'h-presentation-list-title', bar).textContent = $HR(this.options.title || '');
+      if (typeof this.options.onNew === 'function' && this.options.canEdit !== false) {
+        presentationButton(bar, { icon: 'fa-plus', label: this.options.newLabel || 'New', title: this.options.newLabel || 'New',
+          run: () => this.options.onNew() });
+      }
+      for (const tool of this.options.barTools || []) presentationButton(bar, { caption: false, ...tool });
     }
-    for (const tool of this.options.barTools || []) presentationButton(bar, { caption: false, ...tool });
     this.listHost = element('div', 'h-presentation-list-records', west);
     this.outputs = element('div', 'h-presentation-list-outputs');
     this.layout.setContent('west', west);
@@ -113,7 +123,10 @@ export class HPresentationList extends HBaseWidget {
       query: [{ [`f:${ids.type}`]: ids.terms.join(',') }],
       listFields: [ids.type, ids.summary].filter(Boolean),
       recordTools: (record) => this._rowTools(record, ids),
-      editRecord: typeof this.options.onEdit === 'function' ? (id) => this.options.onEdit(Number(id)) : undefined,
+      // the pen and the trash on mouse over (27q3 review 1); a double click opens the Editor
+      editRecord: this._canChange() && typeof this.options.editRecord === 'function' ? (id) => this._properties(Number(id)) : undefined,
+      deleteRecord: this._canChange() ? (id) => void this._delete(this._record(id)) : undefined,
+      activateRecord: typeof this.options.onEdit === 'function' ? (id) => this.options.onEdit(Number(id)) : undefined,
       listOptions: {
         viewMode: 'list',
         pageLength: 500,
@@ -157,10 +170,22 @@ export class HPresentationList extends HBaseWidget {
   async select(id) {
     this.selectedId = Number(id) || null;
     this.outputs.replaceChildren();
-    if (!this.selectedId) {
-      element('p', 'h-muted h-presentation-list-hint', this.outputs).textContent = $HR('Select an item of the list');
-    }
     await this.options.renderOutputs?.(this.selectedId, this.outputs);
+    // after the outputs: they may empty the panel
+    if (!this.selectedId && !this.outputs.childElementCount) {
+      element('p', 'h-muted h-presentation-list-hint', this.outputs).textContent = $HR(this.options.selectHint || 'Select an item of the list');
+    }
+  }
+
+  /**
+   * Show or hide the list (the west pane): the View mode of the reports shows only the right panel (27q3 review 3).
+   *
+   * @param {boolean} visible
+   */
+  setListVisible(visible) {
+    if (!this.layout) return;
+    if (visible) this.layout.show('west');
+    else this.layout.hide('west');
   }
 
   /** Load the list again (after a save in the Editor), and the outputs of the selection. */
@@ -180,7 +205,17 @@ export class HPresentationList extends HBaseWidget {
 
   // ------------------------------------------------------------------ rows
 
-  /** @private Edit (leftmost), the kind, the summary, Properties, Delete. */
+  /** @private The user may change the items (Properties, Delete). */
+  _canChange() {
+    return this.options.canEdit !== false;
+  }
+
+  /** @private A loaded record of the list (its title for Delete). */
+  _record(id) {
+    return (this.manager?.list?.records || []).find((record) => Number(record?.rec_ID) === Number(id)) || { rec_ID: Number(id) };
+  }
+
+  /** @private Edit (leftmost), the kind, the summary; Properties and Delete are the pen and trash of the list. */
   _rowTools(record, ids) {
     const box = element('span', 'h-presentation-row');
     const id = Number(record?.rec_ID) || 0;
@@ -199,12 +234,17 @@ export class HPresentationList extends HBaseWidget {
       return button;
     };
     if (typeof this.options.onEdit === 'function') icon('fa-pen-ruler', 'Open the editor', () => this.options.onEdit(id), 'is-edit');
-    const kind = this._kindLabel(record, ids);
-    if (kind) element('span', 'h-presentation-row-kind', box).textContent = kind;
-    if (this.options.canEdit !== false) {
-      if (typeof this.options.editRecord === 'function') icon('fa-pen', 'Properties: name, description, owner and visibility', () => this._properties(id), 'is-properties');
-      icon('fa-trash-can', 'Delete', () => this._delete(record), 'is-delete');
+    // a short badge of the kind just after Edit (card / list of the reports), else the kind at the right
+    const badge = typeof this.options.kindBadge === 'function' ? this.options.kindBadge(record) : '';
+    if (badge) {
+      element('span', 'h-presentation-badge h-presentation-row-badge', box).textContent = $HR(badge);
+    } else {
+      const kind = this._kindLabel(record, ids);
+      if (kind) element('span', 'h-presentation-row-kind', box).textContent = kind;
     }
+    // a number at the right (the generated reports of a template, 27q3 review 4)
+    const count = presentationCount(box, typeof this.options.rowCount === 'function' ? this.options.rowCount(record) : null);
+    count?.classList.add('h-presentation-row-count');
     const summary = String([record?.details?.[ids.summary]].flat()[0]?.value ?? [record?.details?.[ids.summary]].flat()[0] ?? '').trim();
     if (summary) element('span', 'h-presentation-row-summary', box).textContent = summary;
     return box;
@@ -219,8 +259,8 @@ export class HPresentationList extends HBaseWidget {
 
   /** @private Properties: the record editor, then the list again. */
   async _properties(id) {
-    const result = await this.options.editRecord(id);
-    if (result?.saved !== false) await this.reload();
+    const result = await this._run(() => this.options.editRecord(id));
+    if (result && result.saved !== false) await this.reload();
   }
 
   /** @private Delete an item after a question with its use. */

@@ -5,9 +5,10 @@
  *
  * A crosstab is a Presentation set (2-1112) of kind Crosstab: its name, its query (2-12, may have parameters; their
  * Filter Form is kept in the settings) and the settings (Configuration 2-1187, crosstabModel.js). Header "Crosstab editor:
- * <name>" with Close; the common toolbar of the presentations (plan 27q3 §3, presentationShell.js): New | selector |
- * Properties | Save | Save as ‖ Test on | Refresh ‖ Publish ‖ Help. Delete is in the List (27q3). The preview counts its
- * own test records (*Test on: Current result* — a snapshot of Explorer's result, taken again by Refresh — or *Own query*,
+ * <name>" with Publish | Help | Close; the common toolbar of the presentations (plan 27q3 §3, presentationShell.js): New |
+ * selector | Properties | Save | Save as ‖ Show for | Refresh (review 1, 2026-11-25). Delete is in the List (27q3). A new
+ * crosstab is public. The preview counts its own test records (*Show for: Current result* — a snapshot of Explorer's
+ * result, taken again by Refresh — or *Own query*,
  * with the Filter Form of its parameters); the main search does not change it. Only records of the record type of the
  * settings are counted. Publish saves first.
  *
@@ -118,7 +119,7 @@ export class CrosstabsDesigner extends HBaseWidget {
     this.formHost = element('div', 'h-crosstabs-tool-form-body');
     this.formPane.append(this.formHost);
     const view = element('div', 'h-crosstabs-tool-view');
-    // the Filter Form of the parameters of the own query (Test on: Own query)
+    // the Filter Form of the parameters of the own query (Show for: Own query)
     const paramsHost = element('div', 'h-crosstabs-viewer-params');
     // the form and the preview: a vertical form at the left, a horizontal one above (review 6)
     const body = element('div', 'h-crosstabs-designer-body h-crosstab-params-layout');
@@ -317,7 +318,8 @@ export class CrosstabsDesigner extends HBaseWidget {
       const id = asNew ? 0 : (this.preset?.id || 0);
       const answer = id
         ? await this.tool.apiClient.request(`/presentation/${id}`, { method: 'PATCH', body: { details } })
-        : await this.tool.apiClient.post('/presentation/0', { body: { rec_RecTypeID: ids.rectype, details } });
+        // a new crosstab is public (27q3 review 1); Properties changes it
+        : await this.tool.apiClient.post('/presentation/0', { body: { rec_RecTypeID: ids.rectype, rec_NonOwnerVisibility: 'public', details } });
       const saved = Number((answer?.data ?? answer)?.records?.[0]?.rec_ID ?? (answer?.data ?? answer)?.recordId ?? id) || 0;
       this._dirty = false;
       this.presets = await loadCrosstabPresets(this.tool.apiClient, this.dbdefs);
@@ -345,7 +347,7 @@ export class CrosstabsDesigner extends HBaseWidget {
     return confirmLeave({ dirty: this._dirty, save: () => this._save(), message: 'The crosstab has been changed. Save changes?' });
   }
 
-  /** @private Publish (27q3 §3.2: saved first) with the records of *Test on*. */
+  /** @private Publish (27q3 §3.2: saved first) with the records of *Show for*. */
   async _publish() {
     if ((this._dirty || !this.preset?.id) && !(await this._save())) return;
     if (!this.preset?.id) return;
@@ -355,7 +357,7 @@ export class CrosstabsDesigner extends HBaseWidget {
     });
   }
 
-  /** @private Refresh: the current result of now (Test on: Current result) and the preview again. */
+  /** @private Refresh: the current result of now (Show for: Current result) and the preview again. */
   async _refresh() {
     if (this.test === 'current') this.currentQuery = this.tool.getCurrentQuery?.() ?? this.currentQuery;
     void this._loadRectypes();
@@ -375,15 +377,22 @@ export class CrosstabsDesigner extends HBaseWidget {
   // ------------------------------------------------------------------ toolbar
 
   /**
-   * @private The common toolbar (27q3 §3): New | selector | Properties | Save | Save as ‖ Test on | Refresh ‖ Publish ‖
-   * Help; Close on the header, Delete in the List.
+   * @private The common toolbar (27q3 §3, review 1 2026-11-25): New | selector | Properties | Save | Save as ‖ Show for |
+   * Refresh; Publish | Help | Close on the header (as the viewer: Publish | Help | List); Delete in the List.
    */
   _renderToolbar() {
     this.header?.setTitle(`${$HR('Crosstab editor')}: ${this.preset?.title || $HR('New crosstab')}`);
+    this.header?.setActions([
+      this.tool.publish ? {
+        icon: 'fa-share-nodes', label: 'Publish', title: 'Publish the crosstab as a web page (saved first)',
+        disabled: Boolean(this._saving), run: () => void this._publish()
+      } : null,
+      this.tool.openManual ? { icon: 'fa-circle-question', label: 'Help', title: 'Help of the crosstabs', run: () => this.tool.openManual('crosstabs') } : null
+    ]);
     const scope = createScopeSelect({
       value: this.test,
-      label: 'Test on',
-      title: 'The records of the preview: a snapshot of the current result (Refresh takes it again), or the query of the crosstab. The main search does not change the preview.',
+      label: 'Show for',
+      title: 'The test records of the preview: a snapshot of the current result (Refresh takes it again), or the query of the crosstab. The main search does not change the preview.',
       disabled: { current: this.tool.getCurrentQuery?.() == null && this.currentQuery == null },
       onChange: (value) => {
         this.test = value;
@@ -411,9 +420,7 @@ export class CrosstabsDesigner extends HBaseWidget {
         busy: this._saving === 'saveAs', disabled: !this.preset?.id || Boolean(this._saving), run: () => void this._save({ asNew: true })
       },
       scope,
-      refresh: { title: 'Count the test records again (Current result: the result of now)', run: () => void this._refresh() },
-      publish: this.tool.publish ? { title: 'Publish the crosstab as a web page (saved first)', disabled: Boolean(this._saving), run: () => void this._publish() } : null,
-      help: this.tool.openManual ? { title: 'Help of the crosstabs', run: () => this.tool.openManual('crosstabs') } : null
+      refresh: { title: 'Count the test records again (Current result: the result of now)', run: () => void this._refresh() }
     });
   }
 

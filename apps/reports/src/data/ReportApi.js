@@ -71,15 +71,32 @@ export class ReportApi {
   }
 
   /**
-   * Create a report record; its template file comes with it (ReportEntityHandler, without a file name from the title).
+   * Create a report record (New of the pane, without the record editor); its template file comes with it
+   * (ReportEntityHandler, a file name from the title).
    *
    * @param {number} rectypeId Record type Presentation set (with the kind in the details).
    * @param {Object<number, Array>} details Values by field id.
    * @returns {Promise<number>} Record id.
    */
   async createRecord(rectypeId, details) {
-    const response = await this.apiClient.post('/presentation/0', { body: { rec_RecTypeID: rectypeId, details } });
+    // Presentation sets are public (27q3 review 4)
+    const response = await this.apiClient.post('/presentation/0', { body: { rec_RecTypeID: rectypeId, rec_NonOwnerVisibility: 'public', details } });
     return Number(response?.records?.[0]?.rec_ID) || 0;
+  }
+
+  /**
+   * Create a generated report (output record) without the record editor: Generate of the reports pane (27q3 review 3).
+   * It is the user's own and public (27q3 review 4); Properties of the row changes it.
+   *
+   * @param {number} rectypeId Record type Generated report.
+   * @param {Object<number, Array>} details Values by field id.
+   * @returns {Promise<number>} Record id.
+   */
+  async createOutput(rectypeId, details) {
+    const response = await this.apiClient.post('/output/0', {
+      body: { rec_RecTypeID: rectypeId, rec_NonOwnerVisibility: 'public', details }
+    });
+    return Number(response?.records?.[0]?.rec_ID ?? response?.recordId) || 0;
   }
 
   /**

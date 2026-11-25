@@ -1704,3 +1704,15 @@
 #Story map editor#Story map editor
 #Story maps#Story maps
 #The records of the preview: a snapshot of the current result (Refresh takes it again), or the query of the crosstab. The main search does not change the preview.#The records of the preview: a snapshot of the current result (Refresh takes it again), or the query of the crosstab. The main search does not change the preview.
+#Show for#Show for
+#Select a crosstab in the list#Select a crosstab in the list
+#Count the records again#Count the records again
+#A new crosstab in the editor (full screen)#A new crosstab in the editor (full screen)
+#Open the crosstab in the editor (full screen)#Open the crosstab in the editor (full screen)
+#The test records of the preview: a snapshot of the current result (Refresh takes it again), or the query of the crosstab. The main search does not change the preview.#The test records of the preview: a snapshot of the current result (Refresh takes it again), or the query of the crosstab. The main search does not change the preview.
+#Select a story map in the list#Select a story map in the list
+#Read the story maps and the story again#Read the story maps and the story again
+#Reset export settings#Reset export settings
+#Save export settings#Save export settings
+#Save the settings as a saved export#Save the settings as a saved export
+#Delete the saved export#Delete the saved export

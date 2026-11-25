@@ -62,6 +62,9 @@ const savedRecords = new WeakMap();
 /** The listeners of an editor on its host, by editor (removed when New replaces the editor). */
 const hostListeners = new WeakMap();
 
+/** Record types whose new records are public (27q3 review 4): Presentation sets and Generated reports. */
+const PUBLIC_RECORD_TYPES = Object.freeze(['RT_PRESENTATION_SET', 'RT_REPORT_OUTPUT']);
+
 /** Opens system records in HRecordEditor; other records in the legacy host editor. */
 export class RecordEditorHost {
   /**
@@ -217,7 +220,7 @@ export class RecordEditorHost {
     return this._single(`add:${recordType}`, {}, async (onShown) => {
       const rectypeId = await this._rectypeId(recordType);
       if (this.options.isLoggedIn() && this._usesNewEditor(rectypeId)) {
-        return this.open({ rectypeId, access: access || loadRecordAddDefaults(await this._who()), parentContext, values, onShown });
+        return this.open({ rectypeId, access: access || (await this._addDefaults(rectypeId)), parentContext, values, onShown });
       }
       const bridge = this.options.getBridge() || {};
       if (this.canEditInHost() && typeof bridge.addRecord === 'function') return bridge.addRecord(rectypeId);
@@ -698,6 +701,20 @@ export class RecordEditorHost {
   }
 
   /** Local id of a record type given by id or code name. */
+  /**
+   * Owner and visibility of a new record: the remembered ones; Presentation sets and Generated reports are public
+   * (27q3 review 4, 2026-11-25).
+   *
+   * @param {number} rectypeId
+   * @returns {Promise<{owner: number, visibility: string, viewGroups: number[]}>}
+   */
+  async _addDefaults(rectypeId) {
+    const access = loadRecordAddDefaults(await this._who());
+    const dbdefs = await Promise.resolve(this.options.ensureDbDefs?.()).catch(() => null);
+    const publicTypes = PUBLIC_RECORD_TYPES.map((code) => Number(dbdefs?.dbconst?.(code)) || 0);
+    return publicTypes.includes(Number(rectypeId)) ? { ...access, visibility: 'public', viewGroups: [] } : access;
+  }
+
   async _rectypeId(recordType) {
     if (typeof recordType === 'string' && /^RT_/.test(recordType)) {
       const dbdefs = await this.options.ensureDbDefs();

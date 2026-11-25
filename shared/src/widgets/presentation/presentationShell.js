@@ -5,7 +5,14 @@
  *
  * Toolbar (27q3 §3, agreed 2026-11-24), always in this order:
  *
- *   New | Selector ▾ | Properties | Save | Save as  ‖  Scope ▾ + parameters | Refresh  ‖  Publish | Generate  ‖  ⋯ | Help
+ *   New | Selector ▾ | Edit | Properties | Save | Save as  ‖  Scope ▾ + parameters | Refresh  ‖  Publish | Generate  ‖  ⋯ | Help
+ *
+ * Edit is the viewer's (it opens the Editor). New, Properties, Refresh, Publish and Help are icons only. Crosstabs put
+ * Publish and Help on the header instead (27q3 review 1, 2026-11-25): header right = Publish | Help | List / View / Close.
+ * Story map and Reports follow (review 3): a slot `placeholder: true` keeps its place hidden, `tools` are icon buttons at
+ * the right end (Import | Export | Unregistered of the reports), the selector may end with a `badge` (card / list).
+ * Review 4 (2026-11-25): the first group is on the left, all the others (Show for, Refresh, Generate, tools) are right
+ * aligned together and wrap to the next row in a narrow pane.
  *
  * A slot that does not apply to a type is not given (hidden); a slot that does not apply now is `disabled`. Close is on
  * the header only, Delete is in the List only. Publish (fa-share-nodes) makes a page, Generate (fa-bolt) a file. Used by
@@ -29,20 +36,22 @@ import './presentationShell.css';
 
 /** The groups of the toolbar and their slots, in order. */
 export const PRESENTATION_TOOLBAR_GROUPS = Object.freeze([
-  Object.freeze(['new', 'selector', 'properties', 'save', 'saveAs']),
+  Object.freeze(['new', 'selector', 'edit', 'properties', 'save', 'saveAs']),
   Object.freeze(['scope', 'refresh']),
   Object.freeze(['publish', 'generate']),
-  Object.freeze(['more', 'help'])
+  Object.freeze(['more', 'tools', 'help'])
 ]);
 
 /** Icon, label and tip of the slots that are buttons (a slot spec may change them). */
 const SLOT_DEFAULTS = Object.freeze({
-  new: { icon: 'fa-plus', label: 'New', title: 'New' },
+  new: { icon: 'fa-circle-plus', label: 'New', title: 'New', caption: false },
+  // the viewer: Edit opens the Editor (27q3 review 1, 2026-11-25)
+  edit: { icon: 'fa-pen-ruler', label: 'Edit', title: 'Open the editor', primary: true },
   properties: { icon: 'fa-pen', label: 'Properties', title: 'Name, description, owner and visibility', caption: false },
   save: { icon: 'fa-floppy-disk', label: 'Save', title: 'Save', primary: true },
   saveAs: { icon: 'fa-copy', label: 'Save as', title: 'Save as a new one' },
-  refresh: { icon: 'fa-rotate', label: 'Refresh', title: 'Run the preview again' },
-  publish: { icon: 'fa-share-nodes', label: 'Publish', title: 'Publish as a web page' },
+  refresh: { icon: 'fa-rotate', label: 'Refresh', title: 'Run the preview again', caption: false },
+  publish: { icon: 'fa-share-nodes', label: 'Publish', title: 'Publish as a web page', caption: false },
   generate: { icon: 'fa-bolt', label: 'Generate', title: 'Generate the output' },
   help: { icon: 'fa-circle-question', label: 'Help', title: 'Help', caption: false }
 });
@@ -77,19 +86,37 @@ export function openFullScreenHost(className = '') {
 }
 
 /**
- * The header of a full screen view (`heurist-source-header`): the title and Close.
+ * The header of a full screen view (`heurist-source-header`): the title, icon buttons (Publish, Help) and Close last
+ * (27q3 review 1, 2026-11-25: the mode switch is the last button on the right in every mode).
  *
  * @param {object} options
  * @param {string} options.title The title ("Crosstab editor: <name>").
  * @param {Function|null} [options.onClose] Close (no button without it).
  * @param {string} [options.closeTitle] Tip of Close.
  * @param {string} [options.className] An own class of the header.
- * @returns {{element: HTMLElement, setTitle: function(string): void, close: HTMLButtonElement|null}}
+ * @param {Array<{icon: string, label: string, title?: string, run: Function, disabled?: boolean}>} [options.actions]
+ *        Icon buttons before Close.
+ * @param {string} [options.note] A warning between the title and the buttons (the JS/CSS note of the report editor).
+ * @returns {{element: HTMLElement, setTitle: function(string): void, setActions: function(Array<object>): void,
+ *   setNote: function(string): void, close: HTMLButtonElement|null}}
  */
-export function createSourceHeader({ title = '', onClose = null, closeTitle = 'Close', className = '' } = {}) {
+export function createSourceHeader({ title = '', onClose = null, closeTitle = 'Close', className = '', actions = [], note = '' } = {}) {
   const header = element('div', `heurist-source-header h-presentation-header${className ? ` ${className}` : ''}`);
   const caption = element('span', 'h-presentation-header-title', header);
   caption.textContent = title;
+  const noteBox = element('span', 'h-presentation-header-note', header);
+  const setNote = (text = '') => {
+    noteBox.replaceChildren();
+    noteBox.hidden = !text;
+    if (!text) return;
+    noteBox.title = $HR(text);
+    element('i', 'fa-solid fa-triangle-exclamation', noteBox).setAttribute('aria-hidden', 'true');
+    element('span', 'h-presentation-header-note-text', noteBox).textContent = $HR(text);
+  };
+  setNote(note);
+  const actionsBox = element('span', 'h-presentation-header-actions', header);
+  const setActions = (specs = []) => renderHeaderActions(actionsBox, specs);
+  setActions(actions);
   let close = null;
   if (typeof onClose === 'function') {
     close = element('button', 'h-btn h-presentation-header-close', header);
@@ -102,8 +129,34 @@ export function createSourceHeader({ title = '', onClose = null, closeTitle = 'C
   return {
     element: header,
     close,
+    setActions,
+    setNote,
     setTitle: (text) => { caption.textContent = text; }
   };
+}
+
+/**
+ * The icon buttons on a header (the full screen header or the header of a pane), in the given order; the mode switch
+ * (List / View / Close) is the last one (27q3 review 1). The host is emptied first.
+ *
+ * @param {HTMLElement|null} host
+ * @param {Array<{icon: string, label: string, title?: string, run: Function, disabled?: boolean, active?: boolean}|null>} specs
+ * @returns {HTMLButtonElement[]} The buttons.
+ */
+export function renderHeaderActions(host, specs = []) {
+  if (!host) return [];
+  host.replaceChildren();
+  return specs.filter(Boolean).map((spec) => {
+    const button = element('button', 'heurist-icon-button', host);
+    button.type = 'button';
+    button.title = $HR(spec.title || spec.label);
+    button.setAttribute('aria-label', $HR(spec.label || spec.title));
+    element('i', `fa-solid ${spec.icon}`, button).setAttribute('aria-hidden', 'true');
+    button.disabled = spec.disabled === true;
+    if (spec.active) button.classList.add('is-active');
+    if (typeof spec.run === 'function') button.addEventListener('click', () => spec.run(button));
+    return button;
+  });
 }
 
 /**
@@ -138,7 +191,9 @@ export function presentationButton(parent, spec) {
  * The selector of the saved configurations: a button with the name and ▾; `run(button)` opens the list under it.
  *
  * @param {HTMLElement} parent
- * @param {{icon?: string, label: string, title?: string, run: Function, disabled?: boolean}} spec
+ * @param {{icon?: string, label: string, title?: string, run: Function, disabled?: boolean, badge?: string,
+ *   count?: {text: string, icon?: string, title?: string}|null}} spec `badge`: a short word at the end (card / list of
+ *        the reports); `count`: a number badge before it (the generated reports of a template).
  * @returns {HTMLButtonElement}
  */
 export function presentationSelector(parent, spec) {
@@ -148,6 +203,8 @@ export function presentationSelector(parent, spec) {
   button.setAttribute('aria-haspopup', 'listbox');
   element('i', `fa-solid ${spec.icon || 'fa-list'}`, button).setAttribute('aria-hidden', 'true');
   element('span', 'h-presentation-selector-label', button).textContent = spec.label || '';
+  presentationCount(button, spec.count);
+  if (spec.badge) element('span', 'h-presentation-badge', button).textContent = $HR(spec.badge);
   element('span', 'h-caret', button).setAttribute('aria-hidden', 'true');
   button.disabled = spec.disabled === true;
   button.addEventListener('click', () => spec.run?.(button));
@@ -155,12 +212,31 @@ export function presentationSelector(parent, spec) {
 }
 
 /**
+ * A number badge (the generated reports of a report template, as the old report list showed it): an icon and the
+ * number, muted (27q3 review 4).
+ *
+ * @param {HTMLElement} parent
+ * @param {{text: string, icon?: string, title?: string}|null} count Nothing without a text.
+ * @returns {HTMLElement|null}
+ */
+export function presentationCount(parent, count) {
+  if (!count?.text) return null;
+  const badge = element('span', 'h-presentation-count', parent);
+  if (count.icon) element('i', count.icon, badge).setAttribute('aria-hidden', 'true');
+  element('span', '', badge).textContent = count.text;
+  if (count.title) badge.title = $HR(count.title);
+  return badge;
+}
+
+/**
  * Fill a toolbar with the slots of 27q3 §3. Each slot is optional: a missing (or `hidden`) one is not shown; a group
  * with no slot shown has no separator.
  *
- * Slot specs: `new`, `properties`, `save`, `saveAs`, `refresh`, `publish`, `generate`, `help` - button specs
+ * Slot specs: `new`, `edit`, `properties`, `save`, `saveAs`, `refresh`, `publish`, `generate`, `help` - button specs
  * (presentationButton; icon, label and tip have defaults); `selector` - a selector spec (presentationSelector);
- * `scope` - an element (the select of the records and its parameters); `more` - `[{icon, label, run}]`, the items of ⋯.
+ * `scope` - an element (the select of the records and its parameters); `more` - `[{icon, label, run}]`, the items of ⋯;
+ * `tools` - `[{icon, label, title, run, disabled}]`, icon buttons at the right end. A spec with `placeholder: true`
+ * keeps its place but is not seen.
  *
  * @param {HTMLElement} bar The toolbar (emptied).
  * @param {Object<string, object>} slots
@@ -171,24 +247,34 @@ export function renderPresentationToolbar(bar, slots = {}) {
   bar.classList.add('h-toolbar', 'h-presentation-toolbar');
   bar.setAttribute('role', 'toolbar');
   const made = {};
-  let previous = false;
+  // the groups after the first are right aligned, together; in a narrow pane they wrap to the next row (review 4)
+  let end = null;
   PRESENTATION_TOOLBAR_GROUPS.forEach((group, index) => {
     const present = group.filter((name) => slots[name] && slots[name].hidden !== true
-      && !(name === 'more' && !(Array.isArray(slots.more) && slots.more.length)));
+      && !(['more', 'tools'].includes(name) && !(Array.isArray(slots[name]) && slots[name].filter(Boolean).length)));
     if (!present.length) return;
-    // the last group (⋯, Help) at the right end
-    if (index === PRESENTATION_TOOLBAR_GROUPS.length - 1) {
-      element('span', 'h-presentation-toolbar-fill', bar).setAttribute('aria-hidden', 'true');
-    } else if (previous) {
-      element('span', 'h-presentation-separator', bar).setAttribute('aria-hidden', 'true');
+    let parent = bar;
+    if (index > 0) {
+      if (!end) end = element('span', 'h-presentation-toolbar-end', bar);
+      else element('span', 'h-presentation-separator', end).setAttribute('aria-hidden', 'true');
+      parent = end;
     }
-    previous = true;
     for (const name of present) {
       const spec = slots[name];
-      if (name === 'selector') made.selector = presentationSelector(bar, spec);
-      else if (name === 'scope') made.scope = bar.appendChild(spec instanceof Node ? spec : spec.element);
-      else if (name === 'more') made.more = moreButton(bar, spec);
-      else made[name] = presentationButton(bar, { ...SLOT_DEFAULTS[name], ...spec });
+      if (name === 'selector') made.selector = presentationSelector(parent, spec);
+      else if (name === 'scope') {
+        made.scope = spec.element || spec;
+        parent.append(made.scope);
+      }
+      else if (name === 'more') made.more = moreButton(parent, spec);
+      else if (name === 'tools') made.tools = spec.filter(Boolean).map((tool) => presentationButton(parent, { caption: false, ...tool }));
+      else made[name] = presentationButton(parent, { ...SLOT_DEFAULTS[name], ...spec });
+      // its place is kept, not seen (the Reports List: Show for does not move, review 3)
+      if (spec.placeholder === true && made[name]?.classList) {
+        made[name].classList.add('is-placeholder');
+        made[name].setAttribute('aria-hidden', 'true');
+        made[name].tabIndex = -1;
+      }
     }
   });
   return made;
@@ -228,7 +314,8 @@ function moreButton(parent, items) {
  * `heading` rows group them, `disabled` rows are shown greyed out.
  *
  * @param {HTMLElement} anchor The selector.
- * @param {Array<{id?: number, title?: string, note?: string, heading?: string, disabled?: boolean}>} items
+ * @param {Array<{id?: number, title?: string, note?: string, heading?: string, disabled?: boolean, count?: object}>} items
+ *        `count`: a number badge after the title (presentationCount).
  * @param {object} options
  * @param {number} [options.current] Id of the current item.
  * @param {function(object): void} options.onSelect
@@ -250,6 +337,7 @@ export function togglePresentationList(anchor, items, { current = 0, onSelect } 
     const row = element('button', 'h-presentation-list-item', list);
     row.type = 'button';
     row.textContent = item.title || `#${item.id}`;
+    presentationCount(row, item.count);
     if (item.note) element('span', 'h-presentation-list-note', row).textContent = item.note;
     row.classList.toggle('is-active', Number(item.id) === Number(current));
     row.disabled = item.disabled === true;

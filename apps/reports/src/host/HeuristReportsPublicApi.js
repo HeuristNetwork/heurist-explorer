@@ -55,6 +55,24 @@ export class HeuristReportsPublicApi extends EventTarget {
     return this._application.openEditor(String(reference));
   }
 
+  /**
+   * The host's result changed (Explorer's tool module): the preview of a card report follows it (27q3 review 3).
+   *
+   * @param {object|null} source DataSource.
+   */
+  setDataSource(source) {
+    return this._application.view?.sourceChanged?.('result', source);
+  }
+
+  /**
+   * The host's selection changed: the preview of a card report shows the first selected record.
+   *
+   * @param {number[]} ids
+   */
+  setSelection(ids) {
+    return this._application.view?.sourceChanged?.('selection', ids);
+  }
+
   /** Whether an editor has unsaved changes. */
   hasUnsavedChanges() {
     return this._application.hasUnsavedChanges();

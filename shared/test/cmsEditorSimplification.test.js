@@ -80,13 +80,12 @@ test('HTree: collapsible items hide their children, keep the state across setIte
   assert.deepEqual(rows(), ['g', 't', 'x']);
 });
 
-test('the one picker: marks [filter] [parametrized]; without a Filter Form the parameterized ones are disabled (review 7)', () => {
+test('the one picker: marks [filter] [parametrized]; without a Filter Form the parameterized ones are left out (27q3 review 4)', () => {
   const choices = [{ value: 'source:1', kind: 'source', id: 1, label: 'A', parameterized: true },
     { value: 'filter:2', kind: 'filter', id: 2, label: 'B', parameterized: false }];
   const any = queryChoiceItems(choices);
   assert.deepEqual(any.map((item) => [item.value, item.marks, Boolean(item.disabled)]),
     [['source:1', ['parametrized'], false], ['filter:2', ['filter'], false]]);
   const without = queryChoiceItems(choices, { parameters: 'without', first: [{ value: 'current', label: 'Current result' }] });
-  assert.deepEqual(without.map((item) => [item.value, Boolean(item.disabled)]), [['current', false], ['source:1', true], ['filter:2', false]]);
-  assert.ok(without[1].title);
+  assert.deepEqual(without.map((item) => item.value), ['current', 'filter:2']);
 });

@@ -111,6 +111,9 @@ export class HRecordManager extends HBaseWidget {
    *        with `editRecord`, in select modes it is the selection.
    * @param {Function} [options.editRecord] Host: `(id) → Promise<{saved}>` (pen button; double-click in `manager` mode).
    * @param {Function} [options.viewRecord] Host: `(id)` ("i" button).
+   * @param {Function} [options.deleteRecord] Host: `(id)` (the trash beside the pen, shown on mouse over).
+   * @param {Function} [options.activateRecord] Host: `(id)`, double-click in `manager` mode instead of `editRecord`
+   *        (the List of the presentations opens the Editor, the pen the record editor; 27q3 review 1).
    * @param {{store: object}} [options.relations] `relations` mode: the relation store of the field
    *        (relationStores.js); the record types are the store's `otherTypes`.
    * @param {Function} [options.browseRecords] `relations` mode: `(options) → Promise<number[]|null>`, the
@@ -209,10 +212,12 @@ export class HRecordManager extends HBaseWidget {
       onSelectionChange: (ids) => this._selectionChanged(ids),
       onEditRecord: (id) => void this._edit(id),
       onViewRecord: (id) => this.options.viewRecord?.(id),
+      onDeleteRecord: (id) => this.options.deleteRecord?.(id),
       // the Extended view: the built-in record renderer (the records of the list's domain)
       onRecordContentRequest: (request) => this._recordContent(request, path),
       // select modes: double-click selects that record and finishes (plan 21 §3.2)
-      onRecordActivate: this.isSelectMode() ? (id) => this._finish([id]) : undefined,
+      onRecordActivate: this.isSelectMode() ? (id) => this._finish([id])
+        : (typeof this.options.activateRecord === 'function' ? (id) => this.options.activateRecord(id) : undefined),
       recordTools: this.store ? (record) => this._relationTools(record)
         : (typeof this.options.recordTools === 'function' ? this.options.recordTools : undefined)
     });
@@ -391,6 +396,7 @@ export class HRecordManager extends HBaseWidget {
       emptyResultMessage: given.emptyResultMessage || $HR('No records'),
       interaction: {
         editEnabled: typeof this.options.editRecord === 'function',
+        deleteEnabled: typeof this.options.deleteRecord === 'function',
         popupEnabled: typeof this.options.viewRecord === 'function',
         persistentSelectionEnabled: false,
         ...(given.interaction || {}),

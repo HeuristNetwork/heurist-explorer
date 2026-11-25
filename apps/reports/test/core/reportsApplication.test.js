@@ -111,12 +111,12 @@ test('an output is added in the record editor: from the dialog with the owner of
   assert.equal((await application.newOutput({ id: 6, title: 'Monthly', ownerGroupId: 3 })).id, 6);
   assert.deepEqual(added.at(-1), ['RT_REPORT_OUTPUT', {
     values: { 1: 'Monthly', 76: 6 },
-    access: { owner: 3, visibility: 'viewable', viewGroups: [] }
+    access: { owner: 3, visibility: 'public', viewGroups: [] }
   }]);
   await application.newOutput({ id: 6, title: 'Monthly', ownerGroupId: 3 }, [{ t: '10' }]);
   assert.deepEqual(added.at(-1), ['RT_REPORT_OUTPUT', {
     values: { 1: 'Monthly', 76: 6, 12: '[{"t":"10"}]' },
-    access: { owner: 2, visibility: 'hidden', viewGroups: [] }
+    access: { owner: 2, visibility: 'public', viewGroups: [] }
   }]);
 });
 
@@ -128,7 +128,7 @@ test('current result with the record count of the server; the query choices of t
     getQueryChoiceDefinition: (choice) => ({ query: [{ t: String(choice.id) }] })
   });
   assert.deepEqual(await application.currentResult(), { query: 't:10', title: 'People', total: 42 });
-  // all listed: the picker shows those with parameters disabled
+  // all listed: the picker leaves out those with parameters
   assert.deepEqual((await application.queryChoicesForReports()).map((s) => s.value), ['source:1', 'filter:2']);
   assert.deepEqual(await application.queryChoiceQuery({ kind: 'source', id: 1 }), [{ ids: '1' }]);
   assert.deepEqual(await application.queryChoiceQuery({ kind: 'filter', id: 2 }), [{ t: '2' }]);
@@ -170,6 +170,15 @@ test('a new report starts with a starter template; a template that has a text ke
   await other.application.newReport();
   assert.deepEqual(kept.calls, []);
   assert.match(starterTemplate(false), /\{foreach \$results as \$r1\}/);
+});
+
+test('New report of the pane (27q3 review 4): name and kind, created without the record editor, a starter template', async () => {
+  const api = fakeApi();
+  const { application, added } = editing(api);
+  await application.createReport('card', ' Person card ');
+  assert.deepEqual(added, [], 'no record editor');
+  assert.deepEqual(api.calls, [['createRecord', 24, { 1: ['Person card'], 1203: [45] }], ['saveTemplate', 7, starterTemplate(true)]]);
+  assert.equal(application.selectedRef, '7');
 });
 
 test('Save As: a copy of the report with its title, then the text of the editor', async () => {

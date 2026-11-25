@@ -3,10 +3,11 @@
  * @brief The Crosstabs pane of Explorer (plan 27q2 §17, presentation-sources.md): the viewer of crosstabs. It changes no
  *        configuration: Edit and New open the full screen designer (CrosstabsDesigner, through Explorer).
  *
- * Toolbar: crosstab chooser | Source (Current result / Own query) | Edit | New; List, Publish and Help on the header of the
- * pane (as the modules, review 5). **List** (plan 27q3 §2.1) shows the crosstabs of the database in the pane instead of the
- * viewer: Edit opens the designer, Properties the record editor, Delete asks first; the right side lists the website pages
- * that show the selected crosstab (field 2-1204). With no crosstab yet the List opens the designer at once. With the source *Current
+ * Toolbar (27q3 review 1, 2026-11-25, as the editor): New | crosstab chooser | Edit ‖ Show for (Current result / Own
+ * query) | Refresh; on the header of the pane Publish | Help | List. **List** (plan 27q3 §2.1) shows the crosstabs of the
+ * database in the pane instead of the viewer, with New | Help | View on the header (no toolbar): Edit (or a double click)
+ * opens the designer, the pen the record editor, the trash asks first; the right side lists the website pages that show
+ * the selected crosstab (field 2-1204). With no crosstab yet the List opens the designer at once. With the source *Current
  * result* the pane counts Explorer's result (AND the record type of the crosstab) and the chooser lists first the crosstabs
  * whose record type is in the result (with the count), the others below and disabled; when exactly one fits and none is
  * chosen it is opened. With *Own query* it counts the query of the crosstab; `$SELECTED$` gets the selection, other
@@ -31,11 +32,11 @@ import { CrosstabService } from '#shared/widgets/crosstabs/crosstabService.js';
 import { CrosstabParams, ownCount } from '#shared/widgets/crosstabs/crosstabParams.js';
 import { ownQuery, SELECTED_PARAMETER } from '#shared/data/presentationSource.js';
 import { HPresentationList } from '#shared/widgets/presentation/HPresentationList.js';
+import { createScopeSelect, renderHeaderActions, renderPresentationToolbar } from '#shared/widgets/presentation/presentationShell.js';
 import { describePresentationUse, renderPresentationPages } from '#shared/widgets/presentation/presentationPages.js';
 import { loadScopeRecordTypes } from '../toolScope.js';
 import {
-  crosstabFieldLabel, crosstabLabels, element, groupCrosstabPresets, loadCrosstabPresets, presetSelector, toolButton,
-  toolSeparator
+  crosstabFieldLabel, crosstabLabels, element, groupCrosstabPresets, loadCrosstabPresets
 } from './crosstabsPresets.js';
 import './CrosstabsTool.css';
 
@@ -54,10 +55,11 @@ export class CrosstabsTool extends HBaseWidget {
    *        crosstab (0: a new one); resolves when it is closed.
    * @param {function({presetId: number, query: *}): Promise<void>} [options.publish] Publish the crosstab with the query.
    * @param {function(number): Promise<{saved?: boolean}>} [options.editRecord] The record editor (Properties of the List).
-   * @param {function(number): *} [options.editPage] Edit a website page that shows a crosstab (the List).
+   * @param {function({id: number, kind: string, site: object|null}): *} [options.editPage] Edit a website page that
+   *        shows a crosstab (the List): the CMS editor.
    * @param {function(string): void} [options.openManual] Explorer manual at a section (Help: `crosstabs`).
    * @param {Function} [options.selectExtent] Map extent picker of geo parameters of the Filter Form.
-   * @param {HTMLElement|null} [options.headerActions] The buttons on the header of the pane (Publish, Help).
+   * @param {HTMLElement|null} [options.headerActions] The buttons on the header of the pane (Publish | Help | List).
    * @param {object} options.runtime `{apiBaseUrl, database, requestHeaders, accessToken, language}`.
    */
   constructor(options) {
@@ -203,7 +205,6 @@ export class CrosstabsTool extends HBaseWidget {
     this.bodyElement.hidden = true;
     this.listHost = element('div', 'h-crosstabs-tool-list-mode');
     this.container.append(this.listHost);
-    this._renderHeaderActions();
     const publish = this.tool.publish;
     this.list = new HPresentationList().attach(this.listHost, {
       apiClient: this.tool.apiClient,
@@ -211,6 +212,9 @@ export class CrosstabsTool extends HBaseWidget {
       kinds: ['crosstabs'],
       title: 'Crosstabs',
       newLabel: 'New crosstab',
+      // New, Help and View are on the header of the pane (27q3 review 1)
+      showBar: false,
+      selectHint: 'Select a crosstab in the list',
       selectedId: this.preset?.id || null,
       canEdit: Boolean(this.tool.openDesigner),
       onNew: this.tool.openDesigner ? () => void this._design(0) : null,
@@ -230,6 +234,8 @@ export class CrosstabsTool extends HBaseWidget {
       baseUrl: this.tool.runtime?.baseUrl,
       database: this.tool.runtime?.database
     });
+    // after this.list is set: New | Help | View (review 2, 2026-11-25)
+    this._renderHeaderActions();
     await this.list.render();
   }
 
@@ -329,65 +335,65 @@ export class CrosstabsTool extends HBaseWidget {
 
   // ------------------------------------------------------------------ toolbar
 
-  /** @private Chooser | Source | Edit | New; Publish and Help on the header. */
+  /**
+   * @private New | chooser | Edit ‖ Show for | Refresh (the slots of the editor, 27q3 review 1); Publish | Help | List on
+   * the header. A published Explorer (a website page) has no New, Edit, Publish, List.
+   */
   _renderToolbar() {
-    const bar = this.toolbar;
-    bar.replaceChildren();
-    const select = presetSelector(bar, this.preset?.title || $HR('Choose a crosstab'), (anchor) => void this._toggleList(anchor));
-    select.disabled = !this.presets.length;
-    const source = element('select', 'h-select h-crosstabs-viewer-source');
-    source.title = $HR('Records counted: the current result of Explorer, or the query of the crosstab');
-    for (const [value, text] of [['current', 'Current result'], ['own', 'Own query']]) {
-      const option = element('option');
-      option.value = value;
-      option.textContent = $HR(text);
-      source.append(option);
-    }
-    source.value = this.sourceMode;
-    source.addEventListener('change', async () => {
-      this.sourceMode = source.value;
-      this._keep({ source: this.sourceMode });
-      this.values = {};
-      await this._refreshRecordTypes();
-      await this._apply();
+    const design = Boolean(this.tool.openDesigner);
+    const scope = createScopeSelect({
+      value: this.sourceMode,
+      label: 'Show for',
+      title: 'Records counted: the current result of Explorer, or the query of the crosstab',
+      onChange: async (value) => {
+        this.sourceMode = value;
+        this._keep({ source: this.sourceMode });
+        this.values = {};
+        await this._refreshRecordTypes();
+        await this._apply();
+      }
     });
-    bar.append(source);
-    // Edit / New / Publish: not on a website page (a published Explorer gives no designer, no publish)
-    if (this.tool.openDesigner) {
-      toolSeparator(bar);
-      const edit = toolButton(bar, 'fa-pen-ruler', 'Edit', 'Open the crosstab in the designer (full screen)', () => void this._design(this.preset?.id || 0));
-      edit.classList.add('h-btn-primary');
-      edit.disabled = !this.preset;
-      toolButton(bar, 'fa-plus', 'New', 'A new crosstab in the designer (full screen)', () => void this._design(0), false);
-    }
+    renderPresentationToolbar(this.toolbar, {
+      new: design ? { label: 'New crosstab', title: 'A new crosstab in the editor (full screen)', run: () => void this._design(0) } : null,
+      selector: {
+        icon: 'fa-table-cells', label: this.preset?.title || $HR('Choose a crosstab'), title: 'Crosstab',
+        disabled: !this.presets.length, run: (anchor) => void this._toggleList(anchor)
+      },
+      edit: design ? {
+        title: 'Open the crosstab in the editor (full screen)', disabled: !this.preset,
+        run: () => void this._design(this.preset?.id || 0)
+      } : null,
+      scope,
+      refresh: { title: 'Count the records again', run: () => void this._refresh() }
+    });
     this._renderHeaderActions();
   }
 
-  /** @private List, Publish and Help on the header of the pane (icon buttons as the module panels); none on a website. */
+  /** @private Refresh: the record types of the current result again, and the crosstab. */
+  async _refresh() {
+    this._typesKey = null;
+    await this._refreshRecordTypes();
+    await this._apply();
+  }
+
+  /**
+   * @private The buttons on the header of the pane (icon buttons as the module panels), the mode switch last:
+   * viewer Publish | Help | List, List New | Help | View. None on a website but Help.
+   */
   _renderHeaderActions() {
-    const host = this.tool.headerActions;
-    if (!host) return;
-    host.replaceChildren();
-    const button = (icon, title, run) => {
-      const node = element('button', 'heurist-icon-button');
-      node.type = 'button';
-      node.title = $HR(title);
-      node.setAttribute('aria-label', $HR(title));
-      node.append(element('span', `fa-solid ${icon}`));
-      node.addEventListener('click', run);
-      host.append(node);
-      return node;
-    };
-    // the List of the crosstabs and their pages (27q3 §2.1), not on a website
-    if (this.tool.openDesigner) {
-      const list = button(this.list ? 'fa-table-cells' : 'fa-list-ul', this.list ? 'Back to the crosstab' : 'List of the crosstabs and their published pages',
-        () => void this.toggleList());
-      list.classList.toggle('is-active', Boolean(this.list));
-    }
-    if (this.tool.publish && !this.list) {
-      button('fa-share-nodes', 'Publish the crosstab as a web page', () => void this._publish()).disabled = !this.preset;
-    }
-    if (this.tool.openManual) button('fa-circle-question', 'Help of the crosstabs', () => this.tool.openManual('crosstabs'));
+    const design = Boolean(this.tool.openDesigner);
+    renderHeaderActions(this.tool.headerActions, [
+      this.list && design ? { icon: 'fa-circle-plus', label: 'New crosstab', run: () => void this._design(0) } : null,
+      !this.list && this.tool.publish
+        ? { icon: 'fa-share-nodes', label: 'Publish the crosstab as a web page', disabled: !this.preset, run: () => void this._publish() } : null,
+      this.tool.openManual ? { icon: 'fa-circle-question', label: 'Help of the crosstabs', run: () => this.tool.openManual('crosstabs') } : null,
+      // the List of the crosstabs and their pages (27q3 §2.1), not on a website
+      design ? {
+        icon: this.list ? 'fa-table-cells' : 'fa-list-ul',
+        label: this.list ? 'Back to the crosstab' : 'List of the crosstabs and their published pages',
+        run: () => void this.toggleList()
+      } : null
+    ]);
   }
 
   /** @private The crosstabs under the chooser: those for the current result first, the others disabled. */

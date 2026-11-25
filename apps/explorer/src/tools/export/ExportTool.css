@@ -8,7 +8,7 @@
  * @since       8.0
  */
 
-/* the body of the tool workspace scrolls; the form keeps a readable width */
+/* the body of the tool workspace scrolls; the form is as wide as the pane (2026-11-25) */
 .h-explorer-tool-export-body {
     display: block;
     width: 100%;
@@ -22,7 +22,7 @@
     flex-direction: column;
     gap: 10px;
     min-width: 380px;
-    max-width: 980px;
+    max-width: 100%;
     padding: 10px 14px 16px;
     box-sizing: border-box;
 }
@@ -308,3 +308,6 @@
 .h-export-error .fa-triangle-exclamation {
     color: var(--h-color-warning, #b45309);
 }
+
+/* the name of a new saved export: the size of the Publish dialogs */
+.h-export-name-dialog { width: min(560px, 96vw); }

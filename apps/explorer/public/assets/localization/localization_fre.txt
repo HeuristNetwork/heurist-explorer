@@ -1724,3 +1724,15 @@
 #Story map editor#Éditeur de carte narrative
 #Story maps#Cartes narratives
 #The records of the preview: a snapshot of the current result (Refresh takes it again), or the query of the crosstab. The main search does not change the preview.#Les enregistrements de l'aperçu : un instantané du résultat actuel (Actualiser le reprend), ou la requête du tableau croisé. La recherche principale ne change pas l'aperçu.
+#Show for#Afficher pour
+#Select a crosstab in the list#Sélectionnez un tableau croisé dans la liste
+#Count the records again#Compter à nouveau les enregistrements
+#A new crosstab in the editor (full screen)#Un nouveau tableau croisé dans l’éditeur (plein écran)
+#Open the crosstab in the editor (full screen)#Ouvrir le tableau croisé dans l’éditeur (plein écran)
+#The test records of the preview: a snapshot of the current result (Refresh takes it again), or the query of the crosstab. The main search does not change the preview.#Les enregistrements de test de l’aperçu : un instantané du résultat actuel (Actualiser le reprend), ou la requête du tableau croisé. La recherche principale ne modifie pas l’aperçu.
+#Select a story map in the list#Sélectionnez une carte narrative dans la liste
+#Read the story maps and the story again#Relire les cartes narratives et le récit
+#Reset export settings#Réinitialiser les paramètres d'export
+#Save export settings#Enregistrer les paramètres d'export
+#Save the settings as a saved export#Enregistrer les paramètres comme export enregistré
+#Delete the saved export#Supprimer l'export enregistré

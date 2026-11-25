@@ -4,8 +4,9 @@
  *        selected Presentation set, found by the back link *Presentations on this page* 2-1204 (an ordinary record
  *        search, no endpoint of its own). Standalone pages first, then the pages of websites.
  *
- * Row: visibility, languages, name, URL, changed (date); Edit, Copy URL, Open (new tab), Delete (a standalone page
- * only). The URL and the kind come from `/page/{id}` (meta.website).
+ * Row: visibility, name (the link to the page), changed (date); Edit, Copy URL, Open (new tab), Delete (a standalone page
+ * only). The URL, the kind and the website of a menu page (`site`: its languages, the link /site/{website}/{page})
+ * come from `/page/{id}` (meta.website; 27q3 review 1, 2026-11-25). Edit opens the CMS editor on the page.
  *
  * @project     Heurist academic knowledge management system
  * @package     heurist-client-core
@@ -34,7 +35,7 @@ const PAGE_LIMIT = 200;
  * @param {object|null} dbdefs HDbDefs.
  * @param {number} presentationId
  * @returns {Promise<Array<{id: number, title: string, visibility: string, modified: string, url: string,
- *   languages: string[], kind: string, canEdit: boolean}>>}
+ *   languages: string[], kind: string, canEdit: boolean, site: {id: number, title: string, languages: string[]}|null}>>}
  */
 export async function loadPresentationPages(apiClient, dbdefs, presentationId) {
   const id = (code) => Number(dbdefs?.dbconst?.(code)) || 0;
@@ -53,15 +54,20 @@ export async function loadPresentationPages(apiClient, dbdefs, presentationId) {
     const pageId = Number(record.rec_ID);
     const summary = await apiClient.get(`/page/${pageId}`, { query: { fields: 'rec_ID' } })
       .then((response) => (response?.data ?? response)?.meta?.website || null).catch(() => null);
+    const site = Number(summary?.site?.id) > 0
+      ? { id: Number(summary.site.id), title: String(summary.site.title || ''), languages: Array.isArray(summary.site.languages) ? summary.site.languages : [] }
+      : null;
     return {
       id: pageId,
       title: String(summary?.title || record.rec_Title || `#${pageId}`),
       visibility: String(record.rec_NonOwnerVisibility || ''),
       modified: String(record.rec_Modified || ''),
       url: String(summary?.url || ''),
-      languages: Array.isArray(summary?.languages) ? summary.languages : [],
+      // a menu page: the languages of its website; a standalone page: none (any language)
+      languages: site ? site.languages : (Array.isArray(summary?.languages) ? summary.languages : []),
       kind: String(summary?.kind || 'page'),
-      canEdit: summary?.canEdit === true
+      canEdit: summary?.canEdit === true,
+      site
     };
   }));
   // standalone pages first (they are the publications), then the pages of websites
@@ -76,7 +82,7 @@ export async function loadPresentationPages(apiClient, dbdefs, presentationId) {
  * @param {object} options.apiClient
  * @param {object|null} options.dbdefs
  * @param {number|null} options.presentationId Null: nothing selected.
- * @param {function(number): *} [options.editPage] Edit a page (the Website manager / CMS editor).
+ * @param {function({id: number, kind: string, site: object|null}): *} [options.editPage] Edit a page (the CMS editor).
  * @param {function(): *} [options.publish] Publish the selected item (a button under an empty list).
  * @returns {Promise<void>}
  */
@@ -108,12 +114,12 @@ export async function renderPresentationPages(host, { apiClient, dbdefs, present
   }
   const table = element('table', 'h-presentation-pages-table', box);
   const head = element('tr', '', element('thead', '', table));
-  for (const text of ['', 'Language', 'Name', 'Changed', '']) element('th', '', head).textContent = text ? $HR(text) : '';
+  // no Language column (review 2, 2026-11-25): a standalone page has none
+  for (const text of ['', 'Name', 'Changed', '']) element('th', '', head).textContent = text ? $HR(text) : '';
   const body = element('tbody', '', table);
   for (const page of pages) {
     const row = element('tr', '', body);
     element('td', 'h-presentation-pages-visibility', row).innerHTML = visibilityIconHtml(page.visibility);
-    element('td', '', row).textContent = page.languages.join(', ') || '—';
     const name = element('td', 'h-presentation-pages-name', row);
     const link = element('a', '', name);
     link.textContent = page.title;
@@ -123,7 +129,10 @@ export async function renderPresentationPages(host, { apiClient, dbdefs, present
       link.rel = 'noopener';
       link.title = page.url;
     }
-    if (page.kind !== 'standalone') element('span', 'h-presentation-pages-note', name).textContent = $HR('in a website');
+    if (page.kind !== 'standalone') {
+      element('span', 'h-presentation-pages-note', name).textContent = page.site?.title
+        ? `${$HR('in')} ${page.site.title}` : $HR('in a website');
+    }
     element('td', 'h-presentation-pages-date', row).textContent = page.modified.slice(0, 16);
     const tools = element('td', 'h-presentation-pages-tools', row);
     const icon = (glyph, title, run, disabled = false) => {
@@ -135,7 +144,11 @@ export async function renderPresentationPages(host, { apiClient, dbdefs, present
       element('i', `fa-solid ${glyph}`, button).setAttribute('aria-hidden', 'true');
       button.addEventListener('click', () => void Promise.resolve(run()).catch((error) => HMsg.showMsgErr(error?.message || String(error))));
     };
-    if (typeof editPage === 'function') icon('fa-pen-ruler', 'Edit the page', () => editPage(page.id), !page.canEdit);
+    if (typeof editPage === 'function') {
+      // a menu page needs its website (the CMS editor opens the website on the page)
+      icon('fa-pen-ruler', 'Edit the page', () => editPage({ id: page.id, kind: page.kind, site: page.site }),
+        !page.canEdit || (page.kind !== 'standalone' && !page.site));
+    }
     icon('fa-link', 'Copy the address', () => copyText(page.url), !page.url);
     icon('fa-up-right-from-square', 'Open in a new tab', () => globalThis.open?.(page.url, '_blank', 'noopener'), !page.url);
     // a page of a website is removed in its website

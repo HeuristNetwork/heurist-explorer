@@ -341,3 +341,26 @@
 #Which kind of report?#Which kind of report?
 #Write the report to a file in the background (a generated report)#Write the report to a file in the background (a generated report)
 #Write the report to a file in the background (saved first)#Write the report to a file in the background (saved first)
+#This database has no record type Generated report#This database has no record type Generated report
+#The generated report was not created#The generated report was not created
+#Sort#Sort
+#Sort: by date#Sort: by date
+#Sort: by size#Sort: by size
+#Select a report#Select a report
+#Show for#Show for
+#Records of the test and of a generated report: the current result, or a query source or saved filter#Records of the test and of a generated report: the current result, or a query source or saved filter
+#Test output is limited with 50 records#Test output is limited with 50 records
+#Search for records first: the report is generated for them.#Search for records first: the report is generated for them.
+#Default language#Default language
+#Back to the report#Back to the report
+#List of the reports#List of the reports
+#Help of the reports#Help of the reports
+#card#card
+#list#list
+#Card report shows either the first selected or the first record in result list#Card report shows either the first selected or the first record in result list
+#Generated report#Generated report
+#Open the report in the editor (full screen)#Open the report in the editor (full screen)
+#The report was not created#The report was not created
+#List (record set)#List (record set)
+#Card (single record)#Card (single record)
+#Kind#Kind

@@ -56,6 +56,8 @@ export class HRecordList extends HBaseWidget {
    * @param {Function} context.onDataRequest Called with `{offset, limit, sort, filter}` to request a page of data.
    * @param {Function} context.onRecordContentRequest Called to lazily load a record's presentation HTML.
    * @param {Function} context.onViewRecord Called with a record ID to view.
+   * @param {Function} [context.onDeleteRecord] Called with a record ID to delete (the trash beside the pen, with
+   *        `interaction.deleteEnabled`; 27q3 review 1).
    * @param {Function} context.onViewModeChange Called with the new view mode.
    * @param {Function} context.onDataSourceAction Called with a datasource action id (workspace/save-filter/save-source).
    * @param {Function} [context.onRecordActivate] Called with a record ID on double-click; when given,
@@ -76,6 +78,7 @@ export class HRecordList extends HBaseWidget {
     onDataRequest,
     onRecordContentRequest,
     onViewRecord,
+    onDeleteRecord,
     onViewModeChange,
     onDataSourceAction,
     getListSort,
@@ -96,6 +99,7 @@ export class HRecordList extends HBaseWidget {
       onDataRequest,
       onRecordContentRequest,
       onViewRecord,
+      onDeleteRecord,
       onViewModeChange,
       onDataSourceAction,
       onRecordActivate,
@@ -740,13 +744,18 @@ export class HRecordList extends HBaseWidget {
     return adminInfoHtml(record, "h-recordlist");
   }
 
-  /** Build the edit/view row-action buttons markup, per enabled interactions. */
+  /** Build the edit/delete/view row-action buttons markup, per enabled interactions. */
   _actionsHtml(record) {
     const id = recordId(record);
     const edit =
       this.options.interaction.editEnabled === false
         ? ""
         : `<button class="h-recordlist-icon-button" data-record-action="edit" data-record-id="${id}" title="${escapeAttr($HR("Edit"))}"><i class="fa-solid fa-pen"></i></button>`;
+    // the trash beside the pen (a host that deletes, e.g. the List of the presentations)
+    const remove =
+      this.options.interaction.deleteEnabled === true
+        ? `<button class="h-recordlist-icon-button" data-record-action="delete" data-record-id="${id}" title="${escapeAttr($HR("Delete"))}"><i class="fa-solid fa-trash-can"></i></button>`
+        : "";
     // no "i" without popups: switched off, or Popup template "None"
     const view =
       this.options.interaction.popupEnabled === false || dataPopupMode(this.options.popupTemplate) === "none"
@@ -757,7 +766,7 @@ export class HRecordList extends HBaseWidget {
       this.options.interaction.persistentSelectionEnabled && this.options.collectionMode !== "permanent"
         ? `<button class="h-recordlist-icon-button h-recordlist-collect" data-record-action="collect" data-record-id="${id}"><i class="fa-solid fa-plus"></i></button>`
         : "";
-    return `<span class="h-recordlist-actions">${edit}${view}${collect}</span>`;
+    return `<span class="h-recordlist-actions">${edit}${remove}${view}${collect}</span>`;
   }
 
   /** Create the IntersectionObserver that lazily loads template content for scrolled-into-view items. */
@@ -857,12 +866,13 @@ export class HRecordList extends HBaseWidget {
     this.onSelectionChange?.([...this.selected]);
   }
 
-  /** Dispatch a row-action button click (collect, edit or view) for its record. */
+  /** Dispatch a row-action button click (collect, edit, delete or view) for its record. */
   _recordAction(target) {
     const id = Number(target.dataset.recordId);
     const action = target.dataset.recordAction;
     if (action === "collect") this._collectToggled(id);
     else if (action === "edit") this._editRecord(id);
+    else if (action === "delete") this.onDeleteRecord?.(id);
     else this.onViewRecord?.(id, target);
   }
 
@@ -1349,6 +1359,7 @@ function normalizeOptions(options) {
     },
     interaction: {
       editEnabled: true,
+      deleteEnabled: false,
       selectionEnabled: true,
       persistentSelectionEnabled: false,
       popupEnabled: true,

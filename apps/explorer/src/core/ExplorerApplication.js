@@ -1960,7 +1960,7 @@ export class ExplorerApplication {
       container: this.layout.createSlot(definition.id, definition.type),
       title: TOOL_TITLES[definition.type],
       create: {
-        report: (body) => this._createReportsTool(body),
+        report: (body, module) => this._createReportsTool(body, module),
         export: (body) => this._createExportTool(body),
         actions: (body) => this._createActionsTool(body),
         storymap: (body, module) => this._createStoryMapTool(body, module),
@@ -1982,15 +1982,17 @@ export class ExplorerApplication {
    *
    * @private
    * @param {HTMLElement} body Tool body.
-   * @returns {Promise<object>} The reports app API (`hasUnsavedChanges`, `destroy`).
+   * @param {object} [module] Its ExplorerToolModule (`actions`: the buttons on the header, 27q3 review 3).
+   * @returns {Promise<object>} The reports app API (`hasUnsavedChanges`, `setSelection`, `destroy`).
    */
-  _createReportsTool(body) {
+  _createReportsTool(body, module = null) {
     const mount = this._reportsMounter || mountDirectReports;
     return mount({
       container: body,
       bootstrap: { runtime: this._reportsRuntime() },
       bridge: this._reportsBridge(),
-      assetBaseUrl: this.config.moduleAssetUrls?.reports || null
+      assetBaseUrl: this.config.moduleAssetUrls?.reports || null,
+      headerActions: module?.actions || null
     });
   }
 
@@ -2036,6 +2038,23 @@ export class ExplorerApplication {
       HMsg.showMsgErr?.(error?.message || String(error));
       return false;
     }
+  }
+
+  /**
+   * Edit a page that shows a presentation (the List of Crosstabs / Story maps, 27q3 review 1): the Website manager with
+   * the CMS editor at once, on the website of a menu page or on the standalone page.
+   *
+   * @param {{id: number, site?: {id: number}|null}} page
+   * @returns {Promise<boolean>}
+   */
+  editWebsitePage(page) {
+    const siteId = Number(page?.site?.id) || 0;
+    const pageId = Number(page?.id) || 0;
+    if (!pageId) return Promise.resolve(false);
+    return this.openWebsiteManager({
+      recordId: siteId || pageId,
+      design: { site: siteId || pageId, page: siteId ? pageId : 0 }
+    });
   }
 
   /** Close the Website manager (its Close button). */
@@ -2518,7 +2537,7 @@ export class ExplorerApplication {
       mode: 'viewer',
       headerActions: module?.actions || null,
       openDesigner: this.config.published ? null : (presetId) => this.openStoryMapDesigner(presetId),
-      editPage: this.config.published ? null : (id) => void this.openWebsiteManager({ recordId: id })
+      editPage: this.config.published ? null : (page) => void this.editWebsitePage(page)
     }));
     body.replaceChildren();
     tool.attach(body);
@@ -2616,7 +2635,7 @@ export class ExplorerApplication {
       publish: this.config.published ? null : (options) => this.publishCrosstab(options),
       // the List of the crosstabs (plan 27q3 §2.1): Properties, and Edit of a page that shows a crosstab
       editRecord: this.config.published ? null : (id) => this.editRecord(id),
-      editPage: this.config.published ? null : (id) => void this.openWebsiteManager({ recordId: id }),
+      editPage: this.config.published ? null : (page) => void this.editWebsitePage(page),
       openManual: this.config.published ? null : (anchor) => this.openManual(anchor),
       // Publish and Help on the header of the pane, as the modules (review 5)
       headerActions: module?.actions || null,
@@ -2775,7 +2794,9 @@ export class ExplorerApplication {
       getQueryChoiceDefinition: async (choice) => queryChoiceDefinition(choice, {
         apiClient: this.apiClient, dbdefs: await this._ensureDbDefs().catch(() => null)
       }),
-      getUserGroups: async () => (await this.userGroups?.ensure(['users'])) || null
+      getUserGroups: async () => (await this.userGroups?.ensure(['users'])) || null,
+      // Help of the reports pane and editor (27q3 review 3)
+      openManual: (anchor) => this.openManual(anchor)
     };
   }
 

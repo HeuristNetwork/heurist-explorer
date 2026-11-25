@@ -135,7 +135,7 @@ test('service: through the HeuristApiClient (GET, POST for a long query)', async
   assert.equal(calls[1].options.body.op, 'crosstab');
 });
 
-test('query chooser: the one picker (HValuePicker), fixed items first, marks, parameterized disabled (review 7)', async () => {
+test('query chooser: the one picker (HValuePicker), fixed items first, marks, parameterized left out (27q3 review 4)', async () => {
   const anchor = document.createElement('button');
   document.body.append(anchor);
   const action = querySourceAction({
@@ -148,9 +148,8 @@ test('query chooser: the one picker (HValuePicker), fixed items first, marks, pa
   const running = action.run('', {}, anchor);
   await flush();
   const rows = document.body.querySelectorAll('.h-value-picker-item');
-  assert.deepEqual(rows.map((row) => row.querySelector('.h-value-picker-label').textContent), ['Current result', 'Persons', 'Places']);
-  assert.equal(rows[1].classList.contains('is-disabled'), true, 'parameters without a Filter Form field');
-  assert.deepEqual(rows[2].querySelectorAll('.h-value-picker-mark').map((mark) => mark.textContent), ['filter']);
+  assert.deepEqual(rows.map((row) => row.querySelector('.h-value-picker-label').textContent), ['Current result', 'Places'], 'parameters without a Filter Form field: left out');
+  assert.deepEqual(rows[1].querySelectorAll('.h-value-picker-mark').map((mark) => mark.textContent), ['filter']);
   rows[0].dispatchEvent(new Event('click', { bubbles: true }));
   assert.equal(await running, '[{"t":"10"}]');
 });

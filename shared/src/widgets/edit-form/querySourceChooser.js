@@ -3,7 +3,7 @@
  * @brief The one picker of query sources and saved filters (review 7 of plan 27q2, docs/development/query-choice-picker.md):
  *        an HValuePicker in a popover under a button — the ▾ of a query field (its query copied by value), the Saved
  *        filter of the CMS, the query of a report. Items from queryChoiceItems: names, `[filter]` / `[parametrized]`
- *        marks, parameterized ones disabled where no Filter Form is possible, a search box from more than 10 entries.
+ *        marks, parameterized ones left out where no Filter Form is possible, a search box from more than 10 entries.
  *
  * @project     Heurist academic knowledge management system
  * @package     heurist-shared
@@ -70,7 +70,7 @@ export function chooseQuerySource(anchor, items, { value = null } = {}) {
  * @param {() => Promise<Array<object>>} options.list Query choices (listQueryChoices).
  * @param {(choice: object) => Promise<{query: *, filterForm?: object|null}|null>} options.definition The query of a
  *        choice (queryChoiceDefinition; also gets the fixed items).
- * @param {'any'|'without'|function(): string} [options.parameters='without'] `without`: parameterized ones disabled (no
+ * @param {'any'|'without'|function(): string} [options.parameters='without'] `without`: parameterized ones left out (no
  *        Filter Form field); a function is asked at the click.
  * @param {Array<{value: string, label: string}>} [options.first] Fixed items above the list (Current result, plan 27q2
  *        §17).

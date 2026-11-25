@@ -39,12 +39,13 @@ function fakeList() {
       await list.options.renderOutputs(list.selectedId, list.outputs);
     },
     async reload() { list.reloaded += 1; await list.select(list.selectedId); },
+    setListVisible(visible) { list.visible = visible; },
     async destroy() {}
   };
   return list;
 }
 
-async function mount(list = LIST, jobClient = {}, bridge = { editRecord: async () => ({ saved: false }), addRecord: async () => ({ saved: false }) }) {
+async function mount(list = LIST, jobClient = {}, bridge = { editRecord: async () => ({ saved: false }), addRecord: async () => ({ saved: false }) }, headerActions = null) {
   const application = new ReportsApplication({
     config: { language: 'eng' },
     reportApi: {
@@ -62,7 +63,7 @@ async function mount(list = LIST, jobClient = {}, bridge = { editRecord: async (
   document.body.append(host);
   const reportList = fakeList();
   const view = new ReportManager().attach(host, {
-    application, loadEditor: async () => { throw new Error('no editor in tests'); }, createList: () => reportList
+    application, headerActions, loadEditor: async () => { throw new Error('no editor in tests'); }, createList: () => reportList
   });
   application.setView(view);
   await application.initialize();
@@ -70,47 +71,102 @@ async function mount(list = LIST, jobClient = {}, bridge = { editRecord: async (
   return { application, host, view, list: reportList };
 }
 
-test('the pane is the List of the reports (plan 27q3): Card and List Report, New and Import', async () => {
-  const { list } = await mount();
+test('the pane is the List of the reports (plan 27q3): Card and List Report, New and Import on the toolbar', async () => {
+  const { list, view } = await mount();
   assert.deepEqual(list.options.kinds, ['listreport', 'cardreport']);
   assert.equal(typeof list.options.onNew, 'function');
-  assert.deepEqual(list.options.barTools.map((tool) => tool.label), ['Import']);
+  assert.equal(list.options.showBar, false, 'no title bar (27q3 review 3)');
+  assert.ok(view.buttons.new);
+  // standalone (no header of a pane): the mode switch at the end of the toolbar
+  assert.deepEqual(view.buttons.tools.map((button) => button.getAttribute('aria-label')),
+    ['Import', 'Export', 'Template files without a record', 'List of the reports']);
+  assert.equal(view.mode, 'view', 'View first (review 4)');
+  assert.equal(list.options.kindBadge({ rec_ID: 5 }), 'card');
+  assert.equal(list.options.kindBadge({ rec_ID: 6 }), 'list');
   assert.equal(await list.options.describeUse(6), '!This template has generated reports: delete them first (1)', 'a report with outputs is not deleted');
   assert.equal(await list.options.describeUse(5), '');
 });
 
-test('without a selection: the template files without a record (Register, Delete)', async () => {
+test('without a selection: "Select a report"; the files without a record when there is no report yet', async () => {
   const { list } = await mount();
   await list.select(null);
-  assert.match(list.outputs.textContent, /old\.tpl/);
+  assert.equal(list.outputs.querySelector('.h-reports-message').textContent, 'Select a report');
+  const empty = await mount({ ...LIST, reports: [] });
+  await empty.list.select(null);
+  assert.match(empty.list.outputs.textContent, /old\.tpl/);
 });
 
-test('a List Report: Test, Generate and more beside the List, with its generated reports', async () => {
+test('a List Report: Show for, Test and Generate on the toolbar, its generated reports on the right', async () => {
   const { list, view, application } = await mount();
   await list.select(6);
   assert.equal(application.selectedRef, '6');
-  assert.match(list.outputs.querySelector('.h-reports-details-title').textContent, /Monthly/);
-  assert.ok(view.detailButtons.refresh && view.detailButtons.generate && view.detailButtons.more);
+  assert.equal(list.outputs.querySelector('.h-reports-details-title'), null, 'no title, kind or description');
+  assert.ok(view.buttons.refresh && view.buttons.generate);
+  assert.ok(view.buttons.scope, 'Show for of a list report');
+  // review 4: Generate is the primary button of the pane, Test of the editor
+  assert.ok(view.buttons.generate.classList.contains('h-btn-primary'));
+  assert.ok(!view.buttons.refresh.classList.contains('h-btn-primary'));
   assert.ok(view.outputsPanel, 'the generated reports are in the panel, not in a popup');
   await view.destroy();
 });
 
-test('a card report: Test without Generate; the preview of the first selected record', async () => {
+test('List and View (27q3 review 3, 4): the View hides the list and shows the selector and Edit', async () => {
+  const header = document.createElement('span');
+  const { list, view } = await mount(LIST, {}, undefined, header);
+  await list.select(6);
+  // View first (review 4): the generated reports in a badge of the selector
+  assert.equal(view.mode, 'view');
+  assert.equal(view.buttons.selector.querySelector('.h-presentation-count').textContent, '1');
+  view.setMode('list');
+  assert.equal(view.buttons.selector, undefined, 'List: no selector (review 4)');
+  assert.equal(view.buttons.edit, undefined);
+  assert.equal(header.querySelectorAll('button').length, 1, 'the mode switch on the header of the pane');
+  assert.equal(header.querySelector('button').getAttribute('aria-label'), 'Back to the report');
+  header.querySelector('button').click();
+  assert.equal(view.mode, 'view');
+  assert.equal(list.visible, false);
+  assert.match(view.buttons.selector.textContent, /Monthly/);
+  assert.ok(view.buttons.edit);
+  assert.equal(view.buttons.selector.querySelector('.h-presentation-badge').textContent, 'list');
+  assert.equal(header.querySelector('button').getAttribute('aria-label'), 'List of the reports');
+  await view.destroy();
+});
+
+test('Unregistered: the template files on the right; without such files no button', async () => {
+  const { list, view } = await mount();
+  await list.select(6);
+  await view.toggleUnregistered();
+  assert.match(list.outputs.textContent, /old\.tpl/);
+  await view.toggleUnregistered();
+  assert.ok(view.outputsPanel);
+  await view.destroy();
+  const none = await mount({ ...LIST, unregistered: [] });
+  assert.deepEqual(none.view.buttons.tools.map((button) => button.getAttribute('aria-label')), ['Import', 'Export', 'List of the reports']);
+  await none.list.select(null);
+  assert.match(none.list.outputs.textContent, /Select a report/);
+  await none.view.destroy();
+});
+
+test('a card report: no Show for, Test or Generate (review 4); the preview of the first selected record', async () => {
   const bridge = { editRecord: async () => ({ saved: false }), getSelection: () => [77] };
   const { list, view } = await mount(LIST, {}, bridge);
   const shown = [];
   await list.select(5);
   view.viewer.showUrl = (url) => shown.push(url);
   await view.previewCard(LIST.reports[0]);
-  assert.equal(view.detailButtons.generate, undefined);
+  assert.equal(view.buttons.generate, undefined, 'no Generate');
+  assert.equal(view.buttons.refresh, undefined, 'no Test');
+  assert.equal(view.buttons.scope, undefined, 'no Show for');
+  assert.match(list.outputs.querySelector('.h-reports-message').textContent, /Card report shows/);
   assert.equal(view.outputsPanel, null);
   assert.deepEqual(shown, ['http://x/api/db/presentation/5/execute?recordId=77']);
   await view.destroy();
 });
 
 test('without a record editor: no New, Properties or Register', async () => {
-  const { list } = await mount(LIST, {}, {});
+  const { list, view } = await mount(LIST, {}, {});
   assert.equal(list.options.onNew, null);
+  assert.equal(view.buttons.new, undefined);
   assert.equal(list.options.editRecord, null);
   await list.select(null);
   assert.equal(list.outputs.querySelector('[title="Register: create the report record of this template"]'), null);
@@ -202,6 +258,36 @@ test('Generate while a generation runs shows the running one instead of starting
   }
 });
 
+test('Generate: the form dialog of the Publish popups (HEditForm) with Name and Language (27q3 review 4)', async () => {
+  const { HMsg } = await import('#shared/ui');
+  const show = HMsg.showMsgDlg;
+  const close = HMsg.closeMsgDlg;
+  let dialog = null;
+  HMsg.showMsgDlg = (body, options) => { dialog = { body, options }; return null; };
+  HMsg.closeMsgDlg = () => {};
+  try {
+    const bridge = { editRecord: async () => ({ saved: false }), getCurrentQuery: () => ({ query: 't:10' }) };
+    const { application, view, list } = await mount(LIST, { list: async () => [] }, bridge);
+    await list.select(6);
+    const created = [];
+    application.outputLanguages = async () => [{ value: 7, label: 'FRE French' }];
+    application.createOutput = async (report, values) => { created.push([report.id, values]); return { id: 60 }; };
+    view.runOutput = async () => {};
+    const running = view.generate();
+    await flush();
+    assert.equal(dialog.options.title, 'Generate report');
+    assert.ok(dialog.body.classList.contains('h-edit-form'), 'an HEditForm');
+    assert.deepEqual(dialog.options.buttons.map((button) => [button.label, button.class]), [['Generate', 'h-btn h-btn-primary'], ['Cancel', 'h-btn']]);
+    dialog.options.buttons[0].onClick();
+    await running;
+    assert.deepEqual(created, [[6, { name: 'Monthly', language: 0, query: 't:10' }]]);
+    await view.destroy();
+  } finally {
+    HMsg.showMsgDlg = show;
+    HMsg.closeMsgDlg = close;
+  }
+});
+
 test('closing the manager stops its own test run, not a generation', async () => {
   const jobs = runningJobs();
   const { view } = await mount(LIST, jobs);
@@ -210,22 +296,14 @@ test('closing the manager stops its own test run, not a generation', async () =>
   assert.deepEqual(jobs.cancelled, ['t1']);
 });
 
-test('JavaScript not allowed: a warning and an output frame without scripts', async () => {
+test('JavaScript not allowed: an output frame without scripts; the warning is in the editor only', async () => {
   const { view, list } = await mount({ ...LIST, settings: { javaScriptAllowed: false, testRecordLimit: 50 } });
   await list.select(6);
-  assert.equal(view.jsWarning.hidden, false);
+  assert.ok(!/Javascript/.test(list.outputs.textContent), 'no warning in the pane (27q3 review 3)');
   assert.ok(!view.viewer.frame.getAttribute('sandbox').includes('allow-scripts'));
   view.app.data.settings.javaScriptAllowed = true;
   await list.select(6);
-  assert.equal(view.jsWarning.hidden, true);
   assert.ok(view.viewer.frame.getAttribute('sandbox').includes('allow-scripts'));
-  await view.destroy();
-});
-
-test('no settings in the list (anonymous): no warning', async () => {
-  const { view, list } = await mount();
-  await list.select(6);
-  assert.equal(view.jsWarning.hidden, true);
   await view.destroy();
 });
 

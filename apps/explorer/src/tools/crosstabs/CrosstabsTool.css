@@ -65,7 +65,6 @@
   text-align: left;
 }
 
-.h-crosstabs-viewer-source { flex: 0 1 150px; min-width: 0; }
 
 @container (max-width: 640px) {
   .h-crosstabs-tool-label { display: none; }

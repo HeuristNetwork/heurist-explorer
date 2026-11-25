@@ -51,11 +51,42 @@ export const QUERY_CHOICE_MARKS = Object.freeze({ filter: 'filter', parameterize
  * @param {object} [options.dbdefs] HDbDefs (field ids of a query source).
  * @param {'user'|'website'} [options.scope='user']
  * @param {Array<number>|function(): Array<number>|null} [options.ownerIds] Owners of the saved filters (`user`).
+ * @param {boolean} [options.fresh=false] Read again, not the list kept for QUERY_CHOICE_CACHE_MS.
  * @returns {Promise<Array<QueryChoice>>}
  */
-export async function listQueryChoices({ apiClient, dbdefs = null, scope = 'user', ownerIds = null } = {}) {
+export function listQueryChoices({ apiClient, dbdefs = null, scope = 'user', ownerIds = null, fresh = false } = {}) {
   const website = scope === 'website';
   const owners = website ? [CMS_WEBSITE_FILTERS_GROUP] : (typeof ownerIds === 'function' ? ownerIds() : ownerIds);
+  // the same list for a while: a picker opened again does not read it again (27q3 review 4)
+  const key = `${scope}|${Array.isArray(owners) ? owners.join(',') : '*'}`;
+  const cache = apiClient && typeof apiClient === 'object' ? (CHOICE_CACHE.get(apiClient) || new Map()) : null;
+  if (cache) CHOICE_CACHE.set(apiClient, cache);
+  const kept = cache?.get(key);
+  if (kept && !fresh && Date.now() - kept.time < QUERY_CHOICE_CACHE_MS) return kept.promise;
+  const promise = readQueryChoices(apiClient, dbdefs, website, owners);
+  cache?.set(key, { time: Date.now(), promise });
+  promise.catch(() => cache?.delete(key));
+  return promise;
+}
+
+/** How long a list of query choices is kept (ms). */
+export const QUERY_CHOICE_CACHE_MS = 60000;
+
+/** The kept lists of query choices, by api client, then scope and owners. */
+const CHOICE_CACHE = new WeakMap();
+
+/**
+ * Forget the kept lists of query choices (after a query source or saved filter was saved or deleted).
+ *
+ * @param {object} apiClient The lists read through this client.
+ * @returns {void}
+ */
+export function clearQueryChoiceCache(apiClient) {
+  if (apiClient && typeof apiClient === 'object') CHOICE_CACHE.get(apiClient)?.clear();
+}
+
+/** @private Read the query sources and saved filters of a scope. */
+async function readQueryChoices(apiClient, dbdefs, website, owners) {
   const [sources, filters] = await Promise.all([
     listQuerySources({ apiClient, dbdefs, publicOnly: website }),
     // no saved filters (an older server, no rights): the query sources alone
@@ -94,28 +125,25 @@ async function listSavedFilters(apiClient, owners) {
 
 /**
  * The items of the picker: `[filter]` and `[parametrized]` marks; where a query can have no parameters
- * (`parameters: 'without'`, a query field without a Filter Form) the parameterized ones are shown disabled.
+ * (`parameters: 'without'`, a query field without a Filter Form) the parameterized ones are left out (27q3 review 4,
+ * 2026-11-25; before: shown disabled).
  *
  * @param {Array<QueryChoice>} choices
  * @param {object} [options]
  * @param {'any'|'without'} [options.parameters='any']
  * @param {Array<{value: string, label: string}>} [options.first] Fixed items above the list (Current result).
- * @returns {Array<{value: string, label: string, marks: string[], disabled?: boolean, title?: string, choice: object}>}
+ * @returns {Array<{value: string, label: string, marks: string[], choice: object}>}
  */
 export function queryChoiceItems(choices = [], { parameters = 'any', first = [] } = {}) {
   const fixed = first.map((item) => ({ value: item.value, label: item.label, marks: [], group: 'first', choice: item }));
-  const listed = (choices || []).map((choice) => {
-    const disabled = parameters === 'without' && choice.parameterized;
-    return {
-      value: choice.value,
-      label: choice.label,
-      marks: [...(choice.kind === 'filter' ? [QUERY_CHOICE_MARKS.filter] : []),
-        ...(choice.parameterized ? [QUERY_CHOICE_MARKS.parameterized] : [])],
-      ...(disabled ? { disabled: true, title: 'Needs a Filter Form for its parameters: not possible here' } : {}),
-      group: 'list',
-      choice
-    };
-  });
+  const listed = (choices || []).filter((choice) => !(parameters === 'without' && choice.parameterized)).map((choice) => ({
+    value: choice.value,
+    label: choice.label,
+    marks: [...(choice.kind === 'filter' ? [QUERY_CHOICE_MARKS.filter] : []),
+      ...(choice.parameterized ? [QUERY_CHOICE_MARKS.parameterized] : [])],
+    group: 'list',
+    choice
+  }));
   return [...fixed, ...listed];
 }
 

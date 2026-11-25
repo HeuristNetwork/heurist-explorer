@@ -33,7 +33,7 @@ export async function initHeuristReports(config) {
   if (!container) throw new Error(`Reports container #${config.containerId} was not found`);
   const application = createReportsApplication(config);
   container.classList.add('heurist-reports-root');
-  const view = new ReportManager().attach(container, { application });
+  const view = new ReportManager().attach(container, { application, headerActions: config.headerActions || null });
   application.setView(view);
 
   const api = new HeuristReportsPublicApi(application);

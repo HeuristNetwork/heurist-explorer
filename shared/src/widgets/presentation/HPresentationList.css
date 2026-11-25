@@ -58,8 +58,22 @@
 .h-presentation-row { display: contents; }
 
 .h-presentation-row-tool.is-edit { order: -1; color: var(--h-color-primary); }
-.h-presentation-row-tool.is-properties,
-.h-presentation-row-tool.is-delete { order: 20; }
+
+/* card / list just after Edit (the reports, 27q3 review 3) */
+.h-presentation-row-badge { order: -1; align-self: center; }
+
+/* the number of the generated reports of a template, at the right (27q3 review 4) */
+.h-presentation-row-count {
+  order: 10;
+  margin-left: auto;
+  padding: 0 4px;
+  color: var(--h-color-text-muted);
+  font-size: var(--h-font-size-small);
+  white-space: nowrap;
+}
+
+/* no record type icon: all rows are Presentation sets (27q3 review 1) */
+.h-presentation-list .h-recordlist-rectype-icon { display: none; }
 
 .h-presentation-row-kind {
   order: 10;
@@ -83,8 +97,16 @@
   white-space: nowrap;
 }
 
-/* the pages of a presentation */
-.h-presentation-pages { display: flex; flex-direction: column; gap: 6px; }
+/* the pages of a presentation: a panel (27q3 review 1) */
+.h-presentation-pages {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px;
+  border: 1px solid var(--h-color-border);
+  border-radius: 4px;
+  background: var(--h-color-surface);
+}
 
 .h-presentation-pages-title { font-weight: 600; }
 
@@ -115,3 +137,19 @@
 
 .h-presentation-pages-date { white-space: nowrap; color: var(--h-color-text-muted); }
 .h-presentation-pages-tools { white-space: nowrap; text-align: right; }
+
+/* a narrow pane: the icons on a second line under the name and date (review 2, 2026-11-25) */
+.h-presentation-pages { container-type: inline-size; }
+
+@container (max-width: 420px) {
+  .h-presentation-pages-table thead { display: none; }
+  .h-presentation-pages-table tr {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    border-bottom: 1px solid var(--h-color-border);
+  }
+  .h-presentation-pages-table td { border-bottom: 0; }
+  .h-presentation-pages-name { flex: 1 1 0; min-width: 0; }
+  .h-presentation-pages-tools { flex: 1 0 100%; padding-top: 0; text-align: left; }
+}

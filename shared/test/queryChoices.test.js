@@ -55,6 +55,19 @@ test('one list: query sources by their names and saved filters, mixed and sorted
   assert.deepEqual(website.find((call) => call.path === '/records/').query.q.at(-1), { access: 'public' });
 });
 
+test('the list is kept for a while: a picker opened again does not read it again (27q3 review 4)', async (t) => {
+  const { RecordTypeProvider } = await import('../src/data/RecordTypeProvider.js');
+  t.mock.method(RecordTypeProvider.prototype, 'getIdByConceptCode', async () => 29);
+  const calls = [];
+  const apiClient = client(calls);
+  await listQueryChoices({ apiClient, dbdefs, scope: 'user' });
+  const read = calls.length;
+  await listQueryChoices({ apiClient, dbdefs, scope: 'user' });
+  assert.equal(calls.length, read, 'kept');
+  await listQueryChoices({ apiClient, dbdefs, scope: 'user', fresh: true });
+  assert.ok(calls.length > read, 'read again');
+});
+
 test('HValuePicker: a disabled item is shown with its marks and tooltip, not picked', () => {
   const host = document.createElement('div');
   const picked = [];

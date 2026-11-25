@@ -20,7 +20,8 @@ list functions. Scopes, labels, marks and the number of entries differed:
 4. Marks `[filter]` and `[parametrized]`.
 5. A search box when there are more than 10 entries.
 6. Where a query can have no parameters (no Filter Form field: Record cards, Story map, Generated report, Website
-   manager record pages, CMS Own query), the parameterized ones are shown **disabled**, with a tooltip.
+   manager record pages, CMS Own query), the parameterized ones are **left out** (changed 2026-11-25, plan 27q3 review 4;
+   before: shown disabled with a tooltip). The list is kept for 60 s per api client (`listQueryChoices`, option `fresh`).
 7. Scope of the saved filters = the scope of the query sources:
    - `user` (Explorer and its editors, Reports, Website manager): every query source the user can read; the saved filters
      of ownerScope (Everyone, Website filters, the user's groups, the user).

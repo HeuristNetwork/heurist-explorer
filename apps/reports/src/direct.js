@@ -32,10 +32,12 @@ import { createOutputsPanel } from './ui/OutputsDialog.js';
  * @param {object} [options.bootstrap] Bootstrap envelope (`runtime`, optional `state.report`).
  * @param {object|null} [options.bridge] Host bridge (record editor, current result, Query Sources).
  * @param {string|null} [options.assetBaseUrl] Base URL the module's own assets (localization) are loaded from.
+ * @param {HTMLElement|null} [options.headerActions] The buttons on the header of the host's pane (Help | List / View,
+ *        27q3 review 3); without it the manager shows them at the right end of its toolbar.
  * @returns {Promise<import('./host/HeuristReportsPublicApi.js').HeuristReportsPublicApi>}
  * @throws {Error} When no container is supplied.
  */
-export async function mountHeuristReports({ container, bootstrap = {}, bridge = null, assetBaseUrl = null } = {}) {
+export async function mountHeuristReports({ container, bootstrap = {}, bridge = null, assetBaseUrl = null, headerActions = null } = {}) {
   if (!container) throw new Error('A container is required to mount the reports manager');
   const containerId = container.id || uniqueContainerId();
   container.id = containerId;
@@ -43,6 +45,7 @@ export async function mountHeuristReports({ container, bootstrap = {}, bridge = 
   const config = createHeuristReportsConfig(bootstrap, { bridge, containerId });
   config.exposeGlobal = false;
   config.moduleAssetBaseUrl = assetBaseUrl;
+  config.headerActions = headerActions;
   return initHeuristReports(config);
 }
 

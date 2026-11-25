@@ -109,6 +109,18 @@ export class ReportsApplication extends EventTarget {
   }
 
   /**
+   * The badge of the number of generated reports of a report (a file icon and the number, as the old report list,
+   * 27q3 review 4): selector, its list and the rows of the List.
+   *
+   * @param {object|null} report
+   * @returns {{text: string, icon: string, title: string}|null} Null without generated reports.
+   */
+  static outputCountBadge(report) {
+    const count = Number(report?.outputCount) || 0;
+    return count > 0 ? { text: String(count), icon: 'fa-regular fa-file', title: 'Generated reports' } : null;
+  }
+
+  /**
    * Number of records of a test run: 1 for a card report, else the server's
    * limit (settings.testRecordLimit of the list; TEST_RECORD_LIMIT without it).
    *
@@ -245,6 +257,27 @@ export class ReportsApplication extends EventTarget {
   }
 
   /**
+   * New report of the pane (27q3 review 4): the name and the kind are asked in small popups; the record (public) is
+   * created in the background, without the record editor, and starts with a starter template.
+   *
+   * @param {'card'|'list'} kind Card Report (one record) or List Report.
+   * @param {string} name
+   * @returns {Promise<object>} The report.
+   */
+  async createReport(kind, name) {
+    const [rectype, nameField] = await this.definitionId('RT_PRESENTATION_SET', 'DT_NAME');
+    const values = await this.reportValues(kind, { [nameField]: String(name || '').trim() });
+    const details = Object.fromEntries(Object.entries(values).map(([field, value]) => [field, [value]]));
+    const id = await this.api.createRecord(rectype, details);
+    if (!id) throw new Error($HR('The report was not created'));
+    await this.refresh();
+    const { body } = await this.api.readTemplate(id);
+    if (!String(body ?? '').trim()) await this.api.saveTemplate(id, starterTemplate(kind === 'card'));
+    await this.selectReport(String(id));
+    return this.findReport(String(id)) || { id };
+  }
+
+  /**
    * Save a template text as a copy of a report and select it: the copy has its own file, named after its title.
    *
    * @param {object} report The report.
@@ -306,7 +339,7 @@ export class ReportsApplication extends EventTarget {
   }
 
   /**
-   * Add a generated report in the record editor. With a query it comes from Generate: the user's own (the
+   * Add a generated report in the record editor, public (27q3 review 4). With a query it comes from Generate: the user's own (the
    * language and the rest are chosen in the editor); without one it has the owner of the report.
    *
    * @param {object} report Report with a record.
@@ -319,12 +352,55 @@ export class ReportsApplication extends EventTarget {
     if (query != null) values[queryField] = typeof query === 'string' ? query : JSON.stringify(query);
     const result = await this.host.addRecord('RT_REPORT_OUTPUT', {
       values,
-      access: query != null ? { owner: this.userGroups?.currentUserId, visibility: 'hidden', viewGroups: [] }
-        : { owner: report.ownerGroupId, visibility: 'viewable', viewGroups: [] }
+      access: query != null ? { owner: this.userGroups?.currentUserId, visibility: 'public', viewGroups: [] }
+        : { owner: report.ownerGroupId, visibility: 'public', viewGroups: [] }
     });
     if (!result?.saved) return null;
     await this.refresh();
     return (await this.loadOutputs()).find((output) => output.id === Number(result.recordId)) || { id: Number(result.recordId) };
+  }
+
+  /**
+   * Generate of the reports pane (27q3 review 3): a new generated report with a name, a language and the query of
+   * *Show for*, written in the background (no record editor).
+   *
+   * @param {object} report Report with a record.
+   * @param {{name: string, language?: number, query: *}} values `language`: term id of DT_LANGUAGE (0: none).
+   * @returns {Promise<object>} The new output.
+   */
+  async createOutput(report, { name, language = 0, query }) {
+    const [rectype, nameField, reportField, queryField, languageField] = await this.definitionId(
+      'RT_REPORT_OUTPUT', 'DT_NAME', 'DT_REPORT', 'DT_QUERY_STRING', 'DT_LANGUAGE');
+    if (!rectype) throw new Error($HR('This database has no record type Generated report'));
+    const details = {
+      [nameField]: [String(name || report.title)],
+      [reportField]: [Number(report.id)],
+      [queryField]: [typeof query === 'string' ? query : JSON.stringify(query)]
+    };
+    if (languageField && Number(language) > 0) details[languageField] = [Number(language)];
+    const id = await this.api.createOutput(rectype, details);
+    if (!id) throw new Error($HR('The generated report was not created'));
+    await this.refresh();
+    return (await this.loadOutputs()).find((output) => output.id === id) || { id };
+  }
+
+  /**
+   * The languages of a generated report: the terms of DT_LANGUAGE that are languages of the database (all terms when
+   * none of them is).
+   *
+   * @returns {Promise<Array<{value: number, label: string}>>}
+   */
+  async outputLanguages() {
+    const dbdefs = await this.loadDbDefs().catch(() => null);
+    const [field] = await this.definitionId('DT_LANGUAGE').catch(() => [0]);
+    const root = Number(dbdefs?.vocabRoot?.(field)) || 0;
+    if (!root) return [];
+    const terms = (dbdefs.termTree(root, { flat: true }) || []).filter((term) => term.internalid !== root);
+    const wanted = new Set((dbdefs.translationLanguages?.() || []).map((code) => String(code).toLowerCase()));
+    const used = terms.filter((term) => wanted.has(String(term.code || '').toLowerCase()));
+    return (used.length ? used : terms).map((term) => ({
+      value: term.internalid, label: term.code ? `${String(term.code).toUpperCase()} ${term.term}` : term.term
+    }));
   }
 
   /** Edit an output record. */
@@ -374,11 +450,18 @@ export class ReportsApplication extends EventTarget {
    * current result. A single record (card) report is tested on one record only:
    * such templates usually gather all linked and related data of the record.
    *
+   * A query given (*Show for* a query source or saved filter, 27q3 review 3) is used instead: its first records.
+   *
    * @param {object|null} [report] Tested report (its card flag sets the limit).
+   * @param {*} [query] The query of the chosen source; undefined: the selection or the current result.
    * @returns {Promise<{ids: number[], source: string}>}
    */
-  async testRecordIds(report = null) {
+  async testRecordIds(report = null, query = undefined) {
     const limit = ReportsApplication.testLimit(report, this.data.settings);
+    if (query !== undefined) {
+      const ids = query == null ? [] : await this.api.queryIds(query, limit);
+      return { ids, source: 'query' };
+    }
     const selection = await this.host.getSelection();
     if (selection.length) {
       return { ids: selection.slice(0, limit), source: 'selection', total: selection.length };

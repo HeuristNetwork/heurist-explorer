@@ -40,19 +40,29 @@
 .h-reports-tool-group[hidden],
 .h-reports-split[hidden] { display: none; }
 
-/* JavaScript and CSS blocks are removed from report output on this database
-   (always on its own row, below the buttons) */
-.h-reports-js-warning {
-  display: inline-flex;
-  flex: 0 0 100%;
+/* the toolbar of the List and the View (27q3 review 3); the JS/CSS note is on the header of the editor */
+.h-reports-pane-toolbar[hidden] { display: none; }
+
+.h-reports-show-for-button { flex: 0 1 200px; min-width: 80px; }
+
+/* one message at the top of the right side ("Select a report", "Test output is limited ..."), with Close */
+.h-reports-message {
+  display: flex;
+  flex: 0 0 auto;
   align-items: center;
   gap: 4px;
-  min-width: 0;
-  color: var(--h-color-text-muted, #6b7280);
-  font-size: var(--h-font-size-small);
+  min-height: 24px;
+  padding: 2px 4px 2px 8px;
+  border: 1px solid var(--h-color-border);
+  border-radius: var(--h-radius, 3px);
+  background: var(--h-color-surface);
+  color: var(--h-color-text-muted);
 }
-.h-reports-js-warning .fa-triangle-exclamation { color: var(--h-color-warning, #b45309); }
-.h-reports-js-warning[hidden] { display: none; }
+
+.h-reports-message[hidden] { display: none; }
+.h-reports-message-text { flex: 1 1 auto; min-width: 0; }
+.h-reports-outputs[hidden] { display: none; }
+.h-reports-schedules-controls > [hidden] { display: none; }
 
 .h-reports-separator {
   align-self: stretch;
@@ -341,6 +351,27 @@
 }
 .h-reports-form-prefixed .h-input { flex: 1 1 auto; min-width: 80px; border-top-left-radius: 0; border-bottom-left-radius: 0; }
 
+/* the generated reports of a template in the reports pane (27q3 review 4): as wide as the pane, small search and sort
+   that wrap, columns hidden in a narrow pane (Lang, Query, Scheduled, Generated, Size first, then all but Name) */
+.h-reports-schedules.is-template {
+  container-type: inline-size;
+  min-width: 0;
+}
+
+.h-reports-schedules.is-template .h-reports-schedules-controls .h-input { flex: 1 1 120px; max-width: 260px; }
+.h-reports-schedules.is-template .h-reports-schedules-controls .h-select { flex: 0 1 auto; }
+.h-reports-schedules.is-template .h-reports-schedule-name { max-width: none; }
+.h-reports-schedules.is-template a.h-reports-generated-name { display: block; text-decoration: none; }
+.h-reports-schedules.is-template a.h-reports-generated-name:hover { text-decoration: underline; }
+
+@container (max-width: 560px) {
+  .h-reports-schedules.is-template .h-reports-col-l1 { display: none; }
+}
+
+@container (max-width: 300px) {
+  .h-reports-schedules.is-template .h-reports-col-l2 { display: none; }
+}
+
 /* the outputs list in the docked panel of the website editor (plan 27n §14.16): five columns, the search only */
 .h-reports-schedules.is-compact .h-reports-col-extra,
 .h-reports-schedules.is-compact .h-reports-schedules-controls > select {
@@ -406,30 +437,31 @@
   min-height: 0;
 }
 
-/* the selected report at the right of the List: title, Test | Generate | ⋯, generated reports, output */
+/* the selected report at the right of the List: the progress and output, its generated reports */
 .h-reports-details {
   display: flex;
   flex-direction: column;
   gap: 6px;
-  min-height: 100%;
+  min-height: calc(100% - 32px);
+  margin-top: 6px;
 }
 
-.h-reports-details-title {
-  display: flex;
-  align-items: baseline;
-  gap: 8px;
-  font-weight: 600;
-  font-size: var(--h-font-size-large);
-}
-
-.h-reports-details .h-presentation-toolbar { padding: 4px 0; }
-
+/* the viewer only as high as its progress while the generated reports are shown */
 .h-reports-details .h-reports-viewer-host {
   display: flex;
-  flex: 1 1 auto;
+  flex: 0 0 auto;
   flex-direction: column;
+}
+
+.h-reports-details .h-reports-viewer-host:has(.h-reports-preview-frame:not([hidden])) {
+  flex: 1 1 auto;
   min-height: 240px;
 }
 
+.h-reports-details .h-reports-info { display: none; }
+
 .h-reports-unregistered { margin: 4px 0; padding-left: 18px; }
 .h-reports-unregistered li { display: flex; align-items: center; gap: 6px; }
+
+/* Generate report, New report: the size of the Publish dialogs of the modules (27q3 review 4) */
+.h-reports-generate-dialog { width: min(560px, 96vw); }

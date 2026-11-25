@@ -36,7 +36,7 @@ test('ReportApi paths: reports and outputs by record id', async () => {
     ['PUT', '/presentation/5/asset', { body: 'body' }],
     ['DELETE', '/presentation/5', null],
     ['DELETE', '/presentation/setup', { name: 'a&b.tpl' }],
-    ['POST', '/presentation/0', { rec_RecTypeID: 24, details: { 1: ['T'] } }],
+    ['POST', '/presentation/0', { rec_RecTypeID: 24, rec_NonOwnerVisibility: 'public', details: { 1: ['T'] } }],
     ['POST', '/presentation/5/duplicate', { title: 'Copy' }],
     ['DELETE', '/output/60', null],
     ['DELETE', '/output/60/asset', null],

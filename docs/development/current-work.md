@@ -9,7 +9,20 @@ not committed, no browser check; explorer, reports, website deployed): reports m
 Report 2-10645 / List Report 2-10646, entity `report` gone, only `/presentation/{id}`), page back link 2-1204 set on page
 saves; shared shell `shared/src/widgets/presentation/` (header, fixed toolbar, HPresentationList, pages panel);
 Crosstabs / Story map: viewer pane + List + full screen editor; Reports: List + editor; Export: saved exports; Website
-manager on the shell. Open (§7.2): export *Keep* output, story map Publish, CMS editor toolbar, French manuals. Next:
+manager on the shell. **Review 1 (Crosstabs) implemented 2026-11-25** (§8): one button layout for View / List / Editor
+(header right Publish | Help | List / View / Close), List rows with the hover pen (Properties) and trash, Published pages
+with the website of a menu page (`meta.website.site`, /site/{website}/{page}, Edit opens the CMS editor), new crosstabs
+public. **Review 3 implemented 2026-11-25** (§9): Story map and Reports in the same layout; Reports List + new View
+mode (one toolbar, Show for = query-source picker for list reports, Test | Generate, Import | Export | Unregistered;
+places kept), message row, generated reports of the template with Search / Sort, Generate popup (Name, Language, record
+created in the background), JS/CSS note on the editor header; Test is the only throwaway output. **Review 4
+implemented 2026-11-25** (§10): the groups after the first right aligned and wrapping (all presentation toolbars; no
+fixed place), Generate primary in the pane / Test in the editor, no Test for card reports, Presentation sets and
+Generated reports public by default (also server import), number of generated reports in selector and List, generated
+reports columns hidden in a narrow pane and Name opens the file, New report = Name popup + kind; the one picker leaves
+out parameterized choices and keeps its list 60 s. **Export review 2026-11-25** (§11): full width, Reset instead of
+New, Name popup on Save / Save as (public, no record editor), Delete next to Save as. Open (§7.2, §8.3,
+§9.3): export *Keep* output, story map Publish, CMS editor toolbar, manual Reports section, French manuals. Next:
 browser check.
 
 **`docs/development/27q2 Crosstabs-Plan.md`** (agreed 2026-11-20; phases A-F implemented 2026-11-20; **review 1

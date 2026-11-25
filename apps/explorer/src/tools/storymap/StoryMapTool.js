@@ -33,7 +33,7 @@ import { $HR, HMsg } from '#shared/ui';
 import { askChoice } from '#shared/ui/askChoice.js';
 import { HEditForm } from '#shared/widgets/edit-form/HEditForm.js';
 import {
-  confirmLeave, createSourceHeader, presentationButton, presentationSelector, renderPresentationToolbar, togglePresentationList
+  confirmLeave, createSourceHeader, renderHeaderActions, renderPresentationToolbar, togglePresentationList
 } from '#shared/widgets/presentation/presentationShell.js';
 import { HPresentationList } from '#shared/widgets/presentation/HPresentationList.js';
 import { describePresentationUse, renderPresentationPages } from '#shared/widgets/presentation/presentationPages.js';
@@ -74,7 +74,7 @@ export class StoryMapTool extends HBaseWidget {
    * @param {'viewer'|'editor'} [options.mode='viewer'] The pane, or the full screen editor.
    * @param {function(number): Promise<{presetId: number}|null>} [options.openDesigner] Viewer: the editor of a story map
    *        (0: a new one); resolves when it is closed.
-   * @param {function(number): *} [options.editPage] Viewer, List: edit a website page that shows a story map.
+   * @param {function({id: number, kind: string, site: object|null}): *} [options.editPage] Viewer, List: edit a website page that shows a story map.
    * @param {HTMLElement|null} [options.headerActions] Viewer: the buttons on the header of the pane (List, Help).
    * @param {function({presetId: number}): void} [options.onClose] Editor: closed (unsaved changes asked first).
    * @param {object} options.runtime `{apiBaseUrl, database, requestHeaders, accessToken, language}`.
@@ -105,9 +105,14 @@ export class StoryMapTool extends HBaseWidget {
   async render() {
     this.dbdefs = await this.tool.getDbDefs().catch(() => null);
     this.container.classList.add('h-storymap-tool', `is-${this.mode}`);
-    // the editor: the header with Close (27q3 §2.3)
+    // the editor: the header with Help | Close (27q3 §2.3, review 3)
     this.header = this.mode === 'editor'
-      ? createSourceHeader({ title: '', closeTitle: 'Close the story map editor', onClose: () => void this.close() })
+      ? createSourceHeader({
+        title: '',
+        closeTitle: 'Close the story map editor',
+        onClose: () => void this.close(),
+        actions: [this.tool.openManual ? { icon: 'fa-circle-question', label: 'Help of the story map', run: () => this.tool.openManual('storymap') } : null]
+      })
       : null;
     this.toolbar = element('div', 'h-toolbar h-storymap-tool-toolbar');
     this.toolbar.setAttribute('role', 'toolbar');
@@ -240,7 +245,6 @@ export class StoryMapTool extends HBaseWidget {
     this.main.hidden = true;
     this.listHost = element('div', 'h-storymap-tool-list-mode');
     this.container.append(this.listHost);
-    this._renderHeaderActions();
     const design = Boolean(this.tool.openDesigner);
     this.list = new HPresentationList().attach(this.listHost, {
       apiClient: this.tool.apiClient,
@@ -248,6 +252,9 @@ export class StoryMapTool extends HBaseWidget {
       kinds: ['storymap'],
       title: 'Story maps',
       newLabel: 'New story map',
+      // New, Help and View are on the header of the pane (27q3 review 3)
+      showBar: false,
+      selectHint: 'Select a story map in the list',
       selectedId: this.preset?.id || null,
       canEdit: design,
       onNew: design ? () => void this._design(0) : null,
@@ -263,6 +270,8 @@ export class StoryMapTool extends HBaseWidget {
       baseUrl: this.tool.runtime?.baseUrl,
       database: this.tool.runtime?.database
     });
+    // after this.list is set: the buttons of the List
+    this._renderHeaderActions();
     await this.list.render();
   }
 
@@ -365,7 +374,8 @@ export class StoryMapTool extends HBaseWidget {
       const id = asNew ? 0 : (this.preset?.id || 0);
       const answer = id
         ? await this.tool.apiClient.request(`/presentation/${id}`, { method: 'PATCH', body: { details } })
-        : await this.tool.apiClient.post('/presentation/0', { body: { rec_RecTypeID: ids.rectype, details } });
+        // a new story map is public, as a new crosstab (27q3 review 3); Properties changes it
+        : await this.tool.apiClient.post('/presentation/0', { body: { rec_RecTypeID: ids.rectype, rec_NonOwnerVisibility: 'public', details } });
       const saved = Number((answer?.data ?? answer)?.records?.[0]?.rec_ID ?? (answer?.data ?? answer)?.recordId ?? id) || 0;
       this._dirty = false;
       await this._loadPresets();
@@ -489,33 +499,35 @@ export class StoryMapTool extends HBaseWidget {
 
   // ------------------------------------------------------------------ toolbar and layout
 
-  /** @private The toolbar: the viewer's (selector | Edit | New) or the editor's (the common one, 27q3 §3). */
+  /**
+   * @private The toolbar: the viewer's New | selector | Edit ‖ Refresh (the slots of the editor, as the Crosstabs pane,
+   * 27q3 review 3), or the editor's.
+   */
   _renderToolbar() {
     if (this.mode === 'editor') {
       this._renderEditorToolbar();
       return;
     }
-    const bar = this.toolbar;
-    bar.replaceChildren();
-    presentationSelector(bar, {
-      icon: 'fa-book-open', label: this.preset?.title || $HR('Select story map'), title: 'Story map', disabled: !this.presets.length,
-      run: (anchor) => togglePresentationList(anchor, this.presets, {
-        current: this.preset?.id,
-        onSelect: (item) => { if (item.id !== this.preset?.id) void this.openPreset(item.id); }
-      })
+    // New and Edit: the editor over the whole screen (not on a website page)
+    const design = Boolean(this.tool.openDesigner);
+    renderPresentationToolbar(this.toolbar, {
+      new: design ? { label: 'New story map', title: 'A new story map in the editor (full screen)', run: () => void this._design(0) } : null,
+      selector: {
+        icon: 'fa-book-open', label: this.preset?.title || $HR('Select story map'), title: 'Story map', disabled: !this.presets.length,
+        run: (anchor) => togglePresentationList(anchor, this.presets, {
+          current: this.preset?.id,
+          onSelect: (item) => { if (item.id !== this.preset?.id) void this.openPreset(item.id); }
+        })
+      },
+      edit: design ? {
+        title: 'Open the story map in the editor (full screen)', disabled: !this.preset, run: () => void this._design(this.preset?.id || 0)
+      } : null,
+      refresh: { title: 'Read the story maps and the story again', run: () => void this.reload() }
     });
-    // Edit / New: the editor over the whole screen (not on a website page)
-    if (this.tool.openDesigner) {
-      presentationButton(bar, {
-        icon: 'fa-pen-ruler', label: 'Edit', title: 'Open the story map in the editor (full screen)', primary: true,
-        disabled: !this.preset, run: () => void this._design(this.preset?.id || 0)
-      });
-      presentationButton(bar, { icon: 'fa-plus', label: 'New', title: 'A new story map in the editor (full screen)', caption: false, run: () => void this._design(0) });
-    }
     this._renderHeaderActions();
   }
 
-  /** @private Editor: New | selector | Properties | Save | Save as ‖ Run ‖ Help (Close on the header). */
+  /** @private Editor: New | selector | Properties | Save | Save as ‖ Run (Help | Close on the header). */
   _renderEditorToolbar() {
     this.header?.setTitle(`${$HR('Story map editor')}: ${this.preset?.title || $HR('New story map')}`);
     const active = Boolean(this.preset) || this.editing === true;
@@ -534,31 +546,26 @@ export class StoryMapTool extends HBaseWidget {
       save: { title: 'Save the story map', disabled: !active, run: () => void this._save() },
       saveAs: { title: 'Save the changes as a new story map', disabled: !this.preset?.id, run: () => void this._save({ asNew: true }) },
       // Run: the story topics as the result of Explorer, the first one selected (the Refresh slot)
-      refresh: { icon: 'fa-play', label: 'Run', title: 'Run the query of the story topics and show the story of the first one', disabled: !active, run: () => void this._run() },
-      help: this.tool.openManual ? { title: 'Help of the story map', run: () => this.tool.openManual('storymap') } : null
+      refresh: { icon: 'fa-play', label: 'Run', title: 'Run the query of the story topics and show the story of the first one', caption: true, disabled: !active, run: () => void this._run() }
     });
   }
 
-  /** @private Viewer: List and Help on the header of the pane (as the Crosstabs pane). */
+  /**
+   * @private Viewer: the buttons on the header of the pane, the mode switch last (as the Crosstabs pane, 27q3 review 3):
+   * viewer Help | List, List New | Help | View.
+   */
   _renderHeaderActions() {
-    const host = this.tool.headerActions;
-    if (!host || this.mode !== 'viewer') return;
-    host.replaceChildren();
-    const button = (icon, title, run) => {
-      const node = element('button', 'heurist-icon-button');
-      node.type = 'button';
-      node.title = $HR(title);
-      node.setAttribute('aria-label', $HR(title));
-      node.append(element('span', `fa-solid ${icon}`));
-      node.addEventListener('click', run);
-      host.append(node);
-      return node;
-    };
-    if (this.tool.openDesigner) {
-      button(this.list ? 'fa-book-open' : 'fa-list-ul', this.list ? 'Back to the story map' : 'List of the story maps and their published pages',
-        () => void this.toggleList()).classList.toggle('is-active', Boolean(this.list));
-    }
-    if (this.tool.openManual) button('fa-circle-question', 'Help of the story map', () => this.tool.openManual('storymap'));
+    if (this.mode !== 'viewer') return;
+    const design = Boolean(this.tool.openDesigner);
+    renderHeaderActions(this.tool.headerActions, [
+      this.list && design ? { icon: 'fa-circle-plus', label: 'New story map', run: () => void this._design(0) } : null,
+      this.tool.openManual ? { icon: 'fa-circle-question', label: 'Help of the story map', run: () => this.tool.openManual('storymap') } : null,
+      design ? {
+        icon: this.list ? 'fa-book-open' : 'fa-list-ul',
+        label: this.list ? 'Back to the story map' : 'List of the story maps and their published pages',
+        run: () => void this.toggleList()
+      } : null
+    ]);
   }
 
   /** @private A new story map: the form opens. */

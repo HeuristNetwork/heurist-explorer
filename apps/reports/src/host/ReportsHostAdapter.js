@@ -108,6 +108,20 @@ export class ReportsHostAdapter {
     }
   }
 
+  /** Whether the host has a manual (Help of the reports pane and editor, 27q3 review 3). */
+  canOpenManual() {
+    return typeof this.bridge.openManual === 'function';
+  }
+
+  /** Open the host's manual at a section (`reports`). */
+  openManual(anchor) {
+    try {
+      this.bridge.openManual?.(anchor);
+    } catch {
+      // no manual
+    }
+  }
+
   /** Users and groups data for owner group names, or null. */
   async getUserGroups() {
     try {

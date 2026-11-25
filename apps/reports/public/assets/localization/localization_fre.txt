@@ -341,3 +341,26 @@
 #Which kind of report?#Quel type de rapport ?
 #Write the report to a file in the background (a generated report)#Écrire le rapport dans un fichier en arrière-plan (un rapport généré)
 #Write the report to a file in the background (saved first)#Écrire le rapport dans un fichier en arrière-plan (enregistré d'abord)
+#This database has no record type Generated report#Cette base de données n’a pas le type d’enregistrement Rapport généré
+#The generated report was not created#Le rapport généré n’a pas été créé
+#Sort#Tri
+#Sort: by date#Tri : par date
+#Sort: by size#Tri : par taille
+#Select a report#Sélectionnez un rapport
+#Show for#Afficher pour
+#Records of the test and of a generated report: the current result, or a query source or saved filter#Enregistrements du test et d’un rapport généré : le résultat actuel, ou une source de requête ou un filtre enregistré
+#Test output is limited with 50 records#Le résultat du test est limité à 50 enregistrements
+#Search for records first: the report is generated for them.#Recherchez d’abord des enregistrements : le rapport est généré pour eux.
+#Default language#Langue par défaut
+#Back to the report#Retour au rapport
+#List of the reports#Liste des rapports
+#Help of the reports#Aide des rapports
+#card#fiche
+#list#liste
+#Card report shows either the first selected or the first record in result list#Un rapport fiche montre le premier enregistrement sélectionné, ou le premier du résultat
+#Generated report#Rapport généré
+#Open the report in the editor (full screen)#Ouvrir le rapport dans l’éditeur (plein écran)
+#The report was not created#Le rapport n'a pas été créé
+#List (record set)#Liste (ensemble d'enregistrements)
+#Card (single record)#Fiche (un seul enregistrement)
+#Kind#Type

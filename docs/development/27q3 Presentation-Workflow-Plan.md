@@ -3,7 +3,10 @@
 **Status.** Proposal of Artem 2026-11-24, review round 1 answered the same day (§2-§5). **Phases 1-7 implemented
 2026-11-24 (§7), not committed, no browser check** (explorer, reports, website deployed). Back link = field 2-1204;
 reports are Presentation sets of kind Card Report 2-10645 / List Report 2-10646, only `/presentation/{id}` (§5). Open
-items: §7.2. Extends the topic note `presentation-sources.md`.
+items: §7.2. **Review 1 (Crosstabs) implemented 2026-11-25 (§8)**; **review 3 (Story map and Reports in the same
+layout, Reports View mode) implemented 2026-11-25 (§9)**; **review 4 (Reports details, right aligned toolbar, public
+records) implemented 2026-11-25 (§10)**; **Export review implemented 2026-11-25 (§11)**; not committed, no browser check. Extends the topic note
+`presentation-sources.md`.
 
 ## 1. Goal
 
@@ -299,3 +302,162 @@ on a crosstab answer 400 *not a report*.
 - **Old test data**: the 16 Custom Report records (2-1104) and 22 Generated Reports of `osmak_mapping` are not
   converted (agreed); they are not listed any more.
 - French user manuals not updated yet.
+
+## 8. Review 1: Crosstabs (Artem 2026-11-25, implemented the same day)
+
+### 8.1 One layout for View, List and Editor (Option 2 of Artem)
+
+Left = the toolbar, right = the header (the pane header in View and List, the full screen header in the Editor). The
+mode switch is always the last button on the right, Help just before it.
+
+```
+View:    New | Selector ▾ | Edit                       ‖ Show for ▾ | Refresh    <->  Publish | Help | List
+Editor:  New | Selector ▾ | Properties | Save | Save as ‖ Show for ▾ | Refresh    <->  Publish | Help | Close
+List:    (no toolbar, no title bar)                                               <->  New | Help | View
+```
+
+- Changes §3 for Crosstabs: Publish and Help are on the header, not in the toolbar. The toolbar has a slot `edit` (the
+  viewer) after the selector. New (fa-circle-plus), Properties, Refresh, Publish, Help are icons only (for every type);
+  Edit, Save, Save as keep their labels. The scope is *Show for* in View and Editor (was *Test on* in the Editor).
+- `createSourceHeader({actions})` / `setActions()`: icon buttons before Close.
+- HPresentationList: `showBar: false` (Crosstabs: New on the pane header), `selectHint` ("Select a crosstab in the
+  list", also fixed: the hint was removed by the pages panel).
+
+### 8.2 List, pages, new crosstabs
+
+- List rows: no record type icon. On mouse over the **pen = Properties** (the record editor, as in every other list) and
+  the **trash = Delete** beside it; a double click and the leftmost Edit icon open the Editor. Generic options:
+  HRecordList `interaction.deleteEnabled` / `onDeleteRecord`, HRecordManager `deleteRecord`, `activateRecord` (double
+  click in `manager` mode).
+- Published pages: a panel on `--h-color-surface`. `/page/{id}` meta.website of a menu page has `site {id, title,
+  languages}` (`WebsiteRepository::websiteOfPage`: the menu pointers followed up, MENU_DEPTH) and `url`
+  `/site/{website}/{page}` (was empty). The note "in <website>". Review 2 (2026-11-25): no Language column (a
+  standalone page has none); in a narrow pane (< 420 px) the icons wrap to a second line under the name and date. Edit opens the CMS editor at once (`ExplorerApplication.editWebsitePage`: the Website
+  manager with `design {site, page}`; a standalone page is opened itself). Test: `WebsiteEditTest` 118 passed.
+- A new crosstab (New, Save as) is saved public (`rec_NonOwnerVisibility`), changed in Properties.
+
+- Review 2 fix: View → List did not change the header buttons (they were drawn before the List existed); the same in
+  Story map.
+
+### 8.3 Open
+
+- ~~Story map and Reports: the same layout (header right group, no List bar)~~ — done in review 3 (§9).
+- Editing a crosstab from the CMS editor opens Explorer in a new window (`?tool=crosstabs&preset=`). In place would need
+  a host bridge call (`openPresentationEditor(kind, id)`) when the CMS runs inside Explorer: the CMS (apps/website) may
+  not import the crosstab editor (apps/explorer). To agree.
+
+## 9. Review 3: Story map and Reports in the Crosstabs layout (Artem 2026-11-25, implemented the same day)
+
+### 9.1 Layouts
+
+```
+STORY MAP
+View:   [⊕] [Selector ▾] [Edit] ‖ [⟳]                                 header: [?] [List]
+Editor: [⊕] [Selector ▾] [⚙] [Save] [Save as] ‖ [▶ Run]              header: [?] [Close]
+List:   (no toolbar, no list bar)                                    header: [⊕] [?] [View]
+
+REPORTS (pane)                                                        right end                 header (pane)
+List:   [⊕] [(selector, Edit: place kept)] ‖ Show for ▾ [Test] [Generate] ‖ Import | Export | Unregistered   [?] [View]
+View:   [⊕] [Selector ▾ card|list] [Edit]  ‖ Show for ▾ [Test] [Generate] ‖ Import | Export | Unregistered   [?] [List]
+Editor: [⊕] [Selector ▾ card|list] [⚙] [Save] [Save as] ‖ Show for ▾ [Test] ‖ Import | Export   header: ⚠ note [?] [Close]
+```
+
+- Shared shell: a slot `placeholder: true` keeps its place, not seen (`is-placeholder`); the selector `badge`; `tools`
+  (icon buttons at the right end, group of ⋯ and Help); `createSourceHeader({note})` / `setNote`; `renderHeaderActions`
+  (the header buttons of Crosstabs, Story map and Reports). HPresentationList: `setListVisible` (the View of the
+  reports), `kindBadge` (card / list just after the Edit icon, the same width).
+- Story map: viewer toolbar on the slots (New, selector, Edit, Refresh = read the story maps again); header Help |
+  List, List New | Help | View; editor Help on the header; a new story map is public (as crosstabs).
+- Reports: one toolbar of the manager for List and View (changed by review 4, §10). In the List the selector and Edit keep their places, so Show
+  for and the buttons after it do not move; for a card report Show for and Generate keep their places too. *Show for*
+  (list reports): Current result first, then the query sources and saved filters without parameters (the one picker
+  `chooseQuerySource` + `queryChoiceItems`); the choice is kept for the session and used by Test (pane and editor) and
+  Generate. *Unregistered* only when there are such files. *Export* needs a selected report.
+- The header of the pane: Explorer gives the tool module's `actions` element to `mountHeuristReports({headerActions})`
+  (option of the direct entry, Explorer its only caller); Help = new bridge call `openManual('reports')`. Standalone,
+  Help and the mode switch are at the right end of the toolbar.
+
+### 9.2 Right side of the reports
+
+- No title, kind or description. One message row on top (`.h-reports-message`, text + Close / Open / Download icons).
+  The old JS warning in the pane is gone: its `flex: 0 0 100%` in a column box made it as high as the pane (the 560px
+  bug). The JS/CSS note is on the header of the editor only, when scripts are not allowed.
+- Nothing selected: "Select a report"; no registered report at all: the template files without a record. Unregistered
+  button: those files with Register | Delete, Close goes back.
+- Card report: "Card report shows either the first selected or the first record in result list" and the output at once;
+  it follows Explorer's selection and result (new `setSelection` / `setDataSource` of the public API of the reports
+  app, debounced).
+- List report: the progress of its generation (when running) above its generated reports: `createOutputsPanel(...,
+  {template: true})` - no Report column, no report filter, no New Report; Search | Sort by date / by size (newest or
+  largest first). A click on a file shows it instead of the list ("Generated report", Open, Close).
+- Test: "Test output is limited with 50 records" (the server limit) with Open in new window | Download | Close; Close
+  shows the generated reports again. **Decision 2026-11-25: Test is the only output that is not kept**; a full output
+  is always a Generated report record (RT_REPORT_OUTPUT), deleted by the user when not needed.
+- Generate: a popup with Name (the report title) and Language (terms of DT_LANGUAGE that are languages of the database;
+  default none); the record is created in the background (`POST /output/0`, the user's own, hidden; no record editor)
+  with the query of Show for, then the job runs and the list is read again. Generate is no longer in the editor.
+  The New mode of the outputs panel (source radios) stays for the CMS designer.
+
+### 9.3 Open
+
+- Browser check.
+- Manual: a Reports section in the Explorer manual, English and French (Help opens `#reports`; there is no such
+  section yet, so the manual opens at the top). The Story map section still describes the old buttons.
+
+## 10. Review 4: Reports details (Artem 2026-11-25, implemented the same day)
+
+```
+REPORTS (pane)                                       right aligned, wraps in a narrow pane         header (pane)
+List:   [⊕]                                 Show for ▾ [Test] [Generate] ‖ Import | Export | Unregistered   [?] [View]
+View:   [⊕] [Selector ▾ card|list] [Edit]   Show for ▾ [Test] [Generate] ‖ Import | Export | Unregistered   [?] [List]
+Editor: [⊕] [Selector ▾] [⚙] [Save] [Save as]          Show for ▾ [Test] ‖ Import | Export    header: ⚠ note [?] [Close]
+(a card report: no Show for, Test, Generate in List and View; Generate primary in the pane, Test primary in the editor)
+```
+
+1. The list of query sources and saved filters is kept for 60 s per api client (`listQueryChoices`, option `fresh`,
+   `clearQueryChoiceCache`): a picker opened again does not read it again.
+2. Parameterized query sources and saved filters are **left out** where they are not allowed (`queryChoiceItems`
+   `parameters: 'without'`; before: shown disabled). This changes the rule of the one picker (query-choice-picker.md).
+3. (no item 3 in the review)
+4. Editor: Test is the primary button; List / View: Generate.
+5. New Presentation sets and Generated reports are **public**: the record editor of Explorer (`RecordEditorHost`
+   `_addDefaults`), New report and Generate of the pane, the server import of a template, the Team report of the CMS.
+6. The presentation toolbar wraps (shared shell).
+7. List / View: a card report has no Test (its output is shown at once).
+8. Editor: Show for is the same control as in List / View (list reports).
+9. The JS/CSS note on the editor header is in normal font.
+10. **Deviation from review 3**: Show for and the buttons after it are not kept at a fixed place; all groups after the
+    first are right aligned together (`.h-presentation-toolbar-end`) - Crosstabs, Story map, Reports, Export. The
+    Reports List has no selector and Edit (no placeholders any more; `placeholder: true` stays in the shell).
+11. The number of generated reports of a template: "Title (3)" in the selector (pane and editor) and its list, a number
+    at the right of each row of the List (HPresentationList option `rowCount`).
+12. Generated reports of a template: Lang, Query, Scheduled, Generated, Size are hidden below 560 px, then all but Name
+    below 300 px (container queries, `.is-template`); small Search and Sort that wrap; Name is a link that opens the
+    file in a new window.
+13. New report: a small popup with Name, then the kind ("List (record set)" / "Card (single record)"); the record is
+    created in the background (public, no record editor, `ReportsApplication.createReport`), then the template editor
+    opens.
+14. Generate report and New report popups: the form dialog of the Publish popups of the modules (HEditForm in a message
+    dialog, `openEditFormDialog`, 560 px): labels, font and size as there; Language is an enum with "Default language"
+    first. The reports' own `openFormDialog` is no longer used by the pane for these two.
+
+## 11. Export review (Artem 2026-11-25, implemented the same day)
+
+```
+Export: [↺ Reset] [Saved exports ▾] [⚙] [Save] [Save as] [🗑]          [Export] [Export results]
+```
+
+1. `.h-export-tool` is as wide as the pane (was max 980 px).
+2. New → **Reset** (fa-rotate-left, "Reset export settings"): the default settings, no saved export.
+3. Save of a new export and Save as: a small popup with Name only (the form dialog of the Publish popups); the
+   Presentation set is created in the background (`POST /presentation/0`, public), no record editor.
+4. Delete (trash) next to Save as, enabled when a saved export is shown; the ⋯ menu of Export is gone.
+
+### 11.1 Reports, review 4 continued (Artem 2026-11-25)
+
+15. The reports pane opens in **View** mode (List with the header button).
+16. The number of generated reports is a badge again, as in the old report list (file icon + number, muted): shared
+    `presentationCount`, used by the selector (`count`), its list (`count` of an item) and the rows of the List
+    (`rowCount`); `ReportsApplication.outputCountBadge`. Replaces "Title (3)" of item 11.
+17. New report: one small popup with Name and Kind as a radio group ("List (record set)" / "Card (single record)",
+    List first), button Create; no second question. Import still asks the kind with the same captions.
