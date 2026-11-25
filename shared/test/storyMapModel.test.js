@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   normalizeStoryMapSettings, storyQuery, storySourceId, sortStoryElements, pathGeometry, elementFeatures, storyText,
-  storyElementTypes, defaultPlaces, isGeoPath, STORY_LIMIT
+  storyElementTypes, defaultPlaces, isGeoPath, storyTopicType, STORY_LIMIT
 } from '../src/widgets/storymap/storyMapModel.js';
 
 test('settings: defaults for empty, invalid and draft configurations', () => {
@@ -157,4 +157,17 @@ test('texts: language with def fallback and {title}', () => {
   assert.equal(storyText({ def: 'Life of {title}', fre: 'Vie de {title}' }, 'fre', 'Kurt'), 'Vie de Kurt');
   assert.equal(storyText({ def: 'Life of {title}' }, 'ger', 'Kurt'), 'Life of Kurt');
   assert.equal(storyText(undefined), '');
+});
+
+test('topic record type: stored, else the first type of the query (Story map review, 2026-11-25)', () => {
+  assert.equal(normalizeStoryMapSettings({}).story.topicType, null);
+  assert.equal(normalizeStoryMapSettings({ story: { topicType: '10' } }).story.topicType, 10);
+  assert.equal(normalizeStoryMapSettings({ story: { topicType: 'x' } }).story.topicType, null);
+  const none = normalizeStoryMapSettings({});
+  assert.equal(storyTopicType(normalizeStoryMapSettings({ story: { topicType: 12 } }), 't:10'), 12);
+  assert.equal(storyTopicType(none, 't:10 sortby:t'), 10);
+  assert.equal(storyTopicType(none, '{"t":"10,12"}'), 10);
+  assert.equal(storyTopicType(none, [{ t: '14' }, { title: 'a' }]), 14);
+  assert.equal(storyTopicType(none, 'f:1:"abc"'), null);
+  assert.equal(storyTopicType(none, null), null);
 });

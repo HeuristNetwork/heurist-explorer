@@ -2537,7 +2537,8 @@ export class ExplorerApplication {
       mode: 'viewer',
       headerActions: module?.actions || null,
       openDesigner: this.config.published ? null : (presetId) => this.openStoryMapDesigner(presetId),
-      editPage: this.config.published ? null : (page) => void this.editWebsitePage(page)
+      editPage: this.config.published ? null : (page) => void this.editWebsitePage(page),
+      publish: this.config.published ? null : (options) => this.publishStoryMap(options)
     }));
     body.replaceChildren();
     tool.attach(body);
@@ -2572,6 +2573,13 @@ export class ExplorerApplication {
       editSymbology: (value, options) => this.recordEditing.symbology.edit(value, options),
       // Help: the Story map section of the Explorer manual
       openManual: this.config.published ? null : (anchor) => this.openManual(anchor),
+      // a map and a timeline of its own (Story map review, 2026-11-25): the direct entries, no host bridge
+      mountOwnMap: (container) => mountDirectMap({
+        container, bootstrap: { runtime: this._reportsRuntime(), settings: {} }, assetBaseUrl: this.config.moduleAssetUrls?.map || null
+      }),
+      mountOwnTimeline: (container) => mountDirectTimeline({
+        container, bootstrap: { runtime: this._reportsRuntime(), settings: {} }, assetBaseUrl: this.config.moduleAssetUrls?.timeline || null
+      }),
       runtime: this._reportsRuntime(),
       ...own
     };
@@ -2600,7 +2608,9 @@ export class ExplorerApplication {
     };
     try {
       const { StoryMapTool } = await (this._storyMapLoader || loadStoryMapTool)();
-      const designer = new StoryMapTool(this._storyMapOptions({ mode: 'editor', onClose: (result) => finish(result) }));
+      const designer = new StoryMapTool(this._storyMapOptions({
+        mode: 'editor', onClose: (result) => finish(result), publish: (options) => this.publishStoryMap(options)
+      }));
       entry.designer = designer;
       designer.attach(host);
       await designer.render();
@@ -2742,9 +2752,32 @@ export class ExplorerApplication {
   }
 
   /**
+   * Publish a story map as a web page with a story topic (27q3 §12, review 2026-11-25): the publication form (the story
+   * map, Publish to); the page has the Story map element with the topic and its own map and timeline.
+   *
+   * @param {{presetId: number, topic: number, presets?: Array<{id: number, title: string}>}} options
+   * @returns {Promise<object|null>} The publication, null when cancelled.
+   */
+  async publishStoryMap({ presetId, topic, presets = [] }) {
+    try {
+      return await this.openModuleConfiguration({
+        moduleType: 'storymap',
+        mode: 'publication',
+        title: 'Publish story map',
+        value: { preset: Number(presetId) || null },
+        publication: { presetId: Number(presetId) || 0, topic: Number(topic) || 0 },
+        terms: { storyMapPresets: presets.map((item) => ({ id: String(item.id), label: item.title })) }
+      });
+    } catch (error) {
+      HMsg.showMsgErr?.(error?.message || String(error));
+      return null;
+    }
+  }
+
+  /**
    * Open a story map in its editor (the CMS designer: Edit in new window, `?tool=storymap&preset=<id>`, plan 27q3); when
-   * it is closed the Story map pane (if placed) shows it, its source records become the result and the first one is
-   * selected.
+   * it is closed the Story map pane (if placed) shows it, its source records become the result and the story of the first
+   * one is shown (Show for = Story topics).
    *
    * @param {number} presetId Presentation set id.
    * @returns {Promise<boolean>} False when the editor or the story map is not there.
@@ -2755,13 +2788,8 @@ export class ExplorerApplication {
     const module = await this.showPresentation('storymap');
     const tool = await module?.ready?.();
     if (!tool?.openPreset || !result.presetId) return Boolean(result);
-    const opened = await tool.openPreset(Number(result.presetId), { showSource: true });
-    // the first source record is selected: its story is shown
-    if (opened && tool.preset?.query != null) {
-      const [first] = await tool.service.queryIds(tool.preset.query, 1).catch(() => []);
-      if (first) await this.sync?.setSelection([first]);
-    }
-    return opened;
+    // Show for = Story topics, the first one shown (the story does not follow the selection, 2026-11-25)
+    return tool.openPreset(Number(result.presetId), { showSource: true });
   }
 
   /**
@@ -3146,6 +3174,18 @@ export class ExplorerApplication {
 async function mountDirectData(options) {
   const { mountHeuristData } = await import('../../../data/src/direct.js');
   return mountHeuristData(options);
+}
+
+/** Load and mount heurist-map's direct entry: the own map of the Story map (Story map review, 2026-11-25). */
+async function mountDirectMap(options) {
+  const { mountHeuristMap } = await import('../../../map/src/direct.js');
+  return mountHeuristMap(options);
+}
+
+/** Load and mount heurist-timeline's direct entry: the own timeline of the Story map. */
+async function mountDirectTimeline(options) {
+  const { mountHeuristTimeline } = await import('../../../timeline/src/direct.js');
+  return mountHeuristTimeline(options);
 }
 
 /** Load the Export tool (its own lazy chunk). */

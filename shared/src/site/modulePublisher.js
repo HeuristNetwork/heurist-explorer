@@ -26,7 +26,8 @@ const LAST_PAGE_KEY = 'heurist.publish.page';
 
 /** Module names for the default page title. */
 export const MODULE_NAMES = Object.freeze({
-  explorer: 'Explorer', data: 'Data', map: 'Map', timeline: 'Timeline', graph: 'Graph', recordview: 'Record view', crosstabs: 'Crosstabs'
+  explorer: 'Explorer', data: 'Data', map: 'Map', timeline: 'Timeline', graph: 'Graph', recordview: 'Record view', crosstabs: 'Crosstabs',
+  storymap: 'Story map'
 });
 
 /**

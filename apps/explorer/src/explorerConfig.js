@@ -96,6 +96,9 @@ export function createHeuristExplorerConfig(bootstrap, { bridge = null, containe
     moduleAssetUrls: {
       data: runtime.moduleAssetUrls?.data || (baseUrl ? `${baseUrl}hclient/bundles/heurist-data` : null),
       recordview: runtime.moduleAssetUrls?.recordview || (baseUrl ? `${baseUrl}hclient/bundles/heurist-recordview` : null),
+      // the own map and timeline of the Story map (direct entries, Story map review 2026-11-25)
+      map: runtime.moduleAssetUrls?.map || (baseUrl ? `${baseUrl}hclient/bundles/heurist-map` : null),
+      timeline: runtime.moduleAssetUrls?.timeline || (baseUrl ? `${baseUrl}hclient/bundles/heurist-timeline` : null),
       reports: runtime.moduleAssetUrls?.reports || (baseUrl ? `${baseUrl}hclient/bundles/heurist-reports` : null),
       website: runtime.moduleAssetUrls?.website || (baseUrl ? `${baseUrl}hclient/bundles/heurist-website` : null)
     },

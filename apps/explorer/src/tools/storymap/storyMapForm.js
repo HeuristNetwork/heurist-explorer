@@ -22,7 +22,8 @@ import { STORY_LIMIT, normalizeStoryMapSettings } from '#shared/widgets/storymap
 
 /** Help texts of the form (Artem's texts, corrected, review 1 2026-11-20). */
 export const HELP = Object.freeze({
-  topics: 'Records whose stories are told, e.g. persons or expeditions. If the query finds one record, its story is shown at once.',
+  topicType: 'Record type of the records whose stories are told, e.g. Person or Expedition. Show for offers the records of this type.',
+  topics: 'Optional: the records whose stories are told, e.g. the persons of a project. Show for offers them as "Story topics"; a website page offers them as its choice.',
   elements: 'Records that tell the story of a topic in time and on the map, e.g. the life events of a person or the campsites of an expedition. They are found by an expansion rule from the topic. All story elements must be of one record type.',
   order: 'Order of the story elements: by the first date of the element, by a date field, as found by the rule, or set by hand for each story.',
   manual: 'The order of the elements of the story shown now. Drag the elements; the order is kept for this story topic.',
@@ -90,9 +91,10 @@ export function valueTexts(values) {
  *        record type Map document.
  * @param {Array<{id: number, title: string, card: boolean}>} context.templates Report templates.
  * @param {Array<{id: number, label: string}>} context.dateFields Date fields of the story element type.
+ * @param {Array<{id: number, name: string}>} [context.rectypes] Record types of the database (Story topic record type).
  * @returns {object} heurist-edit-form/1.
  */
-export function storyMapForm({ ids, templates = [], dateFields = [] }) {
+export function storyMapForm({ ids, templates = [], dateFields = [], rectypes = [] }) {
   const templateTerms = templates.map((item) => ({ id: String(item.id), label: item.card ? item.title : `${item.title} (not a card)` }));
   const template = (name, label, help) => ({ name, type: 'enum', mode: 'select', label, help, terms: templateTerms, emptyLabel: '(none)' });
   return {
@@ -102,7 +104,10 @@ export function storyMapForm({ ids, templates = [], dateFields = [] }) {
         id: 'source', type: 'accordion', label: 'Source', open: true,
         children: [
           { name: 'title', type: 'freetext', label: 'Name', req: 'required' },
-          { name: String(ids.query || MANUAL_APPLY.query), type: 'special', special: 'query', label: 'Story topics', help: HELP.topics, req: 'required' },
+          // the record type of the topics, required; the query is optional (27q3 Story map review, 2026-11-25)
+          { name: 'topicType', type: 'enum', mode: 'select', label: 'Story topic record type', help: HELP.topicType, req: 'required',
+            terms: rectypes.map((type) => ({ id: String(type.id), label: type.name })) },
+          { name: String(ids.query || MANUAL_APPLY.query), type: 'special', special: 'query', label: 'Story topics', help: HELP.topics },
           { name: String(ids.rules || MANUAL_APPLY.rules), type: 'special', special: 'rules', label: 'Story elements', help: HELP.elements, req: 'required' },
           { name: 'order', type: 'enum', mode: 'select', label: 'Order', help: HELP.order, clearable: false, terms: orderTerms(dateFields) },
           { name: 'dir', type: 'enum', mode: 'radio', label: 'Direction', clearable: false,
@@ -194,6 +199,7 @@ export function formValues({ title, query, settings }, ids) {
   const json = (value) => (value ? JSON.stringify(value) : '');
   return {
     title,
+    topicType: story.topicType ? String(story.topicType) : null,
     [String(ids.query || MANUAL_APPLY.query)]: query || '',
     [String(ids.rules || MANUAL_APPLY.rules)]: story.rule ? JSON.stringify([story.rule]) : '',
     order: story.order.by,
@@ -248,6 +254,7 @@ export function valuesSettings(values, ids, previous = null) {
   const mapDocument = Number(one(values[MANUAL_APPLY.background])) || 0;
   const settings = normalizeStoryMapSettings({
     story: {
+      topicType: Number(one(values.topicType)) || null,
       rule: Array.isArray(rules) ? rules[0] || null : rules,
       order: { by: one(values.order), dir: one(values.dir), manual: parse(one(values.manual)) || {} },
       limit: Number(one(values.limit)) || STORY_LIMIT.default

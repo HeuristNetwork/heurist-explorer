@@ -1736,3 +1736,19 @@
 #Save export settings#Enregistrer les paramètres d'export
 #Save the settings as a saved export#Enregistrer les paramètres comme export enregistré
 #Delete the saved export#Supprimer l'export enregistré
+# Story map: Show for, own map (Story map review, 2026-11-25)
+#Any record#Tout enregistrement
+#Story topic record type#Type d'enregistrement des sujets
+#Reload the story#Recharger l'histoire
+#Own map#Carte propre
+#Show the story on its own map and timeline#Afficher l'histoire sur sa propre carte et sa chronologie
+#The records whose story can be chosen#Les enregistrements dont l'histoire peut être choisie
+#Choose the story topic record type in the configuration#Choisissez le type d'enregistrement des sujets dans la configuration
+#No records of this type in the chosen range#Aucun enregistrement de ce type dans la plage choisie
+#Record type of the records whose stories are told, e.g. Person or Expedition. Show for offers the records of this type.#Type des enregistrements dont les histoires sont racontées, par ex. Personne ou Expédition. « Afficher pour » propose les enregistrements de ce type.
+#Optional: the records whose stories are told, e.g. the persons of a project. Show for offers them as "Story topics"; a website page offers them as its choice.#Facultatif : les enregistrements dont les histoires sont racontées, par ex. les personnes d'un projet. « Afficher pour » les propose comme « Sujets des récits » ; une page de site web les propose comme son choix.
+# Story map: Publish (review 2026-11-25)
+#Publish story map#Publier la carte narrative
+#Publish the story map as a web page, with the story topic chosen in Show for#Publier la carte narrative comme page web, avec le sujet choisi dans Afficher pour
+#Choose a story topic in Show for first: the published page shows its story#Choisissez d'abord un sujet dans Afficher pour : la page publiée montre son histoire
+#Public story maps can be seen by visitors#Les cartes narratives publiques sont visibles par les visiteurs

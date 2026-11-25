@@ -1716,3 +1716,19 @@
 #Save export settings#Save export settings
 #Save the settings as a saved export#Save the settings as a saved export
 #Delete the saved export#Delete the saved export
+# Story map: Show for, own map (Story map review, 2026-11-25)
+#Any record#Any record
+#Story topic record type#Story topic record type
+#Reload the story#Reload the story
+#Own map#Own map
+#Show the story on its own map and timeline#Show the story on its own map and timeline
+#The records whose story can be chosen#The records whose story can be chosen
+#Choose the story topic record type in the configuration#Choose the story topic record type in the configuration
+#No records of this type in the chosen range#No records of this type in the chosen range
+#Record type of the records whose stories are told, e.g. Person or Expedition. Show for offers the records of this type.#Record type of the records whose stories are told, e.g. Person or Expedition. Show for offers the records of this type.
+#Optional: the records whose stories are told, e.g. the persons of a project. Show for offers them as "Story topics"; a website page offers them as its choice.#Optional: the records whose stories are told, e.g. the persons of a project. Show for offers them as "Story topics"; a website page offers them as its choice.
+# Story map: Publish (review 2026-11-25)
+#Publish story map#Publish story map
+#Publish the story map as a web page, with the story topic chosen in Show for#Publish the story map as a web page, with the story topic chosen in Show for
+#Choose a story topic in Show for first: the published page shows its story#Choose a story topic in Show for first: the published page shows its story
+#Public story maps can be seen by visitors#Public story maps can be seen by visitors

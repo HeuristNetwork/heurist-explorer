@@ -19,9 +19,8 @@
 .h-storymap-tool-toolbar {
   flex: 0 0 auto;
   align-self: stretch;
-  /* one line: the labels go before the buttons wrap */
-  flex-wrap: nowrap;
-  overflow: hidden;
+  /* Show for and the record picker wrap to the next row in a narrow pane (Story map review, 2026-11-25) */
+  flex-wrap: wrap;
   gap: var(--h-gap, 6px);
   padding: 6px 8px;
   border-bottom: 1px solid var(--h-color-border);
@@ -187,3 +186,76 @@
 
 /* the editor over the whole screen (host and header of presentationShell.css): the form is always open */
 .h-storymap-tool.is-editor { flex: 1 1 auto; min-height: 0; }
+
+/* the editor: HCardinalLayout, the form on the west, the story (and its own map) in the center; both fill their regions */
+.h-storymap-tool-layout {
+  position: relative;
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 0;
+}
+
+.h-storymap-tool-layout .h-storymap-tool-form,
+.h-storymap-tool-layout .h-storymap-tool-content {
+  box-sizing: border-box;
+  height: 100%;
+}
+
+/* Show for: the range and the record picker of the story topic (Story map review, 2026-11-25) */
+.h-storymap-tool-scope {
+  display: inline-flex;
+  flex: 0 1 auto;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px var(--h-gap, 6px);
+  min-width: 0;
+}
+
+.h-storymap-tool-picker { display: inline-flex; flex: 0 1 260px; min-width: 120px; }
+.h-storymap-tool-picker-input { flex: 1 1 auto; min-width: 0; }
+.h-storymap-tool-picker-input .h-form-input { margin: 0; }
+.h-storymap-tool-picker-note { color: var(--h-color-text-muted); font-size: var(--h-font-size-small); }
+
+/* Own map is a toggle */
+.h-storymap-tool-toolbar .h-presentation-btn.is-active {
+  border-color: var(--h-color-primary);
+  color: var(--h-color-primary);
+}
+
+/* the story with its own map and timeline: beside vertical stories, under horizontal ones (review 2026-11-25) */
+.h-storymap-tool-content {
+  display: flex;
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 0;
+}
+
+.h-storymap-tool-content[hidden] { display: none; }
+.h-storymap-tool-content.is-geo-beside { flex-direction: row; }
+.h-storymap-tool-content.is-geo-below { flex-direction: column; }
+
+.h-storymap-tool-geo {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+}
+
+.h-storymap-tool-geo[hidden] { display: none; }
+.h-storymap-tool-content.is-geo-beside .h-storymap-tool-geo { flex: 0 0 40%; border-left: 1px solid var(--h-color-border); }
+.h-storymap-tool-content.is-geo-below .h-storymap-tool-geo { flex: 0 0 50%; border-top: 1px solid var(--h-color-border); }
+
+.h-storymap-tool-map {
+  position: relative;
+  flex: 1 1 70%;
+  min-height: 160px;
+}
+
+.h-storymap-tool-timeline {
+  position: relative;
+  flex: 0 0 30%;
+  min-height: 100px;
+  border-top: 1px solid var(--h-color-border);
+}
+
+.h-storymap-tool-timeline[hidden] { display: none; }

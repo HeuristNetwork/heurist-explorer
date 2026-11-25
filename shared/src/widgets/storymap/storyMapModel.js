@@ -141,6 +141,8 @@ export function normalizeStoryMapSettings(raw) {
   const duration = Number(map.duration);
   return {
     story: {
+      // the record type of the story topics (27q3 Story map review, 2026-11-25): the range of Show for
+      topicType: positiveId(story.topicType),
       rule,
       order: { by, dir: order.dir === 'desc' ? 'desc' : 'asc', manual: manualOrders(order.manual) },
       limit: Number.isInteger(limit) && limit > 0 ? Math.min(limit, STORY_LIMIT.max) : STORY_LIMIT.default
@@ -165,6 +167,37 @@ export function normalizeStoryMapSettings(raw) {
     },
     actions: Array.isArray(settings.actions) ? structuredClone(settings.actions) : null
   };
+}
+
+/**
+ * The record type of the story topics: the stored one; for an older story map the first type of its query (`t:10`,
+ * `{"t":"10"}` or `[{"t":"10,12"}]`).
+ *
+ * @param {object} settings Normalised settings.
+ * @param {*} [query] The story topics query (DT_QUERY_STRING), text or JSON.
+ * @returns {number|null} Record type id.
+ */
+export function storyTopicType(settings, query = null) {
+  const stored = positiveId(settings?.story?.topicType);
+  if (stored) return stored;
+  let value = query;
+  if (typeof value === 'string') {
+    const text = value.trim();
+    try {
+      value = JSON.parse(text);
+    } catch {
+      const match = /(?:^|\s)t(?:ype)?:\s*"?(\d+)/i.exec(text);
+      return match ? positiveId(match[1]) : null;
+    }
+  }
+  const parts = Array.isArray(value) ? value : [value];
+  for (const part of parts) {
+    if (!isObject(part)) continue;
+    const type = part.t ?? part.type;
+    const first = positiveId(String(type ?? '').split(',')[0]);
+    if (first) return first;
+  }
+  return null;
 }
 
 /**

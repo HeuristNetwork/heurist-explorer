@@ -5,7 +5,8 @@
 reports are Presentation sets of kind Card Report 2-10645 / List Report 2-10646, only `/presentation/{id}` (§5). Open
 items: §7.2. **Review 1 (Crosstabs) implemented 2026-11-25 (§8)**; **review 3 (Story map and Reports in the same
 layout, Reports View mode) implemented 2026-11-25 (§9)**; **review 4 (Reports details, right aligned toolbar, public
-records) implemented 2026-11-25 (§10)**; **Export review implemented 2026-11-25 (§11)**; not committed, no browser check. Extends the topic note
+records) implemented 2026-11-25 (§10)**; **Export review implemented 2026-11-25 (§11)**; **Story map review (Show for, topic
+record type, own map and timeline) implemented 2026-11-25 (§12)**; not committed, no browser check. Extends the topic note
 `presentation-sources.md`.
 
 ## 1. Goal
@@ -461,3 +462,66 @@ Export: [↺ Reset] [Saved exports ▾] [⚙] [Save] [Save as] [🗑]          [
     (`rowCount`); `ReportsApplication.outputCountBadge`. Replaces "Title (3)" of item 11.
 17. New report: one small popup with Name and Kind as a radio group ("List (record set)" / "Card (single record)",
     List first), button Create; no second question. Import still asks the kind with the same captions.
+
+## 12. Story map review (Artem 2026-11-25, implemented the same day)
+
+Decisions asked the same day: the topic record type is a **new required field** and the query stays (optional); the
+Editor always has its own map and timeline, the View an **Own map** toggle; the website *Select* action is later (own
+CMS plan).
+
+```
+View:   [⊕] [Selector ▾] [Edit] [Own map]      | Show for [Current result ▾] [<topic record> ▾ Browse] [⟳]
+Editor: [⊕] [Selector ▾] [⚙] [Save] [Save as]  | Show for [Current result ▾] [<topic record> ▾ Browse] [⟳]
+        form | story | own map above own timeline (see review 2 below for the place)
+```
+
+1. **Bug:** the Editor showed no form for an existing story map (only for New). `openPreset` opens the form in the
+   Editor; the form is always open there.
+2. **Story topic record type** (`story.topicType` of the configuration, required in the form, before *Story topics*).
+   *Story topics* (the query, 2-12) is optional now. Older story maps take the first `t:` of their query
+   (`storyTopicType`, storyMapModel.js); the server check (`StoryMapSettings.php`) knows the key.
+3. / 4. **Show for** in the Editor and the View: a select *Current result* | *Story topics* (only with a query) | *Any
+   <type>*, and the record picker: HInputResource (`dropdown`, Browse = the record manager of Explorer) over a
+   `RecordTitleSource` of the topic type. **Refresh** reloads the story (fresh cards and places).
+5. The range: Current result and Story topics are their query with `t:<topic type>` added (`withType`), at most 500
+   records (`RANGE_LIMIT`, given to the picker and to Browse as `ids`); Any = all records of the type. A range of one
+   record shows its story when no topic is chosen. Show for and the topic are kept per story map in the session.
+6. **Explorer's selection is not followed**: `StoryMapTool.setSelection` does nothing, the result only changes the range
+   of *Current result*. The topic is the selection of HStoryMap (so a change of the settings keeps it); the website
+   still gives the page selection to HStoryMap (PageSync).
+7. **Own map and timeline**: Explorer mounts the direct entries of Map and Timeline (`mountOwnMap`,
+   `mountOwnTimeline` in `_storyMapOptions`; asset URLs `heurist-map`, `heurist-timeline`). StoryMapBinding draws
+   on the own map when it is on, else on Explorer's Map module. The timeline gets the elements of the story
+   (`setQuery([{ids}])`) and the current element as its selection. Editor: always, beside the story; View: the *Own
+   map* toggle (session), map and timeline under the story.
+
+Deviations: the Editor's **Run** is gone (Show for = Story topics does it without changing Explorer's result). Opened
+from the CMS designer (`?tool=storymap&preset=`): Show for = Story topics and its first topic is shown; Explorer's
+result still shows the story topics, but no record is selected any more.
+
+**Review 2 (Artem 2026-11-25, implemented the same day):**
+- **List** shows only the list of story maps and their published pages: the story, the own map and the timeline are
+  hidden with it (before, the own map stayed visible below the List).
+- The own map and timeline follow the **orientation of the stories** in both modes: beside vertical stories, under
+  horizontal ones. When the pane is too narrow for the map beside (Editor < 900 px, View < 600 px) they go under the
+  stories instead of being hidden.
+
+**Review 3 (Artem 2026-11-25, implemented the same day):**
+- **Editor = HCardinalLayout** (as the crosstab editor): the configuration form on the west whatever the orientation
+  of the stories, the story (and its own map and timeline) in the center. The 600 px rule for the map beside now uses
+  the width of the center.
+- **Publish** in the Editor and the View: the story map as a standalone web page with the story topic chosen in Show
+  for; without a chosen topic only a message. The Editor saves first. Explorer's publication form (moduleType
+  `storymap`, `storyMapConfiguration.js`: the story map + *Publish to*) writes the website element Story map
+  `{preset, topic, ownMap: true}` (srv `WebsiteEditService::PUBLISHED_WIDGETS` + `storymap`).
+- Decision (asked the same day): the published page has the **own map in the element**: `settings.ownMap` mounts the
+  Map and Timeline direct entries of the page inside the element (beside vertical stories, under horizontal ones);
+  `settings.topic` is the story shown first. The timeline sync is shared (`storyMapTimeline.js`).
+- Open: *Own map* and *topic* in the Story map element form of the CMS designer (only Publish writes them now).
+
+### 12.1 Open
+
+- Website: a *Select* action (any record of the topic type) and the story map element using `story.topicType` — own
+  CMS plan (`leftovers 24, 27-34.md` §2).
+- Browser check: the own map and timeline in the editor (direct entries in Explorer's page, their CSS), Browse of
+  the picker, a story map without a topic type.

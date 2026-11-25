@@ -3,6 +3,8 @@
 **Status.** Agreed with Artem 2026-11-18 (discussion of his notes, decisions in §11). Phases A-E done 2026-11-18 (§13,
 §14), committed. Review 1 (Artem, 2026-11-20, §15) implemented 2026-11-20 (§16), not committed, no browser check.
 Next: browser check; decision on the time filter of the background map (§15.8); test data for begin / end places.
+Changed by 27q3 §12 (2026-11-25): the story topic record type `story.topicType`, the query optional; in Explorer the
+story is chosen in *Show for* (Explorer's selection is not followed) and is drawn on an own map and timeline.
 
 ## 1. Goal and the idea
 

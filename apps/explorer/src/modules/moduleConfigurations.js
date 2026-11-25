@@ -31,7 +31,9 @@ export const MODULE_CONFIGURATIONS = Object.freeze({
   data: async () => (await import('../../../data/src/configuration.js')).dataConfiguration,
   recordview: async () => (await import('../../../recordview/src/configuration.js')).recordViewConfiguration,
   // the widget / tool Crosstabs (review 2026-11-23): flat settings of the website element
-  crosstabs: async () => (await import('#shared/widgets/crosstabs/crosstabsConfiguration.js')).crosstabsConfiguration
+  crosstabs: async () => (await import('#shared/widgets/crosstabs/crosstabsConfiguration.js')).crosstabsConfiguration,
+  // the publication of a story map with its story topic (27q3 §12, 2026-11-25)
+  storymap: async () => (await import('#shared/widgets/storymap/storyMapConfiguration.js')).storyMapConfiguration
 });
 
 /**

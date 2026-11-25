@@ -859,7 +859,7 @@ export async function mountInstance(host, id, config, loaders) {
     // the story map (plan 27q1 §8): a lazy chunk; a member of the page (selection, its source records)
     try {
       const { mountStoryMap } = await import('./siteStoryMap.js');
-      const mounted = await mountStoryMap(host, instance, config, { findModule: (instanceId) => findPageModule(instanceId) });
+      const mounted = await mountStoryMap(host, instance, config, { findModule: (instanceId) => findPageModule(instanceId), loaders });
       if (!mounted) return null;
       joinPageSync(config, id, instance, mounted.widget, mounted.start);
       return mounted.widget;
