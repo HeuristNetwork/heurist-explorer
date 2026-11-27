@@ -1732,3 +1732,28 @@
 #Publish the story map as a web page, with the story topic chosen in Show for#Publish the story map as a web page, with the story topic chosen in Show for
 #Choose a story topic in Show for first: the published page shows its story#Choose a story topic in Show for first: the published page shows its story
 #Public story maps can be seen by visitors#Public story maps can be seen by visitors
+#Optional properties#Optional properties
+#Help tips#Help tips
+#Close and clear the story map#Close and clear the story map
+#Allow selecting the topic#Allow selecting the topic
+#Topics range#Topics range
+#Selected topic#Selected topic
+#Show map#Show map
+#Show timeline#Show timeline
+#Map and timeline#Map and timeline
+#All records of the topic type#All records of the topic type
+#Visitors choose the story topic in a list above the story#Visitors choose the story topic in a list above the story
+#The records visitors choose from#The records visitors choose from
+#The story shown first: the topic chosen in Show for#The story shown first: the topic chosen in Show for
+#The name of the story map above it#The name of the story map above it
+#all places#all places
+#path#path
+#Add a Map element#Add a Map element
+#Add a Timeline element#Add a Timeline element
+#The story is shown on a Map element of the page; it can be configured in the CMS editor#The story is shown on a Map element of the page; it can be configured in the CMS editor
+#The elements of the story on a Timeline element of the page; it can be configured in the CMS editor#The elements of the story on a Timeline element of the page; it can be configured in the CMS editor
+#Show the story on a map and a timeline? A Map and a Timeline element will be added to the page.#Show the story on a map and a timeline? A Map and a Timeline element will be added to the page.
+#Show the story on a map? A Map element will be added to the page.#Show the story on a map? A Map element will be added to the page.
+#Show the elements of the story on a timeline? A Timeline element will be added to the page.#Show the elements of the story on a timeline? A Timeline element will be added to the page.
+#The Map element of the page that shows the current element#The Map element of the page that shows the current element
+#The Timeline element of the page that shows the elements of the story#The Timeline element of the page that shows the elements of the story

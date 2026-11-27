@@ -283,11 +283,12 @@ async function publishPage(configuration, settings, request, publish, context) {
   const envelope = prepared.settings;
   const state = prepared.state;
   const target = publish;
-  // "auto" in a page: the language of now (as the modules did in their own publish); crosstabs: flat settings (`ui`)
+  // the language of the form is the language of the page (27q3 review 8: DT_LANGUAGE of the page, its <html lang>);
+  // "auto": the language of now. The module follows the page (its own setting "auto"). Crosstabs: flat settings (`ui`)
   const holder = envelope.options || (envelope.ui ? envelope : null);
-  if (holder && (!holder.ui?.language || holder.ui.language === 'auto')) {
-    holder.ui = { ...(holder.ui || {}), language: context.language || 'eng' };
-  }
+  const chosen = String(holder?.ui?.language || '').toLowerCase();
+  const language = /^[a-z]{3}$/.test(chosen) ? chosen : String(context.language || 'eng').toLowerCase().slice(0, 3);
+  if (holder) holder.ui = { ...(holder.ui || {}), language: 'auto' };
   return publishModuleTo({
     client: context.client,
     database: context.database,
@@ -295,7 +296,10 @@ async function publishPage(configuration, settings, request, publish, context) {
     settings: envelope,
     state,
     title: target.title,
-    pageId: target.target === 'update' ? Number(target.pageId) || 0 : 0
+    pageId: target.target === 'update' ? Number(target.pageId) || 0 : 0,
+    // the Map / Timeline elements of a story map (27q3 review 7)
+    companions: prepared.companions || null,
+    language
   });
 }
 

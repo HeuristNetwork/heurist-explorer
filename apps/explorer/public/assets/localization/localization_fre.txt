@@ -1752,3 +1752,28 @@
 #Publish the story map as a web page, with the story topic chosen in Show for#Publier la carte narrative comme page web, avec le sujet choisi dans Afficher pour
 #Choose a story topic in Show for first: the published page shows its story#Choisissez d'abord un sujet dans Afficher pour : la page publiée montre son histoire
 #Public story maps can be seen by visitors#Les cartes narratives publiques sont visibles par les visiteurs
+#Optional properties#Propriétés facultatives
+#Help tips#Conseils d’aide
+#Close and clear the story map#Fermer et vider la carte narrative
+#Allow selecting the topic#Permettre de choisir le sujet
+#Topics range#Choix des sujets
+#Selected topic#Sujet choisi
+#Show map#Afficher la carte
+#Show timeline#Afficher la frise chronologique
+#Map and timeline#Carte et frise chronologique
+#All records of the topic type#Tous les enregistrements du type de sujet
+#Visitors choose the story topic in a list above the story#Les visiteurs choisissent le sujet dans une liste au-dessus de l’histoire
+#The records visitors choose from#Les enregistrements parmi lesquels les visiteurs choisissent
+#The story shown first: the topic chosen in Show for#L’histoire affichée d’abord : le sujet choisi dans Afficher pour
+#The name of the story map above it#Le nom de la carte narrative au-dessus
+#all places#tous les lieux
+#path#chemin
+#Add a Map element#Ajouter un élément Carte
+#Add a Timeline element#Ajouter un élément Frise chronologique
+#The story is shown on a Map element of the page; it can be configured in the CMS editor#L’histoire est affichée sur un élément Carte de la page ; il peut être configuré dans l’éditeur CMS
+#The elements of the story on a Timeline element of the page; it can be configured in the CMS editor#Les éléments de l’histoire sur un élément Frise chronologique de la page ; il peut être configuré dans l’éditeur CMS
+#Show the story on a map and a timeline? A Map and a Timeline element will be added to the page.#Afficher l’histoire sur une carte et une frise chronologique ? Un élément Carte et un élément Frise chronologique seront ajoutés à la page.
+#Show the story on a map? A Map element will be added to the page.#Afficher l’histoire sur une carte ? Un élément Carte sera ajouté à la page.
+#Show the elements of the story on a timeline? A Timeline element will be added to the page.#Afficher les éléments de l’histoire sur une frise chronologique ? Un élément Frise chronologique sera ajouté à la page.
+#The Map element of the page that shows the current element#L’élément Carte de la page qui montre l’élément courant
+#The Timeline element of the page that shows the elements of the story#L’élément Frise chronologique de la page qui montre les éléments de l’histoire

@@ -6,6 +6,16 @@
       "label": "Interface",
       "children": [
         {
+          "name": "options.ui.enabled",
+          "type": "boolean",
+          "label": "Show control panel",
+          "help": "Off: the timeline has no control panel and no button to open it.",
+          "req": "recommended",
+          "default": true,
+          "mode": "checkbox",
+          "clearable": false
+        },
+        {
           "name": "options.ui.showSourceHeader",
           "type": "boolean",
           "label": "Show header",
@@ -22,6 +32,9 @@
           "default": false,
           "mode": "checkbox",
           "clearable": false,
+          "showWhen": {
+            "options.ui.enabled": true
+          },
           "simplified": {
             "value": false
           }

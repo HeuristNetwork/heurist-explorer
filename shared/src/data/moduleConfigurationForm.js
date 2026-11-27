@@ -101,6 +101,28 @@ export function patchFormFields(json, patches) {
 }
 
 /**
+ * The fields of a form shown in one mode, flat, with their lists filled in (a CMS element form built with HEditForm
+ * directly from a configuration: crosstabs, story map). Groups and fields of other modes are left out.
+ *
+ * @param {object} json Form JSON.
+ * @param {string} mode Form mode.
+ * @param {Object<string, Array<{id: string, label: string}>>} [terms] Lists by `termsSource`.
+ * @returns {Array<object>} The fields (each with `terms` when it had `termsSource`, without `modes`).
+ */
+export function modeFormFields(json, mode, terms = {}) {
+  const fields = [];
+  for (const group of json.groups || []) {
+    if (group.modes && !group.modes.includes(mode)) continue;
+    for (const field of group.children || []) {
+      if (field.modes && !field.modes.includes(mode)) continue;
+      const { modes: _modes, termsSource, ...rest } = field;
+      fields.push(termsSource ? { ...rest, terms: terms[termsSource] || [] } : { ...rest });
+    }
+  }
+  return fields;
+}
+
+/**
  * Whether a form has optional fields or groups shown in a mode (the Advanced switch is offered).
  *
  * @param {object} json Form JSON.

@@ -130,7 +130,7 @@ export function storyMapForm({ ids, templates = [], dateFields = [], rectypes = 
         id: 'presentation', type: 'accordion', label: 'Presentation', open: true,
         children: [
           { ...template('template', 'Story element template', HELP.template), req: 'required' },
-          { name: 'layout', type: 'enum', mode: 'select', label: 'Show as', help: HELP.layout, clearable: false,
+          { name: 'layout', type: 'enum', mode: 'select', label: 'Show as', help: HELP.layout, clearable: false, req: 'recommended',
             terms: [{ id: 'list', label: 'Vertical' }, { id: 'horizontal', label: 'Horizontal' }, { id: 'carousel', label: 'Carousel' }, { id: 'tabs', label: 'Tabs' }] },
           { name: 'startMode', type: 'enum', mode: 'select', label: 'Start info', help: HELP.position, clearable: false,
             terms: [{ id: 'none', label: 'None' }, { id: 'inline', label: 'As the first element' }, { id: 'header', label: 'Above the story' }] },
@@ -148,13 +148,13 @@ export function storyMapForm({ ids, templates = [], dateFields = [], rectypes = 
           { name: MANUAL_APPLY.background, type: 'resource', label: 'Background map', help: HELP.background, targetTypes: ids.mapDocument ? [ids.mapDocument] : [],
             pointerMode: 'browseonly' },
           { name: 'timeFilter', type: 'boolean', mode: 'checkbox', label: 'Apply time filter on the background map', help: HELP.timeFilter },
-          { name: 'begin', type: 'special', special: 'geoFields', max: 0, label: 'Begin or main', help: HELP.begin },
+          { name: 'begin', type: 'special', special: 'geoFields', max: 0, label: 'Begin or main', help: HELP.begin, req: 'recommended' },
           { name: 'transition', type: 'special', special: 'geoFields', max: 0, label: 'Transition', help: HELP.transition },
           { name: 'end', type: 'special', special: 'geoFields', max: 0, label: 'End', help: HELP.endPlaces },
           { name: 'connect', type: 'boolean', mode: 'checkbox', label: 'Connect the places: begin → transition → end', help: HELP.connect },
           { name: 'keep', type: 'boolean', mode: 'checkbox', label: 'Keep the places of the whole story on the map', help: HELP.keep },
           { name: 'duration', type: 'integer', label: 'Flight (ms)', help: HELP.duration, minValue: 0, maxValue: 20000, step: 100, clearable: false },
-          { name: 'elementSymbology', type: 'special', special: 'symbology', label: 'Element symbology', help: HELP.elementSymbology },
+          { name: 'elementSymbology', type: 'special', special: 'symbology', label: 'Element symbology', help: HELP.elementSymbology, req: 'recommended' },
           { name: 'lineSymbology', type: 'special', special: 'symbology', label: 'Line symbology', help: HELP.lineSymbology }
         ]
       }

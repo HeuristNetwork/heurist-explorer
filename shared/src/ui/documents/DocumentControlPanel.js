@@ -57,16 +57,20 @@ export class DocumentControlPanel {
    * @returns {void}
    */
   mount() {
-    if (this.options.enabled === false || this.options.placement === 'none') return;
-
-    if (this.options.showSourceHeader === true) {
-      this.sourceHeader = document.createElement('div');
-      this.sourceHeader.className = 'heurist-source-header';
-      // Prepend to the shared parent rather than inserting immediately before
-      // mapContainer: a module toolbar (e.g. heurist-timeline-toolbar) may already
-      // sit before mapContainer, and the source header must render above it.
-      this.mapContainer.parentElement?.prepend(this.sourceHeader);
+    if (this.options.placement === 'none') return;
+    // no control panel: the header may still be shown, it is not part of the panel (27q3 review 6)
+    if (this.options.enabled === false) {
+      if (this.options.showSourceHeader !== true) return;
+      this.mountSourceHeader();
+      for (const eventName of ['heurist-map-documents-loaded', 'heurist-map-documents-changed', 'heurist-map-document-activated',
+        'heurist-map-document-state-changed']) {
+        this.bind(eventName.replace('heurist-map-', `heurist-${this.moduleName}-`), () => this.updateSourceHeader());
+      }
+      this.updateSourceHeader();
+      return;
     }
+
+    if (this.options.showSourceHeader === true) this.mountSourceHeader();
 
     this.element = document.createElement('aside');
     this.element.className = 'heurist-module-control-panel h-widget';
@@ -186,6 +190,29 @@ export class DocumentControlPanel {
   }
 
   /**
+   * The header with the title of the active document, above the module.
+   *
+   * @returns {void}
+   */
+  mountSourceHeader() {
+    this.sourceHeader = document.createElement('div');
+    this.sourceHeader.className = 'heurist-source-header';
+    // Prepend to the shared parent rather than inserting immediately before
+    // mapContainer: a module toolbar (e.g. heurist-timeline-toolbar) may already
+    // sit before mapContainer, and the source header must render above it.
+    this.mapContainer.parentElement?.prepend(this.sourceHeader);
+  }
+
+  /**
+   * The title of the active document in the header.
+   *
+   * @returns {void}
+   */
+  updateSourceHeader() {
+    if (this.sourceHeader) this.sourceHeader.textContent = this.api.getActiveMapDocument?.()?.title || '';
+  }
+
+  /**
    * Register a public API event listener and track it for later removal.
    *
    * @param {string} name Event name.
@@ -206,7 +233,7 @@ export class DocumentControlPanel {
     const activeDocument = this.api.getActiveMapDocument();
     const activeId = activeDocument?.id;
     const isDynamicDocument = activeDocument?.persistent === false;
-    if (this.sourceHeader) this.sourceHeader.textContent = activeDocument?.title || '';
+    this.updateSourceHeader();
     const editingEnabled = this.api.getCapabilities?.().editing === true;
     const symbologyEditingEnabled = this.api.getCapabilities?.().symbologyEditing === true;
     const allDocuments = this.api.getMapDocuments();

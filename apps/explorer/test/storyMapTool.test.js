@@ -80,6 +80,11 @@ test('Show for: Story topics only for a story map with a query; Current result t
   await flush();
   const values = () => [...(host.querySelector('.h-presentation-scope-select')?.children || [])].map((option) => option.value);
   assert.deepEqual(values(), ['current', 'own', 'any']);
+  // All <type> by default (27q3 review 7)
+  assert.equal(tool.scope, 'any');
+  assert.equal(tool.rangeIds, null);
+  tool.scope = 'current';
+  await tool._refreshRange();
   assert.deepEqual(calls.queries.at(-1), { query: 't:10,12 t:10', limit: RANGE_LIMIT });
   assert.deepEqual(tool.rangeIds, [101, 102]);
   await tool.openPreset(2);
@@ -243,5 +248,32 @@ test('Publish: a message without a story topic, else the story map with the chos
   } finally {
     HMsg.showMsgDlg = original;
   }
+  await tool.destroy();
+});
+
+test('Close and clear: no story map, the own map closed, the pane minimised (27q3 §13)', async () => {
+  const { tool, host, calls } = await mountTool({ ownMap: true });
+  let minimised = 0;
+  tool.tool.minimizePane = () => { minimised += 1; return true; };
+  await tool.openPreset(1);
+  await tool._setOwnMap(true);
+  await tool._showTopic(101);
+  await tool.closeAndClear();
+  assert.equal(tool.preset, null);
+  assert.equal(tool.topicId, 0);
+  assert.equal(tool.ownMapOn, false);
+  assert.ok(calls.mounted.includes('map-destroyed'));
+  assert.equal(minimised, 1);
+  assert.equal(host.querySelector('.h-storymap-tool-picker-input'), null);
+  await tool.destroy();
+});
+
+test('form switches: optional properties and help tips above the form, kept in the browser', async () => {
+  globalThis.localStorage?.clear?.();
+  const { tool, host } = await mountTool();
+  const switches = [...(tool.formPane.querySelector('.h-presentation-form-switches')?.querySelectorAll('input') || [])];
+  assert.equal(switches.length, 2);
+  assert.equal(switches[0].checked, false, 'optional properties hidden by default');
+  assert.equal(switches[1].checked, true, 'help tips shown by default');
   await tool.destroy();
 });

@@ -13,6 +13,9 @@
   container-type: inline-size;
 }
 
+/* opened from the CMS editor (z-index 10010 and its own layers up to 10020): above it (27q3 review 7) */
+.h-presentation-fullscreen.h-presentation-fullscreen-top { z-index: 10030; }
+
 /* the header: "<Kind> editor: <name>" and Close */
 .h-presentation-header {
   display: flex;
@@ -240,3 +243,18 @@
 
 .h-presentation-menu-item:hover:not(:disabled) { background: var(--h-color-surface-hover); }
 .h-presentation-menu-item:disabled { color: var(--h-color-text-muted); cursor: default; }
+
+/* the switches above a configuration form (Optional properties, Help tips): stay on top, only the form scrolls */
+.h-presentation-form-switches {
+  display: flex;
+  flex: 0 0 auto;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 4px 12px;
+  padding: 4px 8px;
+  border-bottom: 1px solid var(--h-color-border);
+  background: var(--h-color-surface);
+  font-size: var(--h-font-size);
+}
+
+.h-presentation-form-switches > label { gap: 4px; }

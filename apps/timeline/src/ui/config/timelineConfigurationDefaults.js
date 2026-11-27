@@ -18,6 +18,7 @@ export const TIMELINE_ZOOM_MAX = 31536000000 * 500000;
 
 export const HEURIST_TIMELINE_OPTIONS_DEFAULTS = Object.freeze({
   ui: Object.freeze({
+    enabled: true,
     initiallyExpanded: false,
     showSourceHeader: false,
     showOptions: true,

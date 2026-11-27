@@ -859,8 +859,15 @@ export async function mountInstance(host, id, config, loaders) {
     // the story map (plan 27q1 §8): a lazy chunk; a member of the page (selection, its source records)
     try {
       const { mountStoryMap } = await import('./siteStoryMap.js');
-      const mounted = await mountStoryMap(host, instance, config, { findModule: (instanceId) => findPageModule(instanceId), loaders });
+      const mounted = await mountStoryMap(host, instance, config, { findModule: (instanceId) => findPageModule(instanceId) });
       if (!mounted) return null;
+      // topic range Saved filter by Action (27q3 §13): the query of the link of a page without other modules
+      const sync = pageSyncOf(config);
+      if (sync && typeof mounted.widget.setPageRecords === 'function' && !sync.latest(['links'])) {
+        const search = config.runtime?.filterSearch ?? globalThis.location?.search ?? '';
+        const request = await pageFilterRequest(config.runtime || {}, search).catch(() => null);
+        if (request && !sync.latest(['links'])) sync.remember(request, 'links');
+      }
       joinPageSync(config, id, instance, mounted.widget, mounted.start);
       return mounted.widget;
     } catch (error) {

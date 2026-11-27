@@ -124,13 +124,18 @@ export function lastPublishedPageId(database, type, storage = defaultStorage()) 
  * @param {object|null} [options.state] Instance state.
  * @param {string} [options.title] Page title.
  * @param {number} [options.pageId=0] Page to update; 0 = a new page.
+ * @param {Array<object>|null} [options.companions] Elements written beside the module (the Map / Timeline of a story
+ *        map, 27q3 review 7).
+ * @param {string} [options.language] Language of the page (3 letters, 27q3 review 8).
  * @param {Storage|null} [options.storage] Storage (tests).
  * @returns {Promise<{id: number, url: string, title: string, created: boolean, embed: string}>}
  */
 export async function publishModuleTo({ client, database, type, settings, state = null, title = '', pageId = 0,
-  storage = defaultStorage() }) {
+  companions = null, language = '', storage = defaultStorage() }) {
   const pageTitle = String(title || '').trim() || newPageTitle(type);
-  const result = await client.publish({ type, settings, state, title: pageTitle, pageId: Number(pageId) || 0 });
+  const result = await client.publish({ type, settings, state, title: pageTitle, pageId: Number(pageId) || 0,
+    ...(Array.isArray(companions) && companions.length ? { companions } : {}),
+    ...(language ? { language } : {}) });
   writeJson(storage, `${LAST_PAGE_KEY}.${database || ''}.${type}`, { id: Number(result.id), title: result.title || pageTitle });
   return { ...result, embed: embedCode(result.url, result.title || pageTitle) };
 }

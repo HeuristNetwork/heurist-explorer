@@ -191,10 +191,10 @@ export class CrosstabsTool extends HBaseWidget {
    */
   async toggleList(show = !this.list) {
     if (!show) {
-      await this.list?.destroy();
+      // the List is kept (hidden) with its selection: shown again it is not read again (27q3 review 6)
+      if (this.list) this._hiddenList = this.list;
       this.list = null;
-      this.listHost?.remove();
-      this.listHost = null;
+      if (this.listHost) this.listHost.hidden = true;
       this.toolbar.hidden = false;
       this.bodyElement.hidden = false;
       this._renderHeaderActions();
@@ -203,6 +203,16 @@ export class CrosstabsTool extends HBaseWidget {
     if (this.list) return;
     this.toolbar.hidden = true;
     this.bodyElement.hidden = true;
+    if (this._hiddenList) {
+      this.list = this._hiddenList;
+      this._hiddenList = null;
+      this.listHost.hidden = false;
+      this._renderHeaderActions();
+      await this.list.showAgain({ changes: this._listChanges, selectedId: this.preset?.id || null });
+      this._listChanges = null;
+      return;
+    }
+    this._listChanges = null;
     this.listHost = element('div', 'h-crosstabs-tool-list-mode');
     this.container.append(this.listHost);
     const publish = this.tool.publish;
@@ -242,7 +252,9 @@ export class CrosstabsTool extends HBaseWidget {
   /** @returns {Promise<void>} */
   async destroy() {
     await this.list?.destroy();
+    await this._hiddenList?.destroy();
     this.list = null;
+    this._hiddenList = null;
     this.params?.hide();
     this.tool.headerActions?.replaceChildren();
     await this.crosstab?.destroy();
@@ -446,6 +458,8 @@ export class CrosstabsTool extends HBaseWidget {
     if (this.list) {
       this.list.selectedId = result?.presetId || this.list.selectedId;
       await this.list.reload();
+    } else if (this._hiddenList) {
+      this._listChanges = 'list';
     }
   }
 
@@ -459,7 +473,7 @@ export class CrosstabsTool extends HBaseWidget {
   async _publishPreset(id) {
     const item = this.presets.find((preset) => preset.id === Number(id));
     await this.tool.publish?.({ presetId: Number(id), title: item?.title || '', query: null, source: 'own', presets: this.presets });
-    await this.list?.select(Number(id));
+    await this.list?.select(Number(id), { force: true });
   }
 
   /** @private Publish the crosstab with the records shown now (presentation-sources.md §6). */
@@ -468,6 +482,8 @@ export class CrosstabsTool extends HBaseWidget {
     await this.tool.publish?.({
       presetId: this.preset.id, title: this.preset.title, query: this._currentQuery(), source: this.sourceMode, presets: this.presets
     });
+    // the pages of the kept List are read again when it is shown
+    if (this._hiddenList) this._listChanges ||= 'pages';
   }
 
   // ------------------------------------------------------------------ choices kept in the browser

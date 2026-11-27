@@ -36,6 +36,8 @@ export class TimelineDocumentApplication extends TimelineApplication {
     this.activeDocumentId = 'dynamic';
     this.currentDataSource = null;
     this.workspaceDataSources = [];
+    // bands of the host after the Workspace ones (the story of a Story map, 27q3 review 6)
+    this.hostLayers = new Map();
     this.activeDataSourceKey = null;
     this.activeLayerId = null;
     this.documentBands = new Map();
@@ -225,7 +227,11 @@ export class TimelineDocumentApplication extends TimelineApplication {
     const current = previous.find((band) => band.id === 'current-results');
     const desired = [this.bandFromSource(this.currentDataSource, 'current-results', {
       visible: current?.visible ?? true, emptyStub: !this.currentDataSource
-    }), ...this.workspaceDataSources.map((source) => this.bandFromSource(source, `workspace-${stableHash(source.reference.key)}`, { workspaceEntry: true }))];
+    }), ...this.workspaceDataSources.map((source) => this.bandFromSource(source, `workspace-${stableHash(source.reference.key)}`, { workspaceEntry: true })),
+    ...[...this.hostLayers].map(([id, layer]) => ({
+      id, title: layer.title, query: layer.query, request: { q: layer.query }, timefields: null, fields: [], visible: true,
+      options: {}, loadState: 'deferred', items: [], hostLayer: true
+    }))];
     const bands = desired.map((band) => {
       const old = previous.find((item) => item.id === band.id);
       if (old && JSON.stringify([old.request, old.timefields, old.fields]) === JSON.stringify([band.request, band.timefields, band.fields])) {
@@ -238,6 +244,43 @@ export class TimelineDocumentApplication extends TimelineApplication {
     });
     this.documentBands.set('dynamic', bands);
     if (this.activeDocumentId === 'dynamic') this.contexts = bands;
+  }
+
+  /**
+   * Add a band of the host to the dynamic document, after the Workspace bands (27q3 review 6: the story of a Story map
+   * in Explorer's timeline). Not a DataSource: no Show data, no Workspace action. The same id replaces the band.
+   *
+   * @param {{id?: string, title?: string, query: *}} layer
+   * @returns {Promise<string>} Id of the band.
+   */
+  async addLayer({ id = null, title = '', query } = {}) {
+    const key = String(id || `host-layer-${this.hostLayers.size + 1}`);
+    this.hostLayers.set(key, { title: String(title || 'Layer'), query });
+    await this.refreshDynamicBands();
+    return key;
+  }
+
+  /**
+   * Remove a band of the host (addLayer).
+   *
+   * @param {string} id
+   * @returns {Promise<boolean>} False when there was none.
+   */
+  async removeLayer(id) {
+    if (!this.hostLayers.delete(String(id))) return false;
+    await this.refreshDynamicBands();
+    return true;
+  }
+
+  /** @private The dynamic bands again and, when the dynamic document is shown, drawn and loaded. */
+  async refreshDynamicBands() {
+    if (this.activeDocumentId === 'dynamic') this.cancelBandLoads();
+    this.rebuildDynamicBands();
+    this.dispatch('heurist-timeline-documents-changed', {});
+    if (this.activeDocumentId === 'dynamic') {
+      await this.renderBands();
+      await this.loadVisibleBands();
+    }
   }
 
   /**

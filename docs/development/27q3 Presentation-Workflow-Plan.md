@@ -6,7 +6,13 @@ reports are Presentation sets of kind Card Report 2-10645 / List Report 2-10646,
 items: §7.2. **Review 1 (Crosstabs) implemented 2026-11-25 (§8)**; **review 3 (Story map and Reports in the same
 layout, Reports View mode) implemented 2026-11-25 (§9)**; **review 4 (Reports details, right aligned toolbar, public
 records) implemented 2026-11-25 (§10)**; **Export review implemented 2026-11-25 (§11)**; **Story map review (Show for, topic
-record type, own map and timeline) implemented 2026-11-25 (§12)**; not committed, no browser check. Extends the topic note
+record type, own map and timeline) implemented 2026-11-25 (§12)**; **review 5 (Story map form and publication, website
+topic list, page Map / Timeline elements, Close and clear, Interface sections, editors from the CMS) implemented
+2026-11-27 (§13)**; **review 6 (List kept between View and List, CMS editor alone, Crosstabs form switches, story band
+in Explorer's timeline, timeline French and locale, Website manager editor, topic picker by type) implemented 2026-11-27
+(§14)**; **review 7 (Publish and the CMS use separate Map / Timeline elements, editors above the CMS editor, Show for
+All <type>) implemented 2026-11-27 (§15)**; **review 8 (page language, one topic picker, panel titles, story map
+selection on pages) implemented 2026-11-27 (§16)**, not committed, no browser check. Extends the topic note
 `presentation-sources.md`.
 
 ## 1. Goal
@@ -345,7 +351,7 @@ List:    (no toolbar, no title bar)                                             
 - ~~Story map and Reports: the same layout (header right group, no List bar)~~ — done in review 3 (§9).
 - Editing a crosstab from the CMS editor opens Explorer in a new window (`?tool=crosstabs&preset=`). In place would need
   a host bridge call (`openPresentationEditor(kind, id)`) when the CMS runs inside Explorer: the CMS (apps/website) may
-  not import the crosstab editor (apps/explorer). To agree.
+  not import the crosstab editor (apps/explorer). To agree. — done 2026-11-27 (§13 item 10).
 
 ## 9. Review 3: Story map and Reports in the Crosstabs layout (Artem 2026-11-25, implemented the same day)
 
@@ -525,3 +531,152 @@ result still shows the story topics, but no record is selected any more.
   CMS plan (`leftovers 24, 27-34.md` §2).
 - Browser check: the own map and timeline in the editor (direct entries in Explorer's page, their CSS), Browse of
   the picker, a story map without a topic type.
+
+## 13. Review 5: Story map, Crosstabs and Timeline configuration (Artem 2026-11-27, implemented the same day)
+
+Recommendations agreed with the plan (2026-11-27): the publication keeps the map and timeline in the element; the CMS
+form has Map and Timeline in *Behaviour*; the editors open over the CMS designer for Crosstabs and Story map (Reports
+later); the form switches start with optional properties hidden and help tips shown.
+
+1. **Own map and timeline** (Explorer and website): no header, no Heurist controls, no map controls (zoom, scale ...):
+   `OWN_MAP_SETTINGS` / `OWN_TIMELINE_SETTINGS` (storyMapTimeline.js) as the bootstrap settings of the direct entries.
+   The own map no longer loads the user's saved map preference.
+2. **Form switches**: a bar above the story map form (stays on top, only the form scrolls): *Optional properties* and
+   *Help tips* (`setShowOptional`, `setFieldHelpVisible`), kept in the local storage. *Show as*, *Begin or main* and
+   *Element symbology* are `recommended` (always shown).
+3. **No flight to the same place**: `boundsNearlyEqual` (storyMapModel.js, each edge within 2 % of the width / height,
+   at least 0.001°); StoryMapBinding keeps the bounds of the last flight (forgotten by `clear` / `clearStory`). The
+   flight goes from where the map is to the element: Start and End info and elements at one place do not fly.
+4. **Publish dialog** (storyMapConfiguration.js, publication mode): **Source** — Story map (read only), *Allow selecting
+   the topic*, *Topics range* (Story topics, All <type>, Current result; preselected from Show for), *Selected topic*
+   (read only, the topic of Show for); **Map and timeline** — *Show map*, *Show timeline*; **Interface** — *Show
+   header*, *Language*. Current result keeps the query of Explorer's result in the element (`query`).
+   - 4A: separate Map and Timeline elements are possible on a page (CMS, item 8d). Publish writes one element only
+     (`WebsiteEditService::importModule`); separate elements from Publish: later if needed.
+   - 4B: the website element shows a topic list above the story (HInputResource `dropdown` over RecordTitleSource of
+     the topic type, at most 500 records, no Browse) when *Allow selecting the topic* is on.
+5. **Close and clear** (last header button of the Story map pane): no story map chosen, the story and its layers gone,
+   the own map and timeline closed; the pane is minimised when the story map is the only module configured for it
+   (collapsed in *In panes*, else hidden; never the center) — `ExplorerApplication._minimizeAlonePane`.
+6. **Interface** group in Crosstabs and Story map (publication): *Show header* (`ui.showSourceHeader`) and *Language*
+   (`ui.language`); the language terms are shared (`PUBLICATION_LANGUAGE_TERMS`, presentationKinds.js). The website
+   element shows the header (name of the story map) and uses the language as crosstabs do.
+7. **Timeline: Show control panel** (`options.ui.enabled`, default on, all modes): off hides *Show header* and *Expand
+   control panel initially* (the forms can hide, not disable) and at run time there is no control panel and no toggle
+   (DocumentControlPanel already skips it).
+8. **CMS Story map element form** = the website fields of storyMapConfiguration (`storyMapFormFields`, as crosstabs):
+   Source — Story map, *Allow selecting the topic*, *Topics range* (Story topics, All records of the topic type, **Saved
+   filter by Action**: the records of the page's Saved filter links / Filter widgets are the range, PageSync gives
+   them to the element), *Selected topic* (a record picker, the story shown first); Behaviour — *Map* and *Timeline*:
+   Own (in the element) | None | a Map / Timeline element of the page. `ownMap: true` of older pages = own map and own
+   timeline. 8b2 *Selection by Action*: later.
+9. **Labels**: "Own query of the crosstab"; the page source "Saved filter links" is "Saved filter by Action link" (all
+   element forms).
+10. **Editors from the CMS**: Explorer's bridge `openPresentationEditor(kind, id)` opens the full screen crosstab / story
+    map editor over the designer; closed: the pane of the kind reloads, the designer reads the list and the preview
+    again. Without the bridge: Explorer in a new window as before. Reports: the report editor has no full screen entry
+    yet (later).
+
+Settings of the website element Story map (`storyMapConfiguration.normalize`):
+`{preset, topic, topicSelect, topicRange: story|any|current|links, query, map: own|none|<instance>,
+timeline: own|none|<instance>, ui: {showSourceHeader, language}}`.
+
+### 13.1 Open
+
+- Browser check of all items (own map without controls, Publish dialog, website topic list, a page Timeline element,
+  Close and clear in a pane, Edit from the CMS).
+- *Selection by Action* as a topic range (8b2); separate Map / Timeline elements from Publish (4A); the Report editor
+  from the CMS (10).
+
+## 14. Review 6 (Artem 2026-11-27, implemented the same day)
+
+1. **List and View** (Crosstabs, Story map): the List is kept (hidden) when the View is shown, with its selection and
+   its Published pages; shown again it is read again only after a change: saved / deleted in the Editor or Properties
+   (`list`: the list and the pages), published (`pages`: the pages only) — `HPresentationList.showAgain`. The item of
+   the View is selected in the list (the row highlighted). 1a: a click on the selected row does not read the pages
+   again (`select(id, {force})`).
+2. **CMS editor alone**: Edit of a published page opens the CMS designer without the Website manager under it
+   (`openWebsiteDesigner` of `apps/website/src/direct.js`, `ExplorerApplication.editWebsitePage`); within the manager
+   when it is open.
+3. **Crosstabs form switches**: the same bar as the Story map (*Optional properties*, *Help tips*), now shared
+   (`createFormSwitches`, `formSwitchState` in presentationShell.js; one pair of browser settings for all editors).
+   Recommended: Values of Rows; Field and Values of Columns and Pages; Measure; Title and Show totals; Visitors can and
+   Export; also the fields that follow a choice (Period, Number of ranges, Ranges, Numeric field, Fields / Measures to
+   choose), else they would be hidden when chosen. The Query of the crosstab and Caption stay optional.
+4. **Explorer's timeline**: the View without own timeline shows the story as a band of Explorer's Timeline pane (when
+   there is one): new Timeline API `addLayer({id, title, query})` / `removeLayer(id)` (bands of the host after the
+   Workspace bands, no Show data / Workspace actions; `storyTimelineLayer` in storyMapTimeline.js). The layers on the
+   map and the band are named **"StoryMap: <topic>"** (the story map name before a topic is shown); the map layers
+   "(path)" and "(all places)" after it.
+5. **Timeline French**: the form and toolbar were translated; the band panel was not (no `$HR`) — now it is, 17 strings
+   added. The axis (months, days) follows the language (`locale` of vis-timeline, `visLocale`).
+6. **Website manager**: a double click in the list opens the CMS editor (format 4, user may edit); *Open editor* also on
+   standalone pages.
+7. **Selected topic** (CMS form): the picker browses records of the topic type of the chosen story map (read from its
+   configuration, else its query; changes with the story map).
+8. **Console warning** of vis-timeline: the item template returns an element, so the XSS filter stays on and no
+   "You disabled XSS protection" warning per timeline.
+9. **Close and clear**: the pane is minimised first, then the story map is cleared (a failing or slow step no longer
+   keeps the pane open). Not reproduced in tests: to check in the browser.
+10. **Timeline Show control panel** no longer hides *Show header*; without the panel the header is still drawn
+    (DocumentControlPanel, also the map).
+
+## 15. Review 7 (Artem 2026-11-27, implemented the same day)
+
+Decisions: the editors open above the CMS editor; Publish adds **separate Map and Timeline elements** (the designer
+configures them in the CMS editor); on Update of a page the elements the story map uses are kept as configured, only
+missing ones are added; a new page has Story | Map in two columns and the Timeline below; the own map / timeline of the
+website element is **removed** (older `own` / `ownMap` = none). Explorer keeps its own map and timeline in View and
+Editor. Report editor from the CMS: not now.
+
+1. **Editors from the CMS**: they opened behind the CMS editor (z-index 10000 < 10010). `openCrosstabsDesigner` /
+   `openStoryMapDesigner` take `{onTop}` (bridge `openPresentationEditor`): class `h-presentation-fullscreen-top`
+   (z-index 10030). Dialogs (`<dialog>`) and popovers are above anyway.
+2. **Show for** starts with *All <type>* (`'any'`): the current result often has no topic of the type. Kept session
+   choices stay.
+3. **Publish → separate elements** (3a): the Publish form has *Add a Map element* / *Add a Timeline element*
+   (`showMap`, `showTimeline`, default on). `preparePublication` returns `companions` `[{role, type, settings, state}]`
+   with the website defaults of the modules (`publication.companionDefaults`, Explorer `_websiteDefaults`); the
+   publisher sends them with `POST /page/{id}/import` (no new endpoint). `WebsiteEditService::importModule` (storymap
+   only): a new page = a group of two columns (story map, map; one column on narrow screens; 70vh) and the timeline
+   below (30vh); an existing page: the instance the story map pointed to, else the first of the type with a host, else
+   a new one appended; existing ones are not changed. The story map gets `settings.map` / `settings.timeline` = their
+   instance ids. Test: `tests/WebsiteEditTest.php` (import storymap, import again keeps the CMS settings).
+4. **CMS: a new Story map element** (3b): linked to the first Map / Timeline element of the page; missing ones are
+   offered ("Show the story on a map and a timeline? A Map and a Timeline element will be added to the page." Add /
+   Cancel) and inserted after it with their website defaults (`CmsDesigner._linkStoryGeo`). The element form offers
+   None | the page's elements (no Own).
+5. **Website runtime** (3c): `siteStoryMap.js` has no own map / timeline (ownGeo removed); the element fills the height
+   of its node.
+
+## 16. Review 8 (Artem 2026-11-27, implemented the same day)
+
+Decisions: **the language of a published page is stored with the page** (2a, option a); panel titles **"Kind: Name"**.
+
+1. **`<html lang="en">` of a published page** was a bug of all publications: a standalone page had no language (only
+   its translations); the chosen language was only in the module settings. Now (2a) the language chosen in Publish is
+   the **page language**: DT_LANGUAGE 2-967 on the standalone page (`importModule` input `language`); `WebsiteService`
+   puts it first in the languages of a standalone page, so `<html lang>` and `runtime.language` of all modules follow it;
+   the module setting is "auto" (follows the page). A menu page: the languages of its website (the page language is
+   ignored). The field is added to Web page 99-52 by the website setup as an extra (`WebsiteSetup::PAGE_FIELDS`, not
+   needed for "installed"; status `pageLanguage`); without it a page has no language. The CMS shows *Language* in the
+   page fields of a standalone page. Test: `tests/WebsiteEditTest.php` (language of the page, `<html lang="fr">`).
+2. **Timeline toolbar in French**: the label hints through `$HR`, 14 texts added (toolbar and control panel); the
+   timeline language is `moduleLanguage(bootstrap)` (texts and the axis).
+3. **One topic picker** (option C everywhere): `storyTopicInputOptions` (shared/src/widgets/storymap/storyTopicInput.js)
+   — HInputResource `dropdown` (HValuePicker with its filter) of the topic type, the range as its query, Browse over the
+   range. Why there were three: the website had no record browser (no Browse), the CMS field was `browseonly` (an
+   oversight). The website now opens the shared record manager (`openRecordManager`, definitions read on the first
+   Browse; visitors see public records).
+4. **Panel title** of an element in the CMS editor: "Kind: Name" (`elementTitle`): Crosstabs: Sales by year, Record
+   field: <name or field>, the kind alone without a name.
+5. **No Publish** in the Crosstabs / Story map editor opened from the CMS.
+6. **Height** of the published story map: `.h-site-storymap { height: 70vh }`.
+7. **Selection on the page**: the website story map takes a selection only for records of the topic type (checked with
+   a query); a click on the map or the timeline (an element of the story) leaves the story as it is.
+8. **CMS: new Story map with Map and Timeline**: the publishing layout — a two column group (story map, map; 70vh) and
+   the timeline below (30vh).
+9. **No circle** Editor → Publish → Website manager → CMS editor → Editor (Artem 2026-11-27): opening the Website
+   manager (the button of the Published dialog, or any other way) first closes an open Story map / Crosstabs editor;
+   its unsaved changes are asked first, Cancel keeps the editor and the manager is not opened
+   (`ExplorerApplication._closePresentationEditors`).

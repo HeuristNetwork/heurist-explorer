@@ -20,7 +20,11 @@ test('form: sections, required rows field and record type, the measure fields', 
   assert.deepEqual(form.groups.map((group) => group.id), ['source', 'rows', 'columns', 'pages', 'measure', 'display', 'visitor']);
   const fields = form.groups.flatMap((group) => group.children);
   assert.equal(fields.find((field) => field.name === 'rowsCode').req, 'required');
-  assert.equal(fields.find((field) => field.name === 'columnsCode').req, undefined);
+  // recommended: shown with Optional properties off (27q3 review 6)
+  for (const name of ['columnsCode', 'columnsBuckets', 'pagesCode', 'rowsBuckets', 'measureOp', 'displayTitle', 'totals', 'level', 'export']) {
+    assert.equal(fields.find((field) => field.name === name).req, 'recommended', name);
+  }
+  assert.equal(fields.find((field) => field.name === 'columnsLabel').req, undefined);
   assert.equal(fields.find((field) => field.name === '12').special, 'query');
   assert.deepEqual(fields.find((field) => field.name === 'measureField').terms, [{ id: '1160', label: 'Population' }]);
 });

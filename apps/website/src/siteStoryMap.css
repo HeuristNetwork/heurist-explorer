@@ -1,43 +1,28 @@
-/* The website element Story map (siteStoryMap.js) with its own map and timeline (a page published from Explorer,
-   27q3 §12, 2026-11-25): beside vertical stories, under horizontal ones. */
-.h-site-storymap.has-own-map {
+/* The website element Story map (siteStoryMap.js): the header, the topic list (27q3 §13), then the story. Its map and
+   timeline are Map / Timeline elements of the page (27q3 review 7). */
+.h-site-storymap {
   display: flex;
-  box-sizing: border-box;
-  height: 100%;
-  min-height: 0;
-}
-
-.h-site-storymap.is-geo-beside { flex-direction: row; }
-.h-site-storymap.is-geo-below { flex-direction: column; }
-
-.h-site-storymap.has-own-map > .h-site-storymap-root {
-  flex: 1 1 50%;
-  min-width: 0;
-  min-height: 0;
-}
-
-.h-site-storymap-geo {
-  display: flex;
-  flex: 1 1 50%;
   flex-direction: column;
-  min-width: 0;
+  box-sizing: border-box;
+  /* as the Map element beside it on a page published from Explorer (27q3 review 8) */
+  height: 70vh;
   min-height: 0;
 }
 
-.h-site-storymap.is-geo-beside .h-site-storymap-geo { border-left: 1px solid var(--h-color-border, #ddd); }
-.h-site-storymap.is-geo-below .h-site-storymap-geo { border-top: 1px solid var(--h-color-border, #ddd); }
-
-.h-site-storymap-map {
-  position: relative;
-  flex: 1 1 70%;
-  min-height: 200px;
+.h-site-storymap-topic {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 6px;
+  font-size: var(--h-font-size);
 }
 
-.h-site-storymap-timeline {
-  position: relative;
-  flex: 0 0 30%;
-  min-height: 120px;
-  border-top: 1px solid var(--h-color-border, #ddd);
+.h-site-storymap-topic-input {
+  flex: 0 1 320px;
+  min-width: 160px;
 }
 
-.h-site-storymap-timeline[hidden] { display: none; }
+.h-site-storymap-body {
+  flex: 1 1 auto;
+  min-height: 0;
+}

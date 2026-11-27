@@ -43,3 +43,74 @@ export function storyTimelineSync(getTimeline) {
     }
   };
 }
+
+/** Id of the band of the story in a timeline that is not the story map's own (addLayer of the Timeline API). */
+const STORY_LAYER_ID = 'storymap-story';
+
+/**
+ * A sync of a story to a timeline of the host (27q3 review 6: Explorer's Timeline pane when the story map has no own
+ * timeline): the elements of the story are a band of their own (`addLayer`), the result of the timeline stays; the
+ * current element is selected.
+ *
+ * @param {function(): (object|null|Promise<object|null>)} getTimeline The timeline public API (`addLayer`,
+ *        `removeLayer`, `setSelection`), null: none.
+ * @param {function(): string} getTitle Title of the band ("StoryMap: <name>").
+ * @returns {{sync: function(object|null, object|null): Promise<void>, reset: function(): Promise<void>}} `reset()`
+ *          removes the band (the own timeline is on, the story is closed).
+ */
+export function storyTimelineLayer(getTimeline, getTitle) {
+  let shown = 0;
+  let added = null;
+  const remove = async () => {
+    const timeline = added;
+    added = null;
+    shown = 0;
+    if (timeline) await Promise.resolve(timeline.removeLayer?.(STORY_LAYER_ID)).catch(() => {});
+  };
+  return {
+    reset: remove,
+    async sync(story, item = null) {
+      const timeline = await Promise.resolve(getTimeline()).catch(() => null);
+      if (!timeline || typeof timeline.addLayer !== 'function') {
+        await remove();
+        return;
+      }
+      if (added && added !== timeline) await remove();
+      const topic = Number(story?.source?.id) || 0;
+      if (topic !== shown) {
+        shown = topic;
+        const ids = (story?.elements || []).map((entry) => Number(entry.id)).filter((id) => id > 0);
+        if (!ids.length) {
+          await remove();
+        } else {
+          added = timeline;
+          await Promise.resolve(timeline.addLayer({ id: STORY_LAYER_ID, title: getTitle(), query: [{ ids: ids.join(',') }] }))
+            .catch((error) => console.warn('Story map: timeline', error));
+        }
+      }
+      // the current element; the selection of the timeline stays between the elements
+      const id = item?.kind === 'element' ? Number(item.element?.id) || 0 : 0;
+      if (id && added) void Promise.resolve(timeline.setSelection?.([id])).catch(() => {});
+    }
+  };
+}
+
+/**
+ * Settings of the own map of a story map (27q3 §13, 2026-11-27): no header, no Heurist controls, no map controls.
+ * Given as the bootstrap settings of the Map direct entry (also stops the user's saved map preference).
+ */
+export const OWN_MAP_SETTINGS = Object.freeze({
+  options: {
+    ui: { enabled: false, showSourceHeader: false },
+    nativeControls: { zoom: false, scale: false, bookmark: false, print: false, search: false }
+  }
+});
+
+/**
+ * Settings of the own timeline of a story map (27q3 §13): no header, no control panel.
+ */
+export const OWN_TIMELINE_SETTINGS = Object.freeze({
+  options: {
+    ui: { enabled: false, showSourceHeader: false }
+  }
+});

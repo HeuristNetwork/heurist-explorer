@@ -33,6 +33,9 @@ export class HeuristTimelinePublicApi extends HeuristModulePublicApi {
   async zoomToMapDocument(id) { await this.activateMapDocument(id); return this.zoomToAll(); }
   setDynamicDataSources(value) { return this.application.setDynamicDataSources(value); }
   getLayers() { return this.application.getLayers(); }
+  // a band of the host in the Workspace document (27q3 review 6: the story of a Story map); not in the published page
+  addLayer(layer) { return this.application.addLayer?.(layer) ?? null; }
+  removeLayer(id) { return this.application.removeLayer?.(id) ?? false; }
   setLayerVisibility(id, visible) { return this.application.setLayerVisibility(id, visible); }
   showLayerDataSource(id) { return this.application.showLayerDataSource(id); }
   reloadLayer(id) { return this.application.reloadLayer(id); }

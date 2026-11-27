@@ -179,6 +179,8 @@ export class WebsiteManager extends HBaseWidget {
       listFields: versionField ? [versionField] : [],
       recordTools: (record) => this.listTools(record, versionField),
       editRecord: app.canEditRecords() ? (id) => app.editRecord(id) : undefined,
+      // a double click opens the CMS editor (27q3 review 6); the pen on mouse over edits the record
+      activateRecord: (id) => void this.run(() => this.openDesignerOf(id)),
       // a short list (§11): no view mode, selection menu, page size or "i"; all records on one page
       listOptions: {
         pageLength: 500,
@@ -197,8 +199,21 @@ export class WebsiteManager extends HBaseWidget {
   }
 
   /**
-   * The tools of a record in the list (2026-11-14): the format badge, Open editor (a website of format 4 the user may
-   * edit) and Open website (in a new tab).
+   * The CMS editor of a website or standalone page of the list (a double click): format 4 only, the user may edit.
+   *
+   * @param {number} id
+   * @returns {Promise<void>}
+   */
+  async openDesignerOf(id) {
+    await this.app.select(id);
+    const summary = this.app.summary;
+    if (!summary?.v4 || summary.kind === 'page' || !this.app.canEditRecords()) return;
+    await this.openDesigner(Number(id));
+  }
+
+  /**
+   * The tools of a record in the list (2026-11-14): the format badge, Open editor (a website or standalone page of
+   * format 4 the user may edit, 27q3 review 6) and Open website (in a new tab).
    *
    * @param {object} record List record.
    * @param {number} versionField DT of the format version.
@@ -224,7 +239,7 @@ export class WebsiteManager extends HBaseWidget {
       });
       button.addEventListener('dblclick', (event) => event.stopPropagation());
     };
-    if (website && v4 && this.app.canEditRecords()) icon('fa-pen-ruler', 'Open editor', () => this.openDesigner(id));
+    if (v4 && this.app.canEditRecords()) icon('fa-pen-ruler', 'Open editor', () => this.openDesigner(id));
     icon('fa-up-right-from-square', 'Open in a new tab', () => this.openRecord(id, website));
     return box;
   }

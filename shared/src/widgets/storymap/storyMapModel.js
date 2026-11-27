@@ -169,6 +169,23 @@ export function normalizeStoryMapSettings(raw) {
   };
 }
 
+/** Most records of a topic range (Show for in Explorer, Topics range of the website element) offered by a picker. */
+export const RANGE_LIMIT = 500;
+
+/**
+ * A query restricted to one record type (a topic range, 27q3 §12-13): a JSON query gets `{t}` added, a text query `t:<type>`.
+ *
+ * @param {*} query
+ * @param {number|null} type
+ * @returns {*}
+ */
+export function withType(query, type) {
+  if (!type || query == null || query === '') return query;
+  if (typeof query === 'string') return `${query.trim()} t:${type}`;
+  if (Array.isArray(query)) return [...query, { t: String(type) }];
+  return [query, { t: String(type) }];
+}
+
 /**
  * The record type of the story topics: the stored one; for an older story map the first type of its query (`t:10`,
  * `{"t":"10"}` or `[{"t":"10,12"}]`).
@@ -474,4 +491,21 @@ export function featureBounds(features) {
     else visit(geometry?.coordinates);
   }
   return Number.isFinite(west) ? { west, south, east, north } : null;
+}
+
+/**
+ * Whether two bounds are the same or nearly the same (27q3 §13, 2026-11-27: the map does not fly then). Each edge
+ * may differ by `tolerance` of the larger width / height of the two (at least 0.001 degree, for single points).
+ *
+ * @param {{west: number, south: number, east: number, north: number}|null} a
+ * @param {{west: number, south: number, east: number, north: number}|null} b
+ * @param {number} [tolerance] Part of the width / height.
+ * @returns {boolean}
+ */
+export function boundsNearlyEqual(a, b, tolerance = 0.02) {
+  if (!a || !b) return false;
+  const width = Math.max(a.east - a.west, b.east - b.west, 0.05);
+  const height = Math.max(a.north - a.south, b.north - b.south, 0.05);
+  return Math.abs(a.west - b.west) <= width * tolerance && Math.abs(a.east - b.east) <= width * tolerance
+    && Math.abs(a.south - b.south) <= height * tolerance && Math.abs(a.north - b.north) <= height * tolerance;
 }

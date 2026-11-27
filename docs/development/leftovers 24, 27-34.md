@@ -57,8 +57,9 @@ rounds). 27i-27m and 34: reviewed by Artem in rounds; a separate browser check i
 | 27l §2.7 | Phase D: bindings between modules (selection → search), Explorer selection on the page (§2.5), records from the selection of another module ("mixed", §12.1.4), a module that gives its own source to the page. | later |
 | 27m §6 | Slugs with redirects, language in the path, browse pages with pagination, filter landing pages, crawler check, Open Graph, structured data, rebuild after save. | later |
 | 27m §9 | The records of a record page are not rebuilt when a record changes (Generate again). Documentation of the `"site"` mapping for server admins. | later / docs |
-| 27q3 §12.1 | Story map element: a *Select* action (any record of the story topic record type, `story.topicType`) besides the Saved filter action over the Story topics query (Artem 2026-11-25). | later, own plan |
-| 27q3 §12 review 3 | Story map element form of the CMS designer: *Own map* (`settings.ownMap`) and a fixed *topic* (`settings.topic`); now only Publish from Explorer writes them (2026-11-25). | with the Select action |
+| 27q3 §12.1 | ~~Story map element: a *Select* action (any record of the story topic record type)~~ — done 2026-11-27 as the topic list of the element (27q3 §13 items 4B, 8). Open: *Selection by Action* as a topic range. | later |
+| 27q3 §12 review 3 | ~~Story map element form: *Own map* and a fixed *topic*~~ — done 2026-11-27 (27q3 §13 item 8: Map / Timeline selectors, Selected topic). | done |
+| 27q3 §13 | ~~Separate Map / Timeline elements written by Publish (4A)~~ — done 2026-11-27 (27q3 §15). Open: the Report editor opened from the CMS (10). | later |
 | 27 §9 | Phase 7: API for an AI agent. Phase 8: legacy conversion of old websites (the last step). | later phases |
 
 ## 3. Reports (30)

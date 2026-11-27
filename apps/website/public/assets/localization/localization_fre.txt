@@ -583,7 +583,7 @@
 #Records from#Fiches de
 #Own query#Requête propre
 #Own filters#Filtres propres
-#Saved filter links#Liens de filtre enregistré
+#Saved filter by Action link#Lien d’action Filtre enregistré
 #Filter widget#Widget Filtre
 #Module#Module
 #Share selection with other modules#Partager la sélection avec les autres modules
@@ -822,7 +822,6 @@
 #Print#Imprimer
 #ranges#intervalles
 #Yes#Oui
-#Query of the crosstab#Requête du tableau croisé
 #Any of them: the crosstab counts the latest search#Chacun : le tableau croisé compte la dernière recherche
 #As in the crosstab#Comme dans le tableau croisé
 #Lowers what the crosstab allows#Réduit ce que le tableau croisé permet
@@ -858,3 +857,34 @@
 #Default settings#Paramètres par défaut
 #Automatic#Automatique
 #No matching records#Aucun enregistrement correspondant
+#Allow selecting the topic#Permettre de choisir le sujet
+#Topics range#Choix des sujets
+#Selected topic#Sujet choisi
+#Interface#Interface
+#Story topics#Sujets de l’histoire
+#All records of the topic type#Tous les enregistrements du type de sujet
+#Saved filter by Action#Filtre enregistré par action
+#Story of#Histoire de
+#No records in the range#Aucun enregistrement dans ce choix
+#Own map (in the element)#Carte propre (dans l’élément)
+#Own timeline (in the element)#Frise propre (dans l’élément)
+#Visitors choose the story topic in a list above the story#Les visiteurs choisissent le sujet dans une liste au-dessus de l’histoire
+#The records visitors choose from#Les enregistrements parmi lesquels les visiteurs choisissent
+#The name of the story map above it#Le nom de la carte narrative au-dessus
+#The map that shows the current element#La carte qui montre l’élément courant
+#The timeline that shows the elements of the story#La frise qui montre les éléments de l’histoire
+#The story shown first (else the selection of the page, or the only record of the range)#L’histoire affichée d’abord (sinon la sélection de la page, ou le seul enregistrement du choix)
+#all places#tous les lieux
+#path#chemin
+#Add a Map element#Ajouter un élément Carte
+#Add a Timeline element#Ajouter un élément Frise chronologique
+#The story is shown on a Map element of the page; it can be configured in the CMS editor#L’histoire est affichée sur un élément Carte de la page ; il peut être configuré dans l’éditeur CMS
+#The elements of the story on a Timeline element of the page; it can be configured in the CMS editor#Les éléments de l’histoire sur un élément Frise chronologique de la page ; il peut être configuré dans l’éditeur CMS
+#Show the story on a map and a timeline? A Map and a Timeline element will be added to the page.#Afficher l’histoire sur une carte et une frise chronologique ? Un élément Carte et un élément Frise chronologique seront ajoutés à la page.
+#Show the story on a map? A Map element will be added to the page.#Afficher l’histoire sur une carte ? Un élément Carte sera ajouté à la page.
+#Show the elements of the story on a timeline? A Timeline element will be added to the page.#Afficher les éléments de l’histoire sur une frise chronologique ? Un élément Frise chronologique sera ajouté à la page.
+#The Map element of the page that shows the current element#L’élément Carte de la page qui montre l’élément courant
+#The Timeline element of the page that shows the elements of the story#L’élément Frise chronologique de la page qui montre les éléments de l’histoire
+#Accordion#Accordéon
+#Story map#Carte narrative
+#Record view#Vue de l’enregistrement

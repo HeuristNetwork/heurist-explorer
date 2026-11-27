@@ -583,7 +583,7 @@
 #Records from#Records from
 #Own query#Own query
 #Own filters#Own filters
-#Saved filter links#Saved filter links
+#Saved filter by Action link#Saved filter by Action link
 #Filter widget#Filter widget
 #Module#Module
 #Share selection with other modules#Share selection with other modules
@@ -822,7 +822,7 @@
 #Print#Print
 #ranges#ranges
 #Yes#Yes
-#Query of the crosstab#Query of the crosstab
+#Own query of the crosstab#Own query of the crosstab
 #Any of them: the crosstab counts the latest search#Any of them: the crosstab counts the latest search
 #As in the crosstab#As in the crosstab
 #Lowers what the crosstab allows#Lowers what the crosstab allows
@@ -841,3 +841,34 @@
 #Stop the calculation#Stop the calculation
 #Stopped#Stopped
 #No matching records#No matching records
+#Allow selecting the topic#Allow selecting the topic
+#Topics range#Topics range
+#Selected topic#Selected topic
+#Interface#Interface
+#Story topics#Story topics
+#All records of the topic type#All records of the topic type
+#Saved filter by Action#Saved filter by Action
+#Story of#Story of
+#No records in the range#No records in the range
+#Own map (in the element)#Own map (in the element)
+#Own timeline (in the element)#Own timeline (in the element)
+#Visitors choose the story topic in a list above the story#Visitors choose the story topic in a list above the story
+#The records visitors choose from#The records visitors choose from
+#The name of the story map above it#The name of the story map above it
+#The map that shows the current element#The map that shows the current element
+#The timeline that shows the elements of the story#The timeline that shows the elements of the story
+#The story shown first (else the selection of the page, or the only record of the range)#The story shown first (else the selection of the page, or the only record of the range)
+#all places#all places
+#path#path
+#Add a Map element#Add a Map element
+#Add a Timeline element#Add a Timeline element
+#The story is shown on a Map element of the page; it can be configured in the CMS editor#The story is shown on a Map element of the page; it can be configured in the CMS editor
+#The elements of the story on a Timeline element of the page; it can be configured in the CMS editor#The elements of the story on a Timeline element of the page; it can be configured in the CMS editor
+#Show the story on a map and a timeline? A Map and a Timeline element will be added to the page.#Show the story on a map and a timeline? A Map and a Timeline element will be added to the page.
+#Show the story on a map? A Map element will be added to the page.#Show the story on a map? A Map element will be added to the page.
+#Show the elements of the story on a timeline? A Timeline element will be added to the page.#Show the elements of the story on a timeline? A Timeline element will be added to the page.
+#The Map element of the page that shows the current element#The Map element of the page that shows the current element
+#The Timeline element of the page that shows the elements of the story#The Timeline element of the page that shows the elements of the story
+#Accordion#Accordion
+#Story map#Story map
+#Record view#Record view

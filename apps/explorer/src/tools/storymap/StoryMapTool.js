@@ -40,20 +40,20 @@ import { askChoice } from '#shared/ui/askChoice.js';
 import { HEditForm } from '#shared/widgets/edit-form/HEditForm.js';
 import { HCardinalLayout } from '#shared/widgets/layout/HCardinalLayout.js';
 import {
-  confirmLeave, createScopeSelect, createSourceHeader, presentationButton, renderHeaderActions, renderPresentationToolbar,
-  togglePresentationList
+  confirmLeave, createFormSwitches, createScopeSelect, createSourceHeader, formSwitchState, presentationButton,
+  renderHeaderActions, renderPresentationToolbar, togglePresentationList
 } from '#shared/widgets/presentation/presentationShell.js';
 import { createHInput } from '#shared/widgets/form/inputs/createHInput.js';
-import { RecordTitleSource } from '#shared/data/valueSources/FieldValueSource.js';
+import { storyTopicInputOptions } from '#shared/widgets/storymap/storyTopicInput.js';
 import { HPresentationList } from '#shared/widgets/presentation/HPresentationList.js';
 import { describePresentationUse, renderPresentationPages } from '#shared/widgets/presentation/presentationPages.js';
 import { HTree } from '#shared/widgets/tree/HTree.js';
 import { HStoryMap } from '#shared/widgets/storymap/HStoryMap.js';
 import { StoryMapBinding } from '#shared/widgets/storymap/storyMapBinding.js';
 import { StoryMapService } from '#shared/widgets/storymap/storyMapService.js';
-import { storyTimelineSync } from '#shared/widgets/storymap/storyMapTimeline.js';
+import { storyTimelineLayer, storyTimelineSync } from '#shared/widgets/storymap/storyMapTimeline.js';
 import {
-  defaultPlaces, normalizeStoryMapSettings, storyElementTypes, storyTopicType
+  defaultPlaces, normalizeStoryMapSettings, RANGE_LIMIT, storyElementTypes, storyTopicType, withType
 } from '#shared/widgets/storymap/storyMapModel.js';
 import { fieldCodeLabel } from '#shared/data/fieldPathCodes.js';
 import { HGeoFieldSelector } from '../../widgets/query-source/helpers/HGeoFieldSelector.js';
@@ -67,8 +67,8 @@ const NARROW = Object.freeze({ side: 600, above: 400 });
 /** Width of the story part below which the own map and timeline go under the stories instead of beside them. */
 const NARROW_GEO = 600;
 
-/** Most records of a Show for range (Current result, Story topics) offered by the record picker. */
-export const RANGE_LIMIT = 500;
+// the ones of the tool and of the website element (27q3 §13): kept as exports of the tool
+export { RANGE_LIMIT, withType };
 
 /** The choices of Show for (27q3 Story map review, 2026-11-25). */
 export const SHOW_FOR = Object.freeze(['current', 'own', 'any']);
@@ -89,6 +89,8 @@ export class StoryMapTool extends HBaseWidget {
    * @param {function(): object|null} options.getDataSource Current DataSource.
    * @param {function(): number[]} options.getSelection Selected record ids.
    * @param {function(): (object|null|Promise<object|null>)} options.getMap Public API of Explorer's Map module.
+   * @param {function(): (object|null|Promise<object|null>)} [options.getTimeline] Public API of Explorer's Timeline module
+   *        (none: no pane); the story is a band of it while there is no own timeline (27q3 review 6).
    * @param {function(object, string): Promise<*>} [options.showRecords] Show a query as the result of Explorer.
    * @param {function(number[]): Promise<*>} [options.selectRecords] Select records in Explorer.
    * @param {function(number): Promise<{saved: boolean}>} [options.editRecord] Explorer's record editor.
@@ -102,9 +104,11 @@ export class StoryMapTool extends HBaseWidget {
    *        (0: a new one); resolves when it is closed.
    * @param {function({id: number, kind: string, site: object|null}): *} [options.editPage] Viewer, List: edit a website page that shows a story map.
    * @param {HTMLElement|null} [options.headerActions] Viewer: the buttons on the header of the pane (List, Help).
+   * @param {function(): boolean} [options.minimizePane] Viewer: minimise the pane when the story map is alone in it
+   *        (Close and clear).
    * @param {function({presetId: number}): void} [options.onClose] Editor: closed (unsaved changes asked first).
-   * @param {function({presetId: number, title: string, topic: number, presets: Array}): Promise<*>} [options.publish]
-   *        Publish the story map with a story topic as a web page.
+   * @param {function(object): Promise<*>} [options.publish] Publish the story map with a story topic as a web page:
+   *        `{presetId, title, topic, presets, topicTitle, typeName, hasQuery, range, query}`.
    * @param {function(HTMLElement): Promise<object>} [options.mountOwnMap] Mount a Map of its own (its public API).
    * @param {function(HTMLElement): Promise<object>} [options.mountOwnTimeline] Mount a Timeline of its own.
    * @param {object} options.runtime `{apiBaseUrl, database, requestHeaders, accessToken, language}`.
@@ -125,8 +129,8 @@ export class StoryMapTool extends HBaseWidget {
     this.applied = this.values.settings;
     this.pending = new Set();
     this._dirty = false;
-    // Show for and the chosen story topic
-    this.scope = 'current';
+    // Show for (All <type> first, 27q3 review 7) and the chosen story topic
+    this.scope = 'any';
     this.topicId = 0;
     this.rangeIds = null;
     // the editor always has its own map and timeline; the View when Own map is on
@@ -134,6 +138,8 @@ export class StoryMapTool extends HBaseWidget {
     this.ownMap = null;
     this.ownTimeline = null;
     this._timeline = storyTimelineSync(() => this.ownTimeline);
+    // Explorer's Timeline pane while the View has no own timeline: the story as a band "StoryMap: <name>"
+    this._hostTimeline = storyTimelineLayer(() => (this.ownMapOn ? null : this.tool.getTimeline?.() ?? null), () => this._layerTitle());
   }
 
   /**
@@ -161,7 +167,7 @@ export class StoryMapTool extends HBaseWidget {
     this.formPane = element('div', 'h-storymap-tool-form');
     this.formHost = element('div', 'h-storymap-tool-form-body');
     this.formFooter = element('div', 'h-storymap-tool-form-footer');
-    this.formPane.append(this.formHost, this.formFooter);
+    this.formPane.append(createFormSwitches(() => this.form), this.formHost, this.formFooter);
     this.formPane.hidden = true;
     this.view = element('div', 'h-storymap-tool-view');
     // the editor: the form on the west of HCardinalLayout whatever the orientation of the stories (review 2026-11-25)
@@ -304,10 +310,10 @@ export class StoryMapTool extends HBaseWidget {
    */
   async toggleList(show = !this.list) {
     if (!show) {
-      await this.list?.destroy();
+      // the List is kept (hidden) with its selection: shown again it is not read again (27q3 review 6)
+      if (this.list) this._hiddenList = this.list;
       this.list = null;
-      this.listHost?.remove();
-      this.listHost = null;
+      if (this.listHost) this.listHost.hidden = true;
       this.toolbar.hidden = false;
       this.content.hidden = false;
       this._renderHeaderActions();
@@ -317,6 +323,16 @@ export class StoryMapTool extends HBaseWidget {
     // the List only: no story, no own map or timeline (review 2026-11-25)
     this.toolbar.hidden = true;
     this.content.hidden = true;
+    if (this._hiddenList) {
+      this.list = this._hiddenList;
+      this._hiddenList = null;
+      this.listHost.hidden = false;
+      this._renderHeaderActions();
+      await this.list.showAgain({ changes: this._listChanges, selectedId: this.preset?.id || null });
+      this._listChanges = null;
+      return;
+    }
+    this._listChanges = null;
     this.listHost = element('div', 'h-storymap-tool-list-mode');
     this.container.append(this.listHost);
     const design = Boolean(this.tool.openDesigner);
@@ -352,8 +368,11 @@ export class StoryMapTool extends HBaseWidget {
   /** @returns {Promise<void>} */
   async destroy() {
     await this.list?.destroy();
+    await this._hiddenList?.destroy();
     this.list = null;
+    this._hiddenList = null;
     this.tool.headerActions?.replaceChildren();
+    void this._hostTimeline.reset();
     this._resize?.disconnect();
     clearTimeout(this._applyTimer);
     this.picker?.destroy?.();
@@ -494,6 +513,8 @@ export class StoryMapTool extends HBaseWidget {
     if (this.list) {
       this.list.selectedId = result?.presetId || this.list.selectedId;
       await this.list.reload();
+    } else if (this._hiddenList) {
+      this._listChanges = 'list';
     }
   }
 
@@ -503,6 +524,7 @@ export class StoryMapTool extends HBaseWidget {
     if (!id || !this.tool.editRecord || !(await this._confirmLeave())) return;
     const result = await this.tool.editRecord(id);
     if (result?.saved === false) return;
+    if (this._hiddenList) this._listChanges = 'list';
     await this._loadPresets();
     await this.openPreset(id);
   }
@@ -521,8 +543,9 @@ export class StoryMapTool extends HBaseWidget {
 
   /** @private A Show for choice that is offered now (Story topics only with a query). */
   _validScope(scope) {
-    if (scope === 'own' && !this._hasQuery()) return 'current';
-    return SHOW_FOR.includes(scope) ? scope : 'current';
+    // All <type> by default (27q3 review 7): the current result often has no topic of the type
+    if (scope === 'own' && !this._hasQuery()) return 'any';
+    return SHOW_FOR.includes(scope) ? scope : 'any';
   }
 
   /** @private Keep Show for and the topic of this story map in the session. */
@@ -537,10 +560,15 @@ export class StoryMapTool extends HBaseWidget {
   _rangeQuery() {
     const type = this._topicType();
     const query = this.scope === 'current'
-      ? (this.source?.request?.q ?? this.tool.getDataSource?.()?.request?.q ?? null)
+      ? this._rangeSourceQuery()
       : (this.scope === 'own' && this._hasQuery() ? parseQuery(this.values.query.trim()) : null);
     if (this.scope === 'any' || query == null || query === '') return null;
     return withType(query, type);
+  }
+
+  /** @private The query of Explorer's current result (Show for = Current result; Publish keeps it for the page). */
+  _rangeSourceQuery() {
+    return this.source?.request?.q ?? this.tool.getDataSource?.()?.request?.q ?? null;
   }
 
   /**
@@ -610,26 +638,14 @@ export class StoryMapTool extends HBaseWidget {
       return;
     }
     const ids = this.rangeIds;
-    const query = Array.isArray(ids) ? [{ ids: ids.length ? ids.join(',') : '0' }] : [];
     const services = this._services || { apiClient: this.tool.apiClient, dbdefs: this.dbdefs };
     const host = element('span', 'h-storymap-tool-picker-input');
     this.pickerHost.append(host);
-    this.picker = createHInput('resource', host, {
-      suppressLabel: true,
-      clearButton: false,
-      value: this.topicId || null,
-      apiClient: this.tool.apiClient,
-      dbdefs: this.dbdefs,
-      targetTypes: [type],
-      source: new RecordTitleSource(this.tool.apiClient, { rtyId: type, query }),
-      pointerMode: 'dropdown',
-      showBrowse: typeof services.browseRecords === 'function',
-      showAdd: false,
-      // Browse: the records of the range only (Any: all of the type)
-      browseFilter: Array.isArray(ids) ? query : null,
-      ...(typeof services.browseRecords === 'function' ? { browseRecords: services.browseRecords } : {}),
-      ...(typeof services.viewRecord === 'function' ? { viewRecord: services.viewRecord } : {})
-    });
+    // the same picker as the CMS form and the website element (27q3 review 8)
+    this.picker = createHInput('resource', host, storyTopicInputOptions({
+      apiClient: this.tool.apiClient, dbdefs: this.dbdefs, type, ids, value: this.topicId || null,
+      browseRecords: services.browseRecords, viewRecord: services.viewRecord
+    }));
     host.addEventListener('h-input-change', () => {
       const id = Number([this.picker?.getValue()].flat()[0]) || 0;
       if (id && id !== this.topicId) void this._showTopic(id);
@@ -685,6 +701,7 @@ export class StoryMapTool extends HBaseWidget {
     await this.binding?.showBackground?.(this.applied.map.background);
     if (this.story?.story) await this.story.refresh();
     this._timeline.reset();
+    void this._hostTimeline.reset();
     this._syncTimeline();
   }
 
@@ -736,6 +753,13 @@ export class StoryMapTool extends HBaseWidget {
    */
   _syncTimeline(item = null) {
     this._timeline.sync(this.story?.story || null, item);
+    void this._hostTimeline.sync(this.story?.story || null, item);
+  }
+
+  /** @private The title of the layers of the story on a map and a timeline (27q3 review 6): the topic, else the story map. */
+  _layerTitle() {
+    const name = this.story?.story?.source?.title || this.preset?.title || '';
+    return name ? `StoryMap: ${name}` : 'StoryMap';
   }
 
   // ------------------------------------------------------------------ story
@@ -745,7 +769,7 @@ export class StoryMapTool extends HBaseWidget {
    * is not given to it: the story is chosen in Show for (Story map review, 2026-11-25).
    */
   _mountStory() {
-    this.binding = new StoryMapBinding({ getMap: () => this._mapApi(), settings: this.applied, title: $HR('Story map') });
+    this.binding = new StoryMapBinding({ getMap: () => this._mapApi(), settings: this.applied, title: () => this._layerTitle() });
     this.story = new HStoryMap().attach(this.view, {
       service: this.service,
       binding: this.binding,
@@ -889,8 +913,60 @@ export class StoryMapTool extends HBaseWidget {
         icon: this.list ? 'fa-book-open' : 'fa-list-ul',
         label: this.list ? 'Back to the story map' : 'List of the story maps and their published pages',
         run: () => void this.toggleList()
-      } : null
+      } : null,
+      { icon: 'fa-xmark', label: 'Close and clear the story map', run: () => void this.closeAndClear() }
     ]);
+  }
+
+  /**
+   * Viewer: Close and clear (27q3 §13, 2026-11-27): no story map chosen, no story, its layers off the map, the own
+   * map and timeline closed; the pane is minimised when the story map is alone in it.
+   *
+   * @returns {Promise<void>}
+   */
+  async closeAndClear() {
+    // the pane first: it is minimised whatever happens while clearing (review 6: it stayed open)
+    try {
+      this.tool.minimizePane?.();
+    } catch (error) {
+      console.warn('Story map: minimise the pane', error);
+    }
+    try {
+      await this._clearAll();
+    } catch (error) {
+      console.warn('Story map: Close and clear', error);
+    }
+  }
+
+  /** @private Close and clear: no story map, no story, no own map and timeline. */
+  async _clearAll() {
+    if (this.list) await this.toggleList(false);
+    if (this.preset?.id) globalThis.sessionStorage?.removeItem(`${SCOPE_KEY}-${this.preset.id}`);
+    this.preset = null;
+    this.editing = false;
+    this.values = this._valuesOf(null);
+    this.applied = this.values.settings;
+    this.pending.clear();
+    this._dirty = false;
+    this.scope = 'any';
+    this.topicId = 0;
+    this.rangeIds = null;
+    clearTimeout(this._applyTimer);
+    this.picker?.destroy?.();
+    this.picker = null;
+    await this.form?.destroy();
+    this.form = null;
+    this.formHost.replaceChildren();
+    this.formFooter.replaceChildren();
+    this.formPane.hidden = true;
+    await this.story?.clear();
+    await this.binding?.clear?.().catch(() => {});
+    this._timeline.reset();
+    void this._hostTimeline.reset();
+    if (this.ownMapOn) await this._setOwnMap(false);
+    this._renderToolbar();
+    this._layout();
+    await this.story?.setSettings(this.applied, { sourceQuery: null, reload: true });
   }
 
   /**
@@ -906,9 +982,19 @@ export class StoryMapTool extends HBaseWidget {
         { title: $HR('Publish story map') });
       return;
     }
+    // the form of the publication (27q3 §13): the topic by its title, the ranges a visitor may choose from (Show for first)
+    const type = this._topicType();
+    const story = this.story?.story;
     await this.tool.publish({
-      presetId: this.preset.id, title: this.preset.title, topic: this.topicId, presets: this.presets
+      presetId: this.preset.id, title: this.preset.title, topic: this.topicId, presets: this.presets,
+      topicTitle: Number(story?.source?.id) === this.topicId ? story.source.title : '',
+      typeName: type ? (this.dbdefs?.rectypeName?.(type) || `#${type}`) : '',
+      hasQuery: this._hasQuery(),
+      range: { current: 'current', own: 'story', any: 'any' }[this.scope] || 'story',
+      query: this._rangeSourceQuery()
     });
+    // the pages of the kept List are read again when it is shown
+    if (this._hiddenList) this._listChanges ||= 'pages';
   }
 
   /** @private A new story map: the form opens. */
@@ -920,7 +1006,7 @@ export class StoryMapTool extends HBaseWidget {
     this.applied = this.values.settings;
     this.pending.clear();
     this._dirty = false;
-    this.scope = 'current';
+    this.scope = 'any';
     this.topicId = 0;
     this.rangeIds = null;
     clearTimeout(this._applyTimer);
@@ -1003,10 +1089,12 @@ export class StoryMapTool extends HBaseWidget {
       values: formValues(this.values, ids),
       keepHidden: true,
       labelPos: 'above',
+      showOptional: formSwitchState().optional,
       specialEditors: this._specialEditors(ids),
       onChange: (form, change) => this._changed(change.name)
     });
     this.form.render();
+    this.form.setFieldHelpVisible(formSwitchState().help);
     const apply = element('button', 'h-btn h-storymap-tool-apply');
     apply.type = 'button';
     apply.textContent = $HR('Apply');
@@ -1243,19 +1331,6 @@ function describeSymbol(symbology) {
   return parts.join(', ') || $HR('Symbology defined');
 }
 
-/**
- * A query restricted to one record type: a JSON query gets `{t}` added, a text query `t:<type>`.
- *
- * @param {*} query
- * @param {number|null} type
- * @returns {*}
- */
-export function withType(query, type) {
-  if (!type || query == null || query === '') return query;
-  if (typeof query === 'string') return `${query.trim()} t:${type}`;
-  if (Array.isArray(query)) return [...query, { t: String(type) }];
-  return [query, { t: String(type) }];
-}
 
 /** A value kept in the session storage (null when there is none or it can not be read). */
 function readSession(key) {

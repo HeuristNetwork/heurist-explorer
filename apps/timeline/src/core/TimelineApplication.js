@@ -50,7 +50,9 @@ export class TimelineApplication extends EventTarget {
       settings: {
         ...this.config.settings,
         iconBaseUrl: this.config.baseUrl || this.config.host?.baseUrl || "",
-        database: this.config.database || this.config.host?.database || ""
+        database: this.config.database || this.config.host?.database || "",
+        // the months and days of the axis in the language of the page (27q3 review 6)
+        language: this.config.language || "eng"
       },
       onSelectionChange: (ids) => this._selectionFromEngine(ids),
       onRangeChange: (range) => this.dispatch("heurist-timeline-range-changed", range)

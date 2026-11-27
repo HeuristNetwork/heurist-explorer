@@ -17,6 +17,22 @@ import { Timeline } from "vis-timeline/standalone";
 import { DataSet } from "vis-data";
 import "vis-timeline/styles/vis-timeline-graph2d.min.css";
 
+/** Locales of vis-timeline (and its moment.js) by the Heurist language code; others: English. */
+const VIS_LOCALES = Object.freeze({
+  eng: "en", fre: "fr", ger: "de", deu: "de", spa: "es", ita: "it", por: "pt", rus: "ru", ukr: "uk", pol: "pl",
+  dut: "nl", nld: "nl", tur: "tr", jpn: "ja", swe: "sv", lit: "lt", nor: "nb"
+});
+
+/**
+ * The vis-timeline locale of a Heurist language code.
+ *
+ * @param {string} [language] Three letter code ("fre").
+ * @returns {string} Locale ("fr"), "en" when unknown.
+ */
+export function visLocale(language) {
+  return VIS_LOCALES[String(language || "").toLowerCase().slice(0, 3)] || "en";
+}
+
 /**
  * Hosts the underlying vis-timeline instance and exposes the application-facing lifecycle methods.
  */
@@ -38,10 +54,11 @@ export class VisTimelineEngine {
 
     this.timeline = new Timeline(container, this.items, this.groups, {
       orientation: settings.orientation || "both",
-      // The item template emits our own classed markup and escapes every
-      // interpolated value itself; vis-timeline's js-xss filter would otherwise
-      // strip the class/style attributes the custom bar rendering depends on.
-      xss: { disabled: true },
+      locale: visLocale(settings.language),
+      // The item template returns an element (_itemElement): vis-timeline puts it
+      // in as it is, so its js-xss filter (which would strip the class/style
+      // attributes of the bars) stays on for the rest, and no console warning on
+      // every timeline (27q3 review 6).
       // Pin range content to the bar's start so the overflowing marker+label
       // sizes .vis-item-content; vis then stacks the range by boxWidth + label
       // width and range labels stop colliding when zoomed in.
@@ -54,7 +71,7 @@ export class VisTimelineEngine {
       margin: 1,
       zoomMax: settings.zoomMax,
       order: (a, b) => new Date(a.start) - new Date(b.start),
-      template: (item) => this._template(item),
+      template: (item) => this._itemElement(item),
     });
 
     this.timeline.on("select", (params) =>
@@ -179,7 +196,7 @@ export class VisTimelineEngine {
     this.timeline.setOptions({
       stack: this.settings.stack !== false,
       orientation: this.settings.orientation || "both",
-      template: (item) => this._template(item),
+      template: (item) => this._itemElement(item),
     });
     // Re-bind the items so vis-timeline re-runs the template and re-measures
     // every item width for stacking. A bare redraw() keeps the cached widths,
@@ -227,6 +244,18 @@ export class VisTimelineEngine {
    * the marker+label in flow so vis-timeline stacks items by label width;
    * range kinds size the bar to the time span and layer gradient caps behind
    * a label that also drives the stacking width.
+   *
+   * @param {object} item - vis-timeline item object.
+   * @returns {Element} The content of the item.
+   */
+  _itemElement(item) {
+    const box = (this.container?.ownerDocument || document).createElement("template");
+    box.innerHTML = this._template(item);
+    return box.content.firstElementChild;
+  }
+
+  /**
+   * HTML of an item (every value escaped here).
    *
    * @param {object} item - vis-timeline item object.
    * @returns {string} HTML string for the item content.

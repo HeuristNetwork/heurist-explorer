@@ -27,6 +27,7 @@ import { multilangFieldIds } from '#shared/data/writableRecordTypes.js';
 import { RecordStructureProvider } from '#shared/recordview/RecordStructureProvider.js';
 import { HEditForm } from '#shared/widgets/edit-form/HEditForm.js';
 import { crosstabsConfiguration, crosstabsFormFields } from '#shared/widgets/crosstabs/crosstabsConfiguration.js';
+import { storyMapConfiguration, storyMapFormFields, storyMapTopicRangeTerms } from '#shared/widgets/storymap/storyMapConfiguration.js';
 import { querySourceAction } from '#shared/widgets/edit-form/querySourceChooser.js';
 import { QUERY_CHOICE_FILTER_THRESHOLD, queryChoiceTerms } from '#shared/data/queryChoices.js';
 import { openEditFormDialog } from '#shared/widgets/edit-form/editFormDialog.js';
@@ -1650,8 +1651,9 @@ export function openEmailForm({ settings = {}, languages = [], translator = null
 
 /** Help of the story map form (plan 27q1 §8). */
 export const STORYMAP_HELP = 'A story map is made in Explorer (tool Story map): its source records, the story elements, the'
-  + ' cards and the map. Here you choose one and the map of the page that shows the current element. A Result module can'
-  + ' list its source records: in its Records and selection choose this story map.';
+  + ' cards and the map. Here you choose one, whether visitors choose the story topic, and the map and timeline that show'
+  + ' the current element: Map and Timeline elements of the page. A Result module can list its source records: in its'
+  + ' Records and selection choose this story map.';
 
 /**
  * Terms of the story maps (Presentation sets of kind StoryMap); a stored one that is not offered stays as #id.
@@ -1714,42 +1716,82 @@ function presentationActions(edit, { editLabel, onEdit = null, onRefresh = null 
 }
 
 /**
- * Settings of the story map element (plan 27q1 §8): the story map (a Presentation set) and the map module of the page;
- * Edit in new window (Explorer with the story map) and Refresh (the preview again).
+ * Settings of the story map element (plan 27q1 §8, 27q3 §13): Source — the story map (a Presentation set), whether
+ * visitors choose the topic and from which range, the topic shown first; Behaviour — the map and the timeline (in the
+ * element, none, or a Map / Timeline element of the page); Edit story map and Refresh (the preview again). The fields
+ * of the website mode of storyMapConfiguration and the ones of the page.
  *
  * @param {object} options
- * @param {object} [options.settings] `{preset, map}`.
+ * @param {object} [options.settings] Settings of the element (storyMapConfiguration).
  * @param {Array<{id: number, title: string, public?: boolean}>} options.presets
  * @param {Array<{id: string, label: string}>} options.maps Map instances of the page.
+ * @param {Array<{id: string, label: string}>} [options.timelines] Timeline instances of the page.
+ * @param {object} [options.apiClient] The topic picker.
+ * @param {object} [options.dbdefs]
+ * @param {object} [options.services] `browseRecords`, `createRecordBrowser` (the topic picker).
  * @param {(presetId: number) => void} [options.onEdit] Open the story map in Explorer.
  * @param {() => Promise<Array|null>} [options.onRefresh] The story maps read again (the list of the field) and the
  *        preview loaded again.
- * @returns {Promise<object|null>} `{preset, map?}`.
+ * @returns {Promise<object|null>} The settings (storyMapConfiguration.serialize).
  */
-export function openStoryMapForm({ settings = {}, presets = [], maps = [], onEdit = null, onRefresh = null, inline = null } = {}) {
+export function openStoryMapForm({ settings = {}, presets = [], maps = [], timelines = [], apiClient = null, dbdefs = null,
+  services = {}, onEdit = null, onRefresh = null, inline = null } = {}) {
+  const value = storyMapConfiguration.normalize(settings);
+  // Selected topic: a record of the topic type of the chosen story map (27q3 review 6)
+  const topicTypes = (preset) => {
+    const type = Number(presets.find((item) => item.id === Number([preset].flat()[0]))?.topicType) || 0;
+    return type ? [type] : [];
+  };
+  // an element of the page that is not there any more stays until another choice
+  // None or a Map / Timeline element of the page (27q3 review 7: no own map / timeline in the element)
+  const geoTerms = (items, stored) => [{ id: 'none', label: 'None' }, ...items.map((item) => ({ id: item.id, label: item.label })),
+    ...(stored === 'none' || items.some((item) => item.id === stored) ? [] : [{ id: stored, label: stored }])];
+  const children = [
+    ...storyMapFormFields('website', { storyMapPresets: storyMapTerms(presets, settings.preset), topicRanges: storyMapTopicRangeTerms('website') })
+      .map((field) => (field.name === 'preset' && !presets.length ? { ...field, help: 'Make a story map in Explorer first (tool Story map)' } : field)),
+    { name: 'topic', type: 'resource', label: 'Selected topic', max: 1, targetTypes: topicTypes(value.preset), pointerMode: 'dropdown', showAdd: false,
+      help: 'The story shown first (else the selection of the page, or the only record of the range)' },
+    { name: 'map', type: 'enum', label: 'Map', mode: 'select', max: 1, clearable: false,
+      terms: geoTerms(maps, value.map), help: 'The Map element of the page that shows the current element' },
+    { name: 'timeline', type: 'enum', label: 'Timeline', mode: 'select', max: 1, clearable: false,
+      terms: geoTerms(timelines, value.timeline),
+      help: 'The Timeline element of the page that shows the elements of the story' }
+  ];
   return showEditForm({
     title: 'Story map',
-    form: {
-      groups: [{
-        id: 'main',
-        children: [
-          { name: 'preset', type: 'enum', label: 'Story map', mode: 'select', max: 1, req: 'required', terms: storyMapTerms(presets, settings.preset),
-            help: presets.length ? 'Public story maps can be seen by visitors' : 'Make a story map in Explorer first (tool Story map)' },
-          { name: 'map', type: 'enum', label: 'Map', mode: 'select', max: 1, emptyLabel: 'None (cards only)',
-            terms: maps.map((item) => ({ id: item.id, label: item.label })), help: 'The map of the page that shows the current element' }
-        ]
-      }]
+    form: { groups: [{ id: 'main', children }] },
+    values: {
+      preset: value.preset ? String(value.preset) : null,
+      topicSelect: value.topicSelect,
+      topicRange: value.topicRange === 'current' ? 'story' : value.topicRange,
+      topic: value.topic || null,
+      map: value.map,
+      timeline: value.timeline,
+      ui: { showSourceHeader: value.ui?.showSourceHeader === true }
     },
-    values: { preset: Number(settings.preset) > 0 ? String(settings.preset) : null, map: settings.map || null },
+    apiClient,
+    dbdefs,
+    browseRecords: services.browseRecords,
+    createRecordBrowser: services.createRecordBrowser,
+    onChange: (edit, change) => {
+      if (change?.name === 'preset') void edit.updateField?.('topic', { targetTypes: topicTypes(edit.getValues().preset) });
+    },
     onReady: (edit) => {
       addFormHelp(edit, STORYMAP_HELP);
       presentationActions(edit, { editLabel: 'Edit story map', onEdit, onRefresh });
     },
-    validate: (values) => (Number(values.preset) > 0 ? [] : [{ field: 'preset', message: $HR('Choose a story map') }])
+    validate: (values) => (Number([values.preset].flat()[0]) > 0 ? [] : [{ field: 'preset', message: $HR('Choose a story map') }])
   }, (values) => {
     if (!values) return null;
-    return { preset: Number(values.preset), ...(values.map ? { map: String(values.map) } : {}) };
-  }, { inline, sections: { source: ['preset'], behaviour: ['map'] } });
+    // the query and the language of a publication stay; Current result only from Explorer (its query is kept)
+    const range = [values.topicRange].flat()[0];
+    return storyMapConfiguration.serialize({
+      ...settings,
+      ...values,
+      topicRange: range === 'story' && value.topicRange === 'current' ? 'current' : range,
+      ui: { ...settings.ui, showSourceHeader: values.ui?.showSourceHeader === true }
+    });
+  }, { inline, sections: { source: ['preset', 'topicSelect', 'topicRange', 'topic'], behaviour: ['map', 'timeline'] } });
 }
 
 /** Help of the crosstabs form (plan 27q2 §10). */
@@ -1777,7 +1819,7 @@ export function openCrosstabsForm({ settings = {}, presets = [], sources = [], o
   const known = new Set(['own', ...sources.map((item) => item.id)]);
   const stored = Array.isArray(settings.from) ? settings.from : null;
   const publishedQuery = settings.query != null && settings.query !== '';
-  const terms = [{ id: 'own', label: publishedQuery ? 'Query published from Explorer' : 'Query of the crosstab' }, ...sources,
+  const terms = [{ id: 'own', label: publishedQuery ? 'Query published from Explorer' : 'Own query of the crosstab' }, ...sources,
     ...(stored || []).filter((token) => !known.has(token)).map((token) => ({ id: token, label: token }))];
   const fallback = ['own', ...sources.filter((item) => item.id === 'links' || item.id.startsWith('filter:')).map((item) => item.id)];
   // the fields of the website mode of the crosstabs configuration (one form for the CMS, Explorer's publication and test)

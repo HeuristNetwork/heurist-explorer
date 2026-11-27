@@ -132,6 +132,8 @@
 #Generic_Title#Heurist
 #Error_Title#Info
 
+#Show control panel#Show control panel
+#Off: the timeline has no control panel and no button to open it.#Off: the timeline has no control panel and no button to open it.
 #Expand control panel initially#Expand control panel initially
 #Language of the published page; Automatic follows the browser of the visitor#Language of the published page; Automatic follows the browser of the visitor
 #Automatic#Automatic
@@ -160,3 +162,34 @@
 #Yes#Yes
 #No#No
 #Configuration#Configuration
+#Loading band#Loading band
+#Retry loading band#Retry loading band
+#Current result#Current result
+#timeline items#timeline items
+#Band has not been loaded#Band has not been loaded
+#No timeline items found in the loaded results.#No timeline items found in the loaded results.
+#No timeline items found.#No timeline items found.
+#Records are still available through Show Data.#Records are still available through Show Data.
+#Click 'Show data' to define parameters for query#Click 'Show data' to define parameters for query
+#Partial load: only part of the result set was loaded.#Partial load: only part of the result set was loaded.
+#Edit layer#Edit layer
+#Remove from workspace#Remove from workspace
+#Add to workspace#Add to workspace
+#Show data#Show data
+#Activate#Activate
+#Loading map document#Loading map document
+#Map document loading failed#Map document loading failed
+#Zoom in#Zoom in
+#Zoom out#Zoom out
+#Zoom to all#Zoom to all
+#Zoom to selection#Zoom to selection
+#Move to start#Move to start
+#Move to end#Move to end
+#Label options#Label options
+#Labels: full length — click to truncate#Labels: full length — click to truncate
+#Labels: truncated — click to hide#Labels: truncated — click to hide
+#Labels: hidden — click to show full length#Labels: hidden — click to show full length
+#Show or hide timeline controls#Show or hide timeline controls
+#Zoom to active map document#Zoom to active map document
+#timeline options#timeline options
+#timeline controls#timeline controls

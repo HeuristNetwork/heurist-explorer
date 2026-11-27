@@ -143,7 +143,7 @@ export class HPresentationList extends HBaseWidget {
     });
     this.listen(this.listHost, 'h-record-manager-error', (event) => HMsg.showMsgErr(event.detail?.error?.message || String(event.detail?.error)));
     await this.manager.render();
-    await this.select(this.selectedId);
+    await this.select(this.selectedId, { force: true });
     if (typeof this.options.onEmpty === 'function' && (await this.count()) === 0) this.options.onEmpty();
     this.state = 'rendered';
     return this;
@@ -162,13 +162,24 @@ export class HPresentationList extends HBaseWidget {
   }
 
   /**
-   * Select an item: its outputs on the right.
+   * Select an item: its row is highlighted and its outputs are on the right. The outputs of the item shown already are
+   * not read again (a click on the same row, 27q3 review 6) unless `force`.
    *
    * @param {number|null} id
+   * @param {{force?: boolean}} [options]
    * @returns {Promise<void>}
    */
-  async select(id) {
-    this.selectedId = Number(id) || null;
+  async select(id, { force = false } = {}) {
+    const next = Number(id) || null;
+    if (!force && next === this.selectedId && this._outputsOf === next) return;
+    this.selectedId = next;
+    this._outputsOf = next;
+    // the row of the list (a selection from outside: the item of the viewer, after a reload)
+    const selection = this.manager?.getSelection?.() || [];
+    if (this.manager && (selection.length !== (next ? 1 : 0) || (next && selection[0] !== next))) {
+      this.manager.selection = next ? [next] : [];
+      await this.manager.list?.setSelection(this.manager.selection);
+    }
     this.outputs.replaceChildren();
     await this.options.renderOutputs?.(this.selectedId, this.outputs);
     // after the outputs: they may empty the panel
@@ -191,7 +202,30 @@ export class HPresentationList extends HBaseWidget {
   /** Load the list again (after a save in the Editor), and the outputs of the selection. */
   async reload() {
     await this.manager?.reload();
-    await this.select(this.selectedId);
+    await this.select(this.selectedId, { force: true });
+  }
+
+  /**
+   * The List kept by its host is shown again (27q3 review 6): it is read again only after changes made while it was
+   * hidden; the item of the viewer is selected.
+   *
+   * @param {{changes?: 'list'|'pages'|null, selectedId?: number|null}} [options] `list`: items saved or deleted in the
+   *        Editor; `pages`: an item was published.
+   * @returns {Promise<void>}
+   */
+  async showAgain({ changes = null, selectedId = null } = {}) {
+    const id = selectedId || this.selectedId;
+    if (changes === 'list') {
+      this.selectedId = id;
+      await this.reload();
+      return;
+    }
+    await this.select(id, { force: changes === 'pages' });
+  }
+
+  /** Read the outputs of the selected item again (after a publication), not the list. */
+  async reloadOutputs() {
+    await this.select(this.selectedId, { force: true });
   }
 
   /** @returns {Promise<void>} */

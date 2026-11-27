@@ -83,6 +83,8 @@ export function normalizeTimelineConfigurationMode(value) {
 /** Normalize `options.ui` (control panel icons, header, language). */
 function normalizeUi(ui, defaults) {
   return {
+    // the control panel and its toggle (27q3 §13, 2026-11-27); a story map's own timeline has none
+    enabled: boolean(ui.enabled, defaults.enabled),
     initiallyExpanded: boolean(ui.initiallyExpanded, defaults.initiallyExpanded),
     showSourceHeader: boolean(ui.showSourceHeader, defaults.showSourceHeader),
     showOptions: boolean(ui.showOptions, defaults.showOptions),

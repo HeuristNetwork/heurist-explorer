@@ -105,7 +105,7 @@ export class TimelineToolbar {
       truncate: "Labels: truncated — click to hide",
       hidden: "Labels: hidden — click to show full length",
     };
-    if (this.labelButton) this.labelButton.title = hints[mode] || "Label options";
+    if (this.labelButton) this.labelButton.title = $HR(hints[mode] || "Label options");
   }
 
   /**

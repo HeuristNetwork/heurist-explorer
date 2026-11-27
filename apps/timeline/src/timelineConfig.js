@@ -14,7 +14,7 @@
  */
 
 import { getFrameHostBridge, getGlobalBootstrap } from "#shared/host";
-import { resolveModuleBootstrap } from "#shared/config";
+import { moduleLanguage, resolveModuleBootstrap } from "#shared/config";
 import { normalizeBaseStyle } from "#shared/ui/baseStyle.js";
 import { normalizeTimelineConfigurationSettings } from "./ui/config/timelineConfigurationSchema.js";
 
@@ -66,7 +66,8 @@ export function createHeuristTimelineConfig(bootstrap, { bridge = null, containe
     runtimeMode: runtime.runtimeMode || "standalone",
     // configuration-only start (plan 29 §12)
     viewerMode: runtime.viewerMode === "configuration" ? "configuration" : "timeline",
-    language: String(runtime.language || "eng").toLowerCase().slice(0, 3),
+    // the language of the module (its own one on a published page, else the page / host): texts and the axis locale
+    language: moduleLanguage(bootstrap) || "eng",
     database: runtime.database || null,
     baseUrl: runtime.baseUrl || null,
     apiBaseUrl: runtime.apiBaseUrl || null,

@@ -29,6 +29,15 @@ export const REPORT_KINDS = Object.freeze(['cardreport', 'listreport']);
 /** Kinds that are published as a page (Publish, 27q3 §3); the others generate a file (Generate). */
 export const PAGE_KINDS = Object.freeze(['crosstabs', 'storymap']);
 
+/** Languages of a published page (Interface of the crosstabs and story map publication, as the module forms). */
+export const PUBLICATION_LANGUAGE_TERMS = Object.freeze([
+  { id: 'auto', label: 'Automatic' },
+  { id: 'eng', label: 'English' },
+  { id: 'fre', label: 'French' },
+  { id: 'ger', label: 'German' },
+  { id: 'por', label: 'Portuguese' }
+]);
+
 /**
  * Term ids of kinds in this database (unknown ones left out).
  *

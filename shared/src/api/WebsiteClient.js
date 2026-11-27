@@ -134,7 +134,9 @@ export class WebsiteClient {
   /**
    * Import a module configuration into a standalone page (a new one, or update `pageId`).
    *
-   * @param {{type: string, settings: object, state?: object|null, title?: string, pageId?: number}} values
+   * @param {{type: string, settings: object, state?: object|null, title?: string, pageId?: number,
+   *   companions?: Array<{role: string, type: string, settings: object, state?: object|null}>}} values `companions`: the
+   *   Map / Timeline elements of a story map (27q3 review 7); `language`: the language of the page (27q3 review 8).
    * @returns {Promise<{id: number, url: string, title: string, created: boolean}>}
    */
   publish(values = {}) {

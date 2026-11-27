@@ -100,15 +100,16 @@ export function crosstabsForm({ ids = {}, rectypes = [], numericFields = [], fie
   const dimension = (name) => ({
     id: name, type: 'accordion', label: DIMENSION_LABELS[name], open: name === 'rows',
     children: [
-      { name: `${name}Code`, type: 'special', special: 'fieldCode', label: 'Field', help: HELP.code, ...(name === 'rows' ? { req: 'required' } : {}) },
+      // recommended: always shown, also with Optional properties off (27q3 review 6)
+      { name: `${name}Code`, type: 'special', special: 'fieldCode', label: 'Field', help: HELP.code, req: name === 'rows' ? 'required' : 'recommended' },
       { name: `${name}Label`, type: 'freetext', label: 'Caption', multilang: true },
-      { name: `${name}Buckets`, type: 'enum', mode: 'select', label: 'Values', help: HELP.buckets, clearable: false,
+      { name: `${name}Buckets`, type: 'enum', mode: 'select', label: 'Values', help: HELP.buckets, clearable: false, req: 'recommended',
         terms: bucketTermsFor(fieldTypes[name] ?? null) },
-      { name: `${name}Groupby`, type: 'enum', mode: 'select', label: 'Period', clearable: false, showWhen: { [`${name}Buckets`]: 'groupby' },
+      { name: `${name}Groupby`, type: 'enum', mode: 'select', label: 'Period', clearable: false, req: 'recommended', showWhen: { [`${name}Buckets`]: 'groupby' },
         terms: CROSSTAB_GROUPBY.map((id) => ({ id, label: GROUPBY_LABELS[id] })) },
-      { name: `${name}Count`, type: 'integer', label: 'Number of ranges', minValue: 1, maxValue: 20, clearable: false,
+      { name: `${name}Count`, type: 'integer', label: 'Number of ranges', minValue: 1, maxValue: 20, clearable: false, req: 'recommended',
         showWhen: { [`${name}Buckets`]: 'count' } },
-      { name: `${name}Ranges`, type: 'special', special: 'ranges', label: 'Ranges', help: HELP.ranges, showWhen: { [`${name}Buckets`]: 'ranges' } }
+      { name: `${name}Ranges`, type: 'special', special: 'ranges', label: 'Ranges', help: HELP.ranges, req: 'recommended', showWhen: { [`${name}Buckets`]: 'ranges' } }
     ]
   });
   return {
@@ -129,16 +130,19 @@ export function crosstabsForm({ ids = {}, rectypes = [], numericFields = [], fie
       {
         id: 'measure', type: 'accordion', label: 'Measure', open: false,
         children: [
-          { name: 'measureOp', type: 'enum', mode: 'select', label: 'Measure', help: HELP.measure, clearable: false, terms: MEASURE_TERMS },
-          { name: 'measureField', type: 'enum', mode: 'select', label: 'Numeric field', showWhen: { measureOp: ['sum', 'avg', 'min', 'max'] },
+          { name: 'measureOp', type: 'enum', mode: 'select', label: 'Measure', help: HELP.measure, clearable: false, req: 'recommended', terms: MEASURE_TERMS },
+          { name: 'measureField', type: 'enum', mode: 'select', label: 'Numeric field', req: 'recommended', showWhen: { measureOp: ['sum', 'avg', 'min', 'max'] },
             terms: numericFields.map((item) => ({ id: String(item.id), label: item.label })) }
         ]
       },
       {
         id: 'display', type: 'accordion', label: 'Display and default values', open: false,
         children: [
-          { name: 'displayTitle', type: 'freetext', label: 'Title', help: HELP.title, multilang: true },
-          ...FLAGS.map(([key, label]) => ({ name: key, type: 'boolean', mode: 'checkbox', label, ...(key === 'showBlanks' ? { help: HELP.showBlanks } : {}) })),
+          { name: 'displayTitle', type: 'freetext', label: 'Title', help: HELP.title, multilang: true, req: 'recommended' },
+          ...FLAGS.map(([key, label]) => ({
+            name: key, type: 'boolean', mode: 'checkbox', label, ...(key === 'showBlanks' ? { help: HELP.showBlanks } : {}),
+            ...(key === 'totals' ? { req: 'recommended' } : {})
+          })),
           { name: 'decimals', type: 'integer', label: 'Decimals', minValue: 0, maxValue: 6, clearable: false },
           { name: 'chartShow', type: 'enum', mode: 'select', label: 'Show', clearable: false,
             terms: [{ id: 'table', label: 'Table' }, { id: 'chart', label: 'Chart' }, { id: 'both', label: 'Table and chart' }] },
@@ -149,12 +153,12 @@ export function crosstabsForm({ ids = {}, rectypes = [], numericFields = [], fie
       {
         id: 'visitor', type: 'accordion', label: 'Visitors on a website', open: false,
         children: [
-          { name: 'level', type: 'enum', mode: 'radio', label: 'Visitors can', help: HELP.level, clearable: false,
+          { name: 'level', type: 'enum', mode: 'radio', label: 'Visitors can', help: HELP.level, clearable: false, req: 'recommended',
             terms: CROSSTAB_LEVELS.map((id) => ({ id, label: { view: 'View', display: 'Change the display', pivot: 'Choose the fields' }[id] })) },
-          { name: 'visitorFields', type: 'special', special: 'fieldCodes', label: 'Fields to choose', help: HELP.visitorFields, showWhen: { level: 'pivot' } },
-          { name: 'visitorMeasures', type: 'enum', mode: 'checkbox', max: 0, label: 'Measures to choose', showWhen: { level: 'pivot' },
+          { name: 'visitorFields', type: 'special', special: 'fieldCodes', label: 'Fields to choose', help: HELP.visitorFields, req: 'recommended', showWhen: { level: 'pivot' } },
+          { name: 'visitorMeasures', type: 'enum', mode: 'checkbox', max: 0, label: 'Measures to choose', req: 'recommended', showWhen: { level: 'pivot' },
             terms: MEASURE_TERMS.filter((term) => term.id !== 'count') },
-          { name: 'export', type: 'enum', mode: 'checkbox', max: 0, label: 'Export',
+          { name: 'export', type: 'enum', mode: 'checkbox', max: 0, label: 'Export', req: 'recommended',
             terms: CROSSTAB_EXPORTS.map((id) => ({ id, label: { csv: 'CSV', xlsx: 'Excel', pdf: 'PDF', png: 'Chart image (PNG)', print: 'Print' }[id] })) },
           { name: 'drill', type: 'boolean', mode: 'checkbox', label: 'A click shows the records', help: HELP.drill }
         ]

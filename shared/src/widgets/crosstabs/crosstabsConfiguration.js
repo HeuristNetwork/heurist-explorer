@@ -19,6 +19,8 @@
  * @since       8.0
  */
 
+import { modeFormFields } from '../../data/moduleConfigurationForm.js';
+import { PUBLICATION_LANGUAGE_TERMS } from '../presentation/presentationKinds.js';
 import { CROSSTAB_LEVELS } from './crosstabModel.js';
 
 /** What visitors may change (the element can only lower the level of the crosstab). */
@@ -35,13 +37,7 @@ const RECORDS_TERMS = Object.freeze([
 ]);
 
 /** Languages of a published page (as the module forms). */
-const LANGUAGE_TERMS = Object.freeze([
-  { id: 'auto', label: 'Automatic' },
-  { id: 'eng', label: 'English' },
-  { id: 'fre', label: 'French' },
-  { id: 'ger', label: 'German' },
-  { id: 'por', label: 'Portuguese' }
-]);
+const LANGUAGE_TERMS = PUBLICATION_LANGUAGE_TERMS;
 
 /** The records counted without Update (`config.defaults.maxAutoReload`); more: the Update button counts them. */
 export const CROSSTABS_AUTO_RELOAD_TERMS = Object.freeze([
@@ -77,7 +73,14 @@ const form = Object.freeze({
       label: 'Visitors',
       children: [
         { name: 'level', req: 'recommended', type: 'enum', label: 'Visitors can', mode: 'select', max: 1, emptyLabel: 'As in the crosstab',
-          terms: CROSSTABS_LEVEL_TERMS, help: 'Lowers what the crosstab allows' },
+          terms: CROSSTABS_LEVEL_TERMS, help: 'Lowers what the crosstab allows' }
+      ]
+    },
+    {
+      // the header and the language of the page (27q3 §13, 2026-11-27); the CMS puts the header in Presentation
+      id: 'interface',
+      label: 'Interface',
+      children: [
         { name: 'ui.showSourceHeader', req: 'recommended', type: 'boolean', label: 'Show header', mode: 'checkbox', clearable: false, default: false,
           modes: ['website', 'publication'], help: 'The name of the crosstab above it' },
         { name: 'ui.language', req: 'recommended', type: 'enum', label: 'Language', mode: 'select', clearable: false, terms: LANGUAGE_TERMS,
@@ -219,15 +222,7 @@ function preparePublication({ settings, values = null, publication = null }) {
  * @returns {Array<object>} The fields (each with `terms`, without `modes`).
  */
 export function crosstabsFormFields(mode, terms = {}) {
-  const fields = [];
-  for (const group of form.groups) {
-    for (const field of group.children) {
-      if (field.modes && !field.modes.includes(mode)) continue;
-      const { modes: _modes, termsSource, ...rest } = field;
-      fields.push(termsSource ? { ...rest, terms: terms[termsSource] || [] } : { ...rest });
-    }
-  }
-  return fields;
+  return modeFormFields(form, mode, terms);
 }
 
 /** The configuration of the crosstabs: form JSON, defaults, normalizer, serializer, publication. */

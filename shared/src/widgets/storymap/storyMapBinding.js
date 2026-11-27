@@ -17,7 +17,8 @@
  * @since       8.0
  */
 
-import { featureBounds } from './storyMapModel.js';
+import { $HR } from '../../ui/i18n/HResource.js';
+import { boundsNearlyEqual, featureBounds } from './storyMapModel.js';
 
 /** Line of a path when the settings have no line symbology. */
 export const DEFAULT_LINE_STYLE = Object.freeze({ color: '#d7301f', weight: 3, opacity: 0.9 });
@@ -37,13 +38,16 @@ export class StoryMapBinding {
    * @param {object} options
    * @param {() => (object|null|Promise<object|null>)} options.getMap The Map public API (null: no map yet).
    * @param {object} [options.settings] Normalised story map settings (`map`).
-   * @param {string} [options.title] Title of the layers.
+   * @param {string|function(): string} [options.title] Title of the layers ("StoryMap: <name>", 27q3 review 6); a
+   *        function is read when a layer is added.
    */
   constructor({ getMap, settings = null, title = 'Story' }) {
     this.getMap = getMap;
     this.map = settings?.map || {};
     this.title = title;
     this.layers = { story: null, places: null, lines: null };
+    // the bounds of the last flight: the same place again is not flown to
+    this._flown = null;
   }
 
   /**
@@ -81,7 +85,7 @@ export class StoryMapBinding {
     if (!api) return;
     await this._remove(api, 'story');
     if (!this.map.keep || !features?.length) return;
-    this.layers.story = await this._add(api, `${this.title}: all places`, inline(features), STORY_STYLE);
+    this.layers.story = await this._add(api, `${this._title()} (${$HR('all places')})`, inline(features), STORY_STYLE);
   }
 
   /**
@@ -99,14 +103,18 @@ export class StoryMapBinding {
     const lines = (features || []).filter((feature) => feature.properties?.role === 'line');
     const places = (features || []).filter((feature) => feature.properties?.role !== 'line');
     // the lines below the places
-    if (lines.length) this.layers.lines = await this._add(api, `${this.title}: path`, inline(lines), this.map.lineSymbology || DEFAULT_LINE_STYLE);
-    if (places.length) this.layers.places = await this._add(api, `${this.title}: places`, inline(places), this.map.elementSymbology || DEFAULT_ELEMENT_STYLE);
+    if (lines.length) this.layers.lines = await this._add(api, `${this._title()} (${$HR('path')})`, inline(lines), this.map.lineSymbology || DEFAULT_LINE_STYLE);
+    if (places.length) this.layers.places = await this._add(api, this._title(), inline(places), this.map.elementSymbology || DEFAULT_ELEMENT_STYLE);
     const bounds = featureBounds(features);
-    if (bounds && typeof api.flyTo === 'function') await api.flyTo(bounds, { duration });
+    // no flight to the same place (27q3 §13): e.g. Start and End, or elements at one place
+    if (!bounds || boundsNearlyEqual(bounds, this._flown) || typeof api.flyTo !== 'function') return;
+    this._flown = bounds;
+    await api.flyTo(bounds, { duration });
   }
 
   /** Remove every layer of the story map. */
   async clear() {
+    this._flown = null;
     const api = await this._api();
     if (!api) return;
     await Promise.all(Object.keys(this.layers).map((key) => this._remove(api, key)));
@@ -114,6 +122,7 @@ export class StoryMapBinding {
 
   /** Remove the layers of the story (the background map stays). */
   async clearStory() {
+    this._flown = null;
     const api = await this._api();
     if (!api) return;
     await Promise.all(['story', 'places', 'lines'].map((key) => this._remove(api, key)));
@@ -126,6 +135,11 @@ export class StoryMapBinding {
     } catch {
       return null;
     }
+  }
+
+  /** @private The title of the layers now. */
+  _title() {
+    return String((typeof this.title === 'function' ? this.title() : this.title) || 'Story');
   }
 
   /**

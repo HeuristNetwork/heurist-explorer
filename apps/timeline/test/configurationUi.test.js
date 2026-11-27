@@ -33,6 +33,7 @@ test('getConfiguration / setConfiguration: the settings envelope, applied to eng
   const current = api.getConfiguration();
   assert.equal(current.format, 'heurist-timeline-settings');
   assert.equal(current.options.ui.initiallyExpanded, false, 'default (plan 29)');
+  assert.equal(current.options.ui.enabled, true, 'the control panel shown by default (27q3 §13)');
   api.setConfiguration({ options: { timeline: { labelMode: 'hidden' }, ui: { showHelp: false },
     interaction: { editEnabled: false } } });
   assert.equal(engineOptions.labelMode, 'hidden');

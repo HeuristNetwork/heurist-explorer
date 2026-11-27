@@ -72,3 +72,58 @@ export async function mountWebsiteManager({ container, bootstrap = {}, bridge = 
     destroy: () => view.destroy()
   };
 }
+
+/**
+ * Open the CMS designer alone (27q3 review 6): Edit of a published page in the List of Crosstabs / Story maps, without
+ * the Website manager under it.
+ *
+ * @param {object} options
+ * @param {number} options.recordId Website or standalone page.
+ * @param {number} [options.page] A page of the website to open first.
+ * @param {object} [options.bootstrap] Bootstrap envelope (`runtime`).
+ * @param {object|null} [options.bridge] Host bridge (as the manager's).
+ * @param {string|null} [options.assetBaseUrl] Base URL of the bundle's own assets (localization).
+ * @param {Function|null} [options.onClose] The designer was closed.
+ * @returns {Promise<{designer: object|null, hasUnsavedChanges: Function, destroy: Function}>}
+ */
+export async function openWebsiteDesigner({ recordId, page = 0, bootstrap = {}, bridge = null, assetBaseUrl = null, onClose = null } = {}) {
+  const config = createWebsiteManagerConfig(bootstrap);
+  await extendLocale(config.language, assetBaseUrl).catch(() => {});
+  const application = new WebsiteApplication({ config, bridge });
+  await application.initialize();
+  const { openCmsDesigner } = await import('./designer/CmsDesigner.js');
+  const host = document.createElement('div');
+  host.className = 'h-cms-designer-host';
+  document.body.append(host);
+  let designer = null;
+  try {
+    designer = await openCmsDesigner({
+      container: host,
+      recordId: Number(recordId),
+      page: Number(page) || 0,
+      apiClient: application.apiClient,
+      websites: application.websites,
+      bridge,
+      dbdefs: application.dbdefs,
+      runtime: { baseUrl: config.baseUrl, database: config.database, recordLimits: config.recordLimits },
+      onClose: () => {
+        host.remove();
+        designer = null;
+        onClose?.();
+      }
+    });
+  } catch (error) {
+    host.remove();
+    throw error;
+  }
+  // not opened: openCmsDesigner closed it (onClose above)
+  return {
+    designer,
+    hasUnsavedChanges: () => Boolean(designer?.isDirty?.()),
+    destroy: () => {
+      designer?.destroy?.();
+      designer = null;
+      host.remove();
+    }
+  };
+}

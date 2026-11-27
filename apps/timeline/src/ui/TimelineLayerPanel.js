@@ -13,6 +13,7 @@
  * @since       8.0
  */
 
+import { $HR } from '#shared/ui';
 import { sourceAction, showDataAction } from '#shared/ui/documents/SourceActions.js';
 import { showTimelineMessage } from './timelineMessages.js';
 
@@ -52,7 +53,7 @@ export class TimelineLayerPanel {
       let control;
       if (layer.loadState === 'loading') {
         control = element('span', 'heurist-map-spinner');
-        control.title = 'Loading band';
+        control.title = $HR('Loading band');
       } else if (layer.loadState === 'error') {
         control = sourceAction('fa-solid fa-triangle-exclamation', layer.error?.message || 'Retry loading band', () => this.api.reloadLayer(layer.id), report);
       } else {
@@ -60,21 +61,22 @@ export class TimelineLayerPanel {
         control.type = 'checkbox';
         control.checked = layer.visible;
         control.disabled = layer.parametersRequired || (empty && layer.id !== 'current-results');
-        control.setAttribute('aria-label', `Show ${layer.title}`);
+        control.setAttribute('aria-label', `${$HR('Show')} ${layer.title}`);
         control.addEventListener('change', () => Promise.resolve(this.api.setLayerVisibility(layer.id, control.checked)).catch(report));
       }
       const block = element('span', 'heurist-map-layer-title-block');
       const title = element('span', 'heurist-map-layer-title');
-      title.textContent = layer.title;
-      title.title = layer.loadState === 'loaded' ? `${layer.count} timeline items` : 'Band has not been loaded';
-      if (empty) title.title = layer.partial ? 'No timeline items found in the loaded results.' : 'No timeline items found.';
-      if (empty && layer.options?.dataSource) title.title += ' Records are still available through Show Data.';
-      if (layer.parametersRequired) title.title = PARAMETERS_REQUIRED;
-      if (layer.parametersRequired && control.tagName === 'INPUT') control.title = PARAMETERS_REQUIRED;
+      // the band of the current result has a title of the module (French: 27q3 review 6)
+      title.textContent = layer.id === 'current-results' ? $HR(layer.title) : layer.title;
+      title.title = layer.loadState === 'loaded' ? `${layer.count} ${$HR('timeline items')}` : $HR('Band has not been loaded');
+      if (empty) title.title = $HR(layer.partial ? 'No timeline items found in the loaded results.' : 'No timeline items found.');
+      if (empty && layer.options?.dataSource) title.title += ` ${$HR('Records are still available through Show Data.')}`;
+      if (layer.parametersRequired) title.title = $HR(PARAMETERS_REQUIRED);
+      if (layer.parametersRequired && control.tagName === 'INPUT') control.title = $HR(PARAMETERS_REQUIRED);
       block.append(title);
       if (layer.partial) {
         const warning = element('small', 'heurist-map-layer-partial-warning');
-        warning.textContent = 'Partial load: only part of the result set was loaded.';
+        warning.textContent = $HR('Partial load: only part of the result set was loaded.');
         block.append(warning);
       }
       main.append(control, block);

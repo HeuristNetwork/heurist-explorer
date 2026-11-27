@@ -397,3 +397,63 @@ export async function confirmLeave({ dirty, save, message = 'There are unsaved c
   if (answer === 'save') return (await save()) !== false;
   return answer === 'discard';
 }
+
+/** Keys of the local storage of the form switches (all presentation editors share them). */
+const FORM_OPTIONAL_KEY = 'h-presentation-form-optional';
+const FORM_HELP_KEY = 'h-presentation-form-help';
+
+/**
+ * The state of the form switches kept in the browser: optional properties hidden and help tips shown at first.
+ *
+ * @returns {{optional: boolean, help: boolean}}
+ */
+export function formSwitchState() {
+  return { optional: readLocal(FORM_OPTIONAL_KEY) === true, help: readLocal(FORM_HELP_KEY) !== false };
+}
+
+/**
+ * The switches above the configuration form of a presentation editor (27q3 §13, review 6: Story map and Crosstabs):
+ * *Optional properties* and *Help tips*, kept in the browser. Put the bar above the scrolling body of the form; build
+ * the form with `showOptional: formSwitchState().optional` and call `setFieldHelpVisible(formSwitchState().help)`.
+ *
+ * @param {function(): (object|null)} getForm The HEditForm now (null: none yet).
+ * @returns {HTMLElement}
+ */
+export function createFormSwitches(getForm) {
+  const bar = element('div', 'h-presentation-form-switches');
+  const state = formSwitchState();
+  const add = (key, label, checked, apply) => {
+    const box = element('label', 'h-inline', bar);
+    const input = element('input', '', box);
+    input.type = 'checkbox';
+    input.checked = checked;
+    input.addEventListener('change', () => {
+      writeLocal(key, input.checked);
+      const form = getForm();
+      if (form) apply(form, input.checked);
+    });
+    element('span', 'h-i18n', box).textContent = $HR(label);
+  };
+  add(FORM_OPTIONAL_KEY, 'Optional properties', state.optional, (form, shown) => form.setShowOptional(shown));
+  add(FORM_HELP_KEY, 'Help tips', state.help, (form, shown) => form.setFieldHelpVisible(shown));
+  return bar;
+}
+
+/** A value kept in the local storage (null when there is none or it can not be read). */
+function readLocal(key) {
+  try {
+    const text = globalThis.localStorage?.getItem(key);
+    return text ? JSON.parse(text) : null;
+  } catch {
+    return null;
+  }
+}
+
+/** Keep a value in the local storage. */
+function writeLocal(key, value) {
+  try {
+    globalThis.localStorage?.setItem(key, JSON.stringify(value));
+  } catch {
+    // no local storage
+  }
+}

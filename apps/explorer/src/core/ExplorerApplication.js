@@ -61,6 +61,7 @@ import { openTagManager } from '../ui/ExplorerTagManager.js';
 import { WebsiteClient } from '#shared/api/WebsiteClient.js';
 import { publishModuleTo } from '#shared/site/modulePublisher.js';
 import { HFilter } from '#shared/widgets/filter/HFilter.js';
+import { OWN_MAP_SETTINGS, OWN_TIMELINE_SETTINGS } from '#shared/widgets/storymap/storyMapTimeline.js';
 import { memoryStorage, normalizePublishedFilter, publishedModuleSettings, publishedUiConfig } from './publishedView.js';
 import { filterItemCaptions } from '#shared/site/cmsFilterWidget.js';
 import { cmsFilterFormValues } from '#shared/site/cmsSavedFilter.js';
@@ -2020,6 +2021,9 @@ export class ExplorerApplication {
    * @returns {Promise<boolean>} False when the manager could not be opened.
    */
   async openWebsiteManager({ recordId = null, design = null } = {}) {
+    // an open Story map / Crosstabs editor is closed first (27q3 review 9): else Website manager → CMS editor → the same
+    // editor again (the circle Editor → Publish → Website manager → CMS editor → Editor)
+    if (!this._websiteManager && !(await this._closePresentationEditors())) return false;
     try {
       if (!this._websiteManager) {
         // the full screen host of the presentation views (plan 27q3 §2.3)
@@ -2041,20 +2045,48 @@ export class ExplorerApplication {
   }
 
   /**
-   * Edit a page that shows a presentation (the List of Crosstabs / Story maps, 27q3 review 1): the Website manager with
-   * the CMS editor at once, on the website of a menu page or on the standalone page.
+   * Close the full screen editors of Story maps and Crosstabs (their unsaved changes are asked first).
+   *
+   * @private
+   * @returns {Promise<boolean>} False when an editor stays open (the user cancelled).
+   */
+  async _closePresentationEditors() {
+    for (const entry of [this._storyMapDesigner, this._crosstabsDesigner]) {
+      if (!entry?.designer?.close) continue;
+      if (!(await entry.designer.close())) return false;
+    }
+    return true;
+  }
+
+  /**
+   * Edit a page that shows a presentation (the List of Crosstabs / Story maps, 27q3 review 1): the CMS editor on the
+   * website of a menu page or on the standalone page. Alone, without the Website manager under it (27q3 review 6);
+   * within the manager when it is open.
    *
    * @param {{id: number, site?: {id: number}|null}} page
    * @returns {Promise<boolean>}
    */
-  editWebsitePage(page) {
+  async editWebsitePage(page) {
     const siteId = Number(page?.site?.id) || 0;
     const pageId = Number(page?.id) || 0;
-    if (!pageId) return Promise.resolve(false);
-    return this.openWebsiteManager({
-      recordId: siteId || pageId,
-      design: { site: siteId || pageId, page: siteId ? pageId : 0 }
-    });
+    if (!pageId) return false;
+    const design = { site: siteId || pageId, page: siteId ? pageId : 0 };
+    if (this._websiteManager) return this.openWebsiteManager({ recordId: siteId || pageId, design });
+    if (this._websiteDesigner) return true;
+    try {
+      const open = this._websiteDesignerOpener || openDirectWebsiteDesigner;
+      const options = this._websiteMountOptions(null, null);
+      this._websiteDesigner = open({
+        recordId: design.site, page: design.page, bootstrap: options.bootstrap, bridge: options.bridge,
+        assetBaseUrl: options.assetBaseUrl, onClose: () => { this._websiteDesigner = null; }
+      });
+      await this._websiteDesigner;
+      return true;
+    } catch (error) {
+      this._websiteDesigner = null;
+      HMsg.showMsgErr?.(error?.message || String(error));
+      return false;
+    }
   }
 
   /** Close the Website manager (its Close button). */
@@ -2198,8 +2230,29 @@ export class ExplorerApplication {
       createExplorerInstancePanel: (request) => this._explorerInstancePanel(request),
       // the settings of a module new on a website page: its website defaults (review 2026-11-15)
       websiteDefaults: (request) => this._websiteDefaults(request),
-      createReportOutputsPanel: (options) => this._reportOutputsPanel(options)
+      createReportOutputsPanel: (options) => this._reportOutputsPanel(options),
+      // the full screen editor of a crosstab or a story map over the designer (27q3 §13)
+      openPresentationEditor: (kind, presetId) => this._openPresentationEditor(kind, presetId)
     };
+  }
+
+  /**
+   * The editor of a crosstab or a story map over the whole screen, opened from the CMS designer (bridge
+   * `openPresentationEditor`, 27q3 §13); when it is closed the pane of the kind (if placed) shows that one again.
+   *
+   * @private
+   * @param {'crosstabs'|'storymap'} kind
+   * @param {number} [presetId] 0: a new one.
+   * @returns {Promise<{presetId: number}|null>} The one shown when the editor was closed; null when it could not open.
+   */
+  async _openPresentationEditor(kind, presetId = 0) {
+    const id = Number(presetId) || 0;
+    const result = kind === 'crosstabs' ? await this.openCrosstabsDesigner(id, { onTop: true })
+      : kind === 'storymap' ? await this.openStoryMapDesigner(id, { onTop: true }) : null;
+    const module = result ? [...this.modules.values()].find((item) => item.type === kind) : null;
+    const tool = module ? await module.ready?.() : null;
+    await tool?.reload?.(result?.presetId);
+    return result;
   }
 
   /**
@@ -2538,12 +2591,31 @@ export class ExplorerApplication {
       headerActions: module?.actions || null,
       openDesigner: this.config.published ? null : (presetId) => this.openStoryMapDesigner(presetId),
       editPage: this.config.published ? null : (page) => void this.editWebsitePage(page),
-      publish: this.config.published ? null : (options) => this.publishStoryMap(options)
+      publish: this.config.published ? null : (options) => this.publishStoryMap(options),
+      // Close and clear (27q3 §13): the pane is minimised when the story map is alone in it
+      minimizePane: module?.id ? () => this._minimizeAlonePane(module.id) : null
     }));
     body.replaceChildren();
     tool.attach(body);
     await tool.render();
     return tool;
+  }
+
+  /**
+   * Minimise the pane of a module when it is the only module configured for it (27q3 §13, Close and clear of the
+   * story map): collapsed to its strip in the "In panes" mode, else hidden. Never the center.
+   *
+   * @private
+   * @param {string} id Module id.
+   * @returns {boolean} Minimised.
+   */
+  _minimizeAlonePane(id) {
+    const region = this.layout?.getRegionForModule(id);
+    if (!region || region === 'center') return false;
+    if ((this.paneToolbar?.tabs?.paneTypes?.().get(region) || []).length > 1) return false;
+    if (this.paneToolbar?.isActive?.()) this.layout.cardinal.collapse(region);
+    else this.layout.hideModule(id);
+    return true;
   }
 
   /**
@@ -2564,6 +2636,11 @@ export class ExplorerApplication {
         const map = [...this.modules.values()].find((module) => module.type === 'map') || await this.showPresentation('map');
         return typeof map?.getPublicApi === 'function' ? map.getPublicApi() : null;
       },
+      // the Timeline module of the layout, only when there is one (the story is a band of it, 27q3 review 6)
+      getTimeline: () => {
+        const timeline = [...this.modules.values()].find((module) => module.type === 'timeline');
+        return typeof timeline?.getPublicApi === 'function' ? timeline.getPublicApi() : null;
+      },
       showRecords: (query, title) => this.showDatasource({ reference: { type: 'query' }, title, request: { q: query } }),
       selectRecords: (ids) => this.sync?.setSelection(ids),
       editRecord: (id) => this.editRecord(id),
@@ -2575,10 +2652,10 @@ export class ExplorerApplication {
       openManual: this.config.published ? null : (anchor) => this.openManual(anchor),
       // a map and a timeline of its own (Story map review, 2026-11-25): the direct entries, no host bridge
       mountOwnMap: (container) => mountDirectMap({
-        container, bootstrap: { runtime: this._reportsRuntime(), settings: {} }, assetBaseUrl: this.config.moduleAssetUrls?.map || null
+        container, bootstrap: { runtime: this._reportsRuntime(), settings: structuredClone(OWN_MAP_SETTINGS) }, assetBaseUrl: this.config.moduleAssetUrls?.map || null
       }),
       mountOwnTimeline: (container) => mountDirectTimeline({
-        container, bootstrap: { runtime: this._reportsRuntime(), settings: {} }, assetBaseUrl: this.config.moduleAssetUrls?.timeline || null
+        container, bootstrap: { runtime: this._reportsRuntime(), settings: structuredClone(OWN_TIMELINE_SETTINGS) }, assetBaseUrl: this.config.moduleAssetUrls?.timeline || null
       }),
       runtime: this._reportsRuntime(),
       ...own
@@ -2590,12 +2667,14 @@ export class ExplorerApplication {
    * Resolves when it is closed (unsaved changes are asked first).
    *
    * @param {number} [presetId] Presentation set id, 0: a new story map.
+   * @param {{onTop?: boolean}} [options] `onTop`: above the CMS editor (opened from it).
    * @returns {Promise<{presetId: number}|null>} The story map shown when it was closed; null when it could not open.
    */
-  async openStoryMapDesigner(presetId = 0) {
+  async openStoryMapDesigner(presetId = 0, { onTop = false } = {}) {
     if (this._storyMapDesigner) return this._storyMapDesigner.closed;
     const { openFullScreenHost } = await import('#shared/widgets/presentation/presentationShell.js');
-    const host = openFullScreenHost('h-storymap-designer-host');
+    // onTop: opened from the CMS editor, above it (27q3 review 7)
+    const host = openFullScreenHost(`h-storymap-designer-host${onTop ? ' h-presentation-fullscreen-top' : ''}`);
     let resolveClosed;
     const closed = new Promise((resolve) => { resolveClosed = resolve; });
     const entry = { host, closed, designer: null };
@@ -2609,7 +2688,8 @@ export class ExplorerApplication {
     try {
       const { StoryMapTool } = await (this._storyMapLoader || loadStoryMapTool)();
       const designer = new StoryMapTool(this._storyMapOptions({
-        mode: 'editor', onClose: (result) => finish(result), publish: (options) => this.publishStoryMap(options)
+        // opened from the CMS editor: no Publish there (27q3 review 8)
+        mode: 'editor', onClose: (result) => finish(result), publish: onTop ? null : (options) => this.publishStoryMap(options)
       }));
       entry.designer = designer;
       designer.attach(host);
@@ -2664,13 +2744,14 @@ export class ExplorerApplication {
    * on its own test records. Resolves when it is closed (unsaved changes are asked first).
    *
    * @param {number} [presetId] Presentation set id, 0: a new crosstab.
+   * @param {{onTop?: boolean}} [options] `onTop`: above the CMS editor (opened from it).
    * @returns {Promise<{presetId: number}|null>} The crosstab shown when it was closed; null when it could not open.
    */
-  async openCrosstabsDesigner(presetId = 0) {
+  async openCrosstabsDesigner(presetId = 0, { onTop = false } = {}) {
     if (this._crosstabsDesigner) return this._crosstabsDesigner.closed;
-    // the full screen host of the presentation editors (plan 27q3 §2.3)
+    // the full screen host of the presentation editors (plan 27q3 §2.3); onTop: from the CMS editor, above it (review 7)
     const { openFullScreenHost } = await import('#shared/widgets/presentation/presentationShell.js');
-    const host = openFullScreenHost('h-crosstabs-designer-host');
+    const host = openFullScreenHost(`h-crosstabs-designer-host${onTop ? ' h-presentation-fullscreen-top' : ''}`);
     let resolveClosed;
     const closed = new Promise((resolve) => { resolveClosed = resolve; });
     const entry = { host, closed, designer: null };
@@ -2695,7 +2776,8 @@ export class ExplorerApplication {
         openManual: (anchor) => this.openManual(anchor),
         selectExtent: this.config.moduleUrls?.map ? (current) => this.selectFilterExtent(current) : null,
         // Publish of the editor (plan 27q3 §3): the crosstab is saved first
-        publish: (options) => this.publishCrosstab(options),
+        // opened from the CMS editor: no Publish there (27q3 review 8)
+        publish: onTop ? null : (options) => this.publishCrosstab(options),
         onClose: (result) => finish(result),
         runtime: this._reportsRuntime()
       });
@@ -2752,21 +2834,48 @@ export class ExplorerApplication {
   }
 
   /**
-   * Publish a story map as a web page with a story topic (27q3 §12, review 2026-11-25): the publication form (the story
-   * map, Publish to); the page has the Story map element with the topic and its own map and timeline.
+   * Publish a story map as a web page with a story topic (27q3 §12, §13): the publication form (Source: the story map,
+   * the topic, whether visitors choose the topic and from which range; Map and timeline; Interface; Publish to).
    *
-   * @param {{presetId: number, topic: number, presets?: Array<{id: number, title: string}>}} options
+   * @param {object} options
+   * @param {number} options.presetId The story map.
+   * @param {number} options.topic The topic chosen in Show for.
+   * @param {Array<{id: number, title: string}>} [options.presets]
+   * @param {string} [options.topicTitle] Title of the topic.
+   * @param {string} [options.typeName] Name of the topic record type (All <type>).
+   * @param {boolean} [options.hasQuery] The story map has a Story topics query.
+   * @param {string} [options.range] The range preselected (Show for).
+   * @param {*} [options.query] The query of the current result (range Current result).
    * @returns {Promise<object|null>} The publication, null when cancelled.
    */
-  async publishStoryMap({ presetId, topic, presets = [] }) {
+  async publishStoryMap({ presetId, topic, presets = [], topicTitle = '', typeName = '', hasQuery = true, range = 'story', query = null }) {
     try {
+      const { storyMapTopicRangeTerms } = await import('#shared/widgets/storymap/storyMapConfiguration.js');
+      const ranges = storyMapTopicRangeTerms('publication', { typeName, hasQuery });
+      const id = Number(topic) || 0;
       return await this.openModuleConfiguration({
         moduleType: 'storymap',
         mode: 'publication',
         title: 'Publish story map',
-        value: { preset: Number(presetId) || null },
-        publication: { presetId: Number(presetId) || 0, topic: Number(topic) || 0 },
-        terms: { storyMapPresets: presets.map((item) => ({ id: String(item.id), label: item.title })) }
+        value: {
+          preset: Number(presetId) || null, topic: id || null, showMap: true, showTimeline: true,
+          topicRange: ranges.some((term) => term.id === range) ? range : ranges[0].id
+        },
+        // the story map and the topic are the ones of the pane (shown, not changed here)
+        fields: { preset: { readOnly: true } },
+        publication: {
+          presetId: Number(presetId) || 0, topic: id, query: query != null && query !== '' ? query : null,
+          // the Map and Timeline elements added beside the story map get their website defaults (27q3 review 7)
+          companionDefaults: {
+            map: await this._websiteDefaults({ moduleType: 'map' }).catch(() => null),
+            timeline: await this._websiteDefaults({ moduleType: 'timeline' }).catch(() => null)
+          }
+        },
+        terms: {
+          storyMapPresets: presets.map((item) => ({ id: String(item.id), label: item.title })),
+          topicRanges: ranges,
+          storyTopic: id ? [{ id: String(id), label: topicTitle || `#${id}` }] : []
+        }
       });
     } catch (error) {
       HMsg.showMsgErr?.(error?.message || String(error));
@@ -3223,6 +3332,12 @@ async function mountDirectReports(options) {
 async function mountDirectWebsite(options) {
   const { mountWebsiteManager } = await import('../../../website/src/direct.js');
   return mountWebsiteManager(options);
+}
+
+/** Load the website bundle's direct entry and open the CMS designer alone (27q3 review 6). */
+async function openDirectWebsiteDesigner(options) {
+  const { openWebsiteDesigner } = await import('../../../website/src/direct.js');
+  return openWebsiteDesigner(options);
 }
 
 /** Load and mount heurist-recordview's direct (same-realm) bootstrap for `direct` module mode. */

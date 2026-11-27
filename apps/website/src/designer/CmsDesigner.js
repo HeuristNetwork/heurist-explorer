@@ -25,8 +25,9 @@
 import { $HR, HMsg, InlineHelp } from '#shared/ui';
 import { HCardinalLayout } from '#shared/widgets/layout/HCardinalLayout.js';
 import { HTree } from '#shared/widgets/tree/HTree.js';
+import { normalizeStoryMapSettings, storyTopicType } from '#shared/widgets/storymap/storyMapModel.js';
 import { createTabSet } from '#shared/widgets/layout/tabs.js';
-import { CMS_CONTROLS, CMS_ELEMENTS, CMS_PAGE_PRESETS, CMS_TEAM_TEMPLATE, cmsPageStarter } from '#shared/site/cmsEdit.js';
+import { CMS_CONTROLS, CMS_ELEMENTS, CMS_PAGE_PRESETS, CMS_TEAM_TEMPLATE, cmsPageStarter, typeNameOf } from '#shared/site/cmsEdit.js';
 import { CMS_NAME } from '#shared/site/cmsDocument.js';
 import { buildTemplatePage, CMS_TEMPLATE_ELEMENTS } from '#shared/site/cmsPageTemplates.js';
 import { normalizeRecordLimits } from '#shared/recordview/recordLimits.js';
@@ -73,6 +74,26 @@ import './designer.css';
 
 /** Elements that are module instances: they get the website defaults of the module when added (review 2026-11-15). */
 const MODULE_ELEMENTS = Object.freeze(['explorer', 'data', 'map', 'timeline', 'graph', 'recordview']);
+
+/** Kinds of elements by their type name (typeNameOf) in the titles of the panel. */
+const KIND_LABELS = Object.freeze({
+  field: 'Record field', media: 'Media', text: 'Text', group: 'Group', tabs: 'Tabs', accordion: 'Accordion', element: 'Element'
+});
+
+/**
+ * Title of the panel of an element (27q3 review 8): "Kind: Name" (Crosstabs: Sales by year, Record field: Title), the
+ * kind only without a name. A record field without a name: the name of its field.
+ *
+ * @param {object} item Tree item of the document.
+ * @param {function(string): string} fieldLabel Label of a field reference.
+ * @returns {string}
+ */
+export function elementTitle(item, fieldLabel = (reference) => reference) {
+  const type = typeNameOf(item);
+  const kind = $HR(KIND_LABELS[type] || type);
+  const name = String(item.name || '').trim() || (item.field ? fieldLabel(item.field) : '');
+  return name ? `${kind}: ${name}` : kind;
+}
 
 /** The instance of a node of a record document (`data-h-instance`), or null. */
 function instanceOfNode(doc, nodeId) {
@@ -1529,6 +1550,70 @@ export class CmsDesigner {
     // a new text: its popup at once (plan 27i §10)
     if (added && values.element === 'text') await this._editText(added);
     if (added && ['actionmenu', 'social', 'badges'].includes(values.element)) await this._configure(added);
+    // a new story map: on the Map and Timeline elements of the page, added when missing (27q3 review 7)
+    if (added && values.element === 'storymap') await this._linkStoryGeo(added);
+  }
+
+  /**
+   * A new Story map element and the Map / Timeline elements it draws on (27q3 review 7): the first ones of the page;
+   * missing ones are added after it when the user agrees (with their website defaults).
+   *
+   * @param {string} nodeId Node of the story map.
+   * @returns {Promise<void>}
+   */
+  async _linkStoryGeo(nodeId) {
+    const linked = { map: this._pageInstanceTerms('map')[0]?.id || null, timeline: this._pageInstanceTerms('timeline')[0]?.id || null };
+    const missing = ['map', 'timeline'].filter((type) => !linked[type]);
+    let add = [];
+    if (missing.length) {
+      const question = missing.length === 2
+        ? 'Show the story on a map and a timeline? A Map and a Timeline element will be added to the page.'
+        : missing[0] === 'map' ? 'Show the story on a map? A Map element will be added to the page.'
+          : 'Show the elements of the story on a timeline? A Timeline element will be added to the page.';
+      if (await confirm(question, { title: 'Story map', yes: 'Add' })) add = missing;
+    }
+    const defaults = {};
+    for (const type of add) defaults[type] = await this._websiteDefaults(type);
+    if (!add.length && !linked.map && !linked.timeline) return;
+    this._edit((doc) => {
+      const part = this.current.part;
+      const place = (type, target) => {
+        const node = doc.insertElement(part, type, target);
+        const instanceId = node ? instanceOfNode(doc, node) : null;
+        if (instanceId && defaults[type]) doc.setInstance(instanceId, defaults[type]);
+        if (instanceId) linked[type] = instanceId;
+        return node;
+      };
+      // the layout of a page published from Explorer (27q3 review 8): story | map in two columns, the timeline below
+      let after = nodeId;
+      if (add.includes('map')) {
+        const columns = doc.insertElement(part, 'columns2', { id: nodeId, position: 'after' });
+        const empty = (doc.find(columns)?.node.children || []).filter((child) => child.type === 'element')
+          .map((child) => child.attrs?.find(([name]) => name === 'data-h-node')?.[1]).filter(Boolean);
+        if (columns && doc.move(nodeId, { id: columns, position: 'inside' })) {
+          const map = place('map', { id: nodeId, position: 'after' });
+          for (const id of empty) doc.remove(id);
+          doc.setNodeStyle(nodeId, { ...(doc.nodeStyle(nodeId) || {}), height: '70vh' });
+          if (map) doc.setNodeStyle(map, { height: '70vh' });
+          after = columns;
+        } else if (columns) {
+          doc.remove(columns);
+          after = place('map', { id: nodeId, position: 'after' }) || nodeId;
+        }
+      }
+      if (add.includes('timeline')) {
+        const timeline = place('timeline', { id: after, position: 'after' });
+        if (timeline) doc.setNodeStyle(timeline, { height: '30vh' });
+      }
+      const story = instanceOfNode(doc, nodeId);
+      if (!story) return false;
+      const settings = doc.instance(story)?.settings || {};
+      doc.setInstance(story, {
+        settings: { ...settings, ...(linked.map ? { map: linked.map } : {}), ...(linked.timeline ? { timeline: linked.timeline } : {}) }
+      });
+      return true;
+    });
+    this._selectNode(nodeId);
   }
 
   /** Copy the selected element (Copy structure / Copy all below the tree). */
@@ -2296,9 +2381,10 @@ export class CmsDesigner {
       // the story map (plan 27q1 §8): a Presentation set made in Explorer, the map of the page
       const presets = await this._storyMapPresets().catch(() => []);
       await run((extra) => openStoryMapForm({
-        settings: instance.settings || {},
+        ...common,
         presets,
         maps: this._pageInstanceTerms('map'),
+        timelines: this._pageInstanceTerms('timeline'),
         onEdit: (id) => this._openStoryMapEditor(id),
         // a story map changed in Explorer: the list and the preview again
         onRefresh: () => {
@@ -2358,11 +2444,12 @@ export class CmsDesigner {
   }
 
   /**
-   * The Presentation sets of a kind (storymap, crosstabs; plans 27q1, 27q2): id, title, public. Read once per designer
-   * and kind (Refresh reads them again). A story map list also has the sets without a kind (older ones).
+   * The Presentation sets of a kind (storymap, crosstabs; plans 27q1, 27q2): id, title, public; a story map also its
+   * topic record type (the Selected topic picker, 27q3 review 6). Read once per designer and kind (Refresh reads them
+   * again). A story map list also has the sets without a kind (older ones).
    *
    * @param {'storymap'|'crosstabs'} kind
-   * @returns {Promise<Array<{id: number, title: string, public: boolean}>>}
+   * @returns {Promise<Array<{id: number, title: string, public: boolean, topicType?: number|null}>>}
    */
   _presentationPresets(kind) {
     this._presentations ||= {};
@@ -2371,9 +2458,11 @@ export class CmsDesigner {
       const rectype = id('RT_PRESENTATION_SET');
       const typeField = id('DT_PRESENTATION_TYPE');
       const term = id(kind === 'crosstabs' ? 'TRM_PRESENTATION_CROSSTABS' : 'TRM_PRESENTATION_STORYMAP');
+      const story = kind === 'storymap' ? { configuration: id('DT_CONFIGURATION'), query: id('DT_QUERY_STRING') } : null;
       if (!rectype) return [];
+      const fields = ['rec_ID', 'rec_Title', 'rec_NonOwnerVisibility', typeField, story?.configuration, story?.query];
       const answer = await this.apiClient.get('/records', {
-        query: { q: JSON.stringify([{ t: String(rectype) }]), fields: ['rec_ID', 'rec_Title', 'rec_NonOwnerVisibility', typeField].filter(Boolean).join(','), limit: 1000 }
+        query: { q: JSON.stringify([{ t: String(rectype) }]), fields: fields.filter(Boolean).join(','), limit: 1000 }
       });
       return ((answer?.data ?? answer)?.records || [])
         .filter((record) => {
@@ -2381,7 +2470,8 @@ export class CmsDesigner {
           return type === term || (!type && kind === 'storymap');
         })
         .map((record) => ({ id: Number(record.rec_ID), title: String(record.rec_Title || `#${record.rec_ID}`),
-          public: !record.rec_NonOwnerVisibility || record.rec_NonOwnerVisibility === 'public' }))
+          public: !record.rec_NonOwnerVisibility || record.rec_NonOwnerVisibility === 'public',
+          ...(story ? { topicType: presetTopicType(record, story) } : {}) }))
         .sort((a, b) => a.title.localeCompare(b.title));
     })().catch((error) => {
       this._presentations[kind] = null;
@@ -2428,12 +2518,27 @@ export class CmsDesigner {
   }
 
   /**
-   * Explorer with a story map or a crosstab in a new window (plans 27q1 §2.4, 27q2 §10): `?tool=<kind>&preset=<id>`.
+   * The editor of a story map or a crosstab: over the designer when Explorer gives it (bridge `openPresentationEditor`,
+   * 27q3 §13; closed: the list and the preview again), else Explorer in a new window (plans 27q1 §2.4, 27q2 §10):
+   * `?tool=<kind>&preset=<id>`.
    *
    * @param {'storymap'|'crosstabs'} kind
    * @param {number} presetId 0: the tool without a set (a new one).
+   * @returns {Promise<void>}
    */
-  _openPresentationEditor(kind, presetId) {
+  async _openPresentationEditor(kind, presetId) {
+    if (typeof this.bridge?.openPresentationEditor === 'function') {
+      try {
+        const result = await this.bridge.openPresentationEditor(kind, Number(presetId) || 0);
+        if (result) {
+          this._presentations = {};
+          this._loadPreview();
+        }
+      } catch (error) {
+        HMsg.showMsgErr?.(error?.message || String(error));
+      }
+      return;
+    }
     const runtime = this.options.runtime || {};
     const base = String(runtime.baseUrl || '/').replace(/\/?$/, '/');
     const url = `${base}?db=${encodeURIComponent(runtime.database || '')}&tool=${kind}${presetId > 0 ? `&preset=${presetId}` : ''}`;
@@ -2597,7 +2702,7 @@ export class CmsDesigner {
     const child = parseModuleItemId(id);
     if (child) return `${$HR('Configuration')}: ${$HR(EXPLORER_MODULES[child.type].label)}`;
     const node = this._treeItem(id);
-    return node?.fieldOnly ? this._fieldLabel(node.field) : node?.label || '';
+    return node ? elementTitle(node, (reference) => this._fieldLabel(reference)) : '';
   }
 
   /**
@@ -2872,7 +2977,8 @@ export class CmsDesigner {
       apiClient: this.apiClient,
       codes: this.codes,
       type: home ? 'home' : 'page',
-      keys: home ? WEBSITE_FIELD_KEYS : PAGE_FIELD_KEYS,
+      // a standalone page: also its language (27q3 review 8; left out when the page type has no language field)
+      keys: home ? WEBSITE_FIELD_KEYS : this.standalone && record.id === this.standalone.id ? [...PAGE_FIELD_KEYS, 'languages'] : PAGE_FIELD_KEYS,
       record: { ...record.record, details: { ...record.record.details, ...mapValues(pending) } },
       languages: this.site?.languages || [],
       services: { ...this._formServices(), translator: this._translator(), recordField }
@@ -3120,7 +3226,7 @@ export class CmsDesigner {
     const site = this.site ? this.records.get(this.site.id) : null;
     const records = [current, site !== current ? site : null].filter(Boolean);
     const instances = Object.assign({}, ...records.slice().reverse().map((record) => record.doc.config.instances || {}));
-    const sources = [{ id: 'links', label: $HR('Saved filter links') }];
+    const sources = [{ id: 'links', label: $HR('Saved filter by Action link') }];
     const seen = new Set();
     for (const record of records) {
       for (const part of record === current ? record.doc.partNames() : ['header', 'footer']) {
@@ -3732,4 +3838,25 @@ function barButton(icon, title, run, label = '') {
   if (label) button.append(document.createTextNode(` ${$HR(label)}`));
   button.addEventListener('click', () => void run());
   return button;
+}
+
+/** The record type of the story topics of a story map record (its configuration, else its query); null: not known. */
+function presetTopicType(record, ids) {
+  const first = (field) => {
+    const value = [record.details?.[field]].flat()[0];
+    return value && typeof value === 'object' && 'value' in value ? value.value : value;
+  };
+  let configuration = first(ids.configuration);
+  if (typeof configuration === 'string') {
+    try {
+      configuration = JSON.parse(configuration);
+    } catch {
+      configuration = null;
+    }
+  }
+  try {
+    return storyTopicType(normalizeStoryMapSettings(configuration || {}), first(ids.query) ?? null);
+  } catch {
+    return null;
+  }
 }

@@ -132,6 +132,8 @@
 #Generic_Title#Heurist
 #Error_Title#Information
 
+#Show control panel#Afficher le panneau de contrôle
+#Off: the timeline has no control panel and no button to open it.#Désactivé : la frise chronologique n’a ni panneau de contrôle ni bouton pour l’ouvrir.
 #Expand control panel initially#Déplier le panneau de contrôle au départ
 #Language of the published page; Automatic follows the browser of the visitor#Langue de la page publiée ; Automatique suit le navigateur du visiteur
 #Automatic#Automatique
@@ -160,3 +162,34 @@
 #Yes#Oui
 #No#Non
 #Configuration#Configuration
+#Loading band#Chargement de la bande
+#Retry loading band#Recharger la bande
+#Current result#Résultat actuel
+#timeline items#éléments de la frise chronologique
+#Band has not been loaded#La bande n’a pas été chargée
+#No timeline items found in the loaded results.#Aucun élément de frise chronologique dans les résultats chargés.
+#No timeline items found.#Aucun élément de frise chronologique.
+#Records are still available through Show Data.#Les enregistrements restent disponibles avec Afficher les données.
+#Click 'Show data' to define parameters for query#Cliquez sur « Afficher les données » pour définir les paramètres de la requête
+#Partial load: only part of the result set was loaded.#Chargement partiel : une partie seulement des résultats a été chargée.
+#Edit layer#Modifier la couche
+#Remove from workspace#Retirer de l’espace de travail
+#Add to workspace#Ajouter à l’espace de travail
+#Show data#Afficher les données
+#Activate#Activer
+#Loading map document#Chargement du document cartographique
+#Map document loading failed#Échec du chargement du document cartographique
+#Zoom in#Zoom avant
+#Zoom out#Zoom arrière
+#Zoom to all#Zoom sur tout
+#Zoom to selection#Zoom sur la sélection
+#Move to start#Aller au début
+#Move to end#Aller à la fin
+#Label options#Options des libellés
+#Labels: full length — click to truncate#Libellés : longueur complète — cliquez pour tronquer
+#Labels: truncated — click to hide#Libellés : tronqués — cliquez pour masquer
+#Labels: hidden — click to show full length#Libellés : masqués — cliquez pour afficher en entier
+#Show or hide timeline controls#Afficher ou masquer les contrôles de la frise chronologique
+#Zoom to active map document#Zoom sur le document cartographique actif
+#timeline options#options de la frise chronologique
+#timeline controls#contrôles de la frise chronologique

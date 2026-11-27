@@ -88,7 +88,7 @@ export class PageSync extends EventTarget {
     if (type === 'explorer') {
       member = new ExplorerMember(instanceId, api, from);
     } else if (type === 'storymap') {
-      member = new StoryMapMember(instanceId, api);
+      member = new StoryMapMember(instanceId, api, from);
     } else if (type === 'crosstabs') {
       member = new CrosstabsMember(instanceId, api, from);
     } else if (SYNC_MODULE_TYPES.includes(type)) {
@@ -249,19 +249,29 @@ class ModuleMember extends EventTarget {
   }
 }
 
-/** A story map on the page (plan 27q1 §8): the selection only; it takes no records (its own come with its start). */
+/**
+ * A story map on the page (plan 27q1 §8): the selection; its own records come with its start. With the topic range
+ * *Saved filter by Action* (27q3 §13, the widget has `setPageRecords`) it takes the records of the page as the range
+ * of its topic list.
+ */
 class StoryMapMember extends EventTarget {
-  constructor(id, widget) {
+  constructor(id, widget, from = []) {
     super();
     this.id = id;
     this.type = 'storymap';
-    this.from = [];
+    this.from = typeof widget?.setPageRecords === 'function' ? from.filter((origin) => origin !== 'own') : [];
     this.selection = true;
     this.syncMode = 'selection';
     this.widget = widget;
   }
 
-  setDataSource() {
+  /** The records of the page: the range of the topic list (Saved filter by Action). */
+  async setDataSource(dataSource) {
+    try {
+      await this.widget?.setPageRecords?.(dataSource);
+    } catch (error) {
+      console.warn(`Page result: story map (${this.id}) did not take the records`, error);
+    }
     return false;
   }
 

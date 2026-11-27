@@ -28,7 +28,7 @@ import { $HR, HMsg } from '#shared/ui';
 import { HEditForm } from '#shared/widgets/edit-form/HEditForm.js';
 import { HCardinalLayout } from '#shared/widgets/layout/HCardinalLayout.js';
 import {
-  confirmLeave, createScopeSelect, createSourceHeader, renderPresentationToolbar, togglePresentationList
+  confirmLeave, createFormSwitches, createScopeSelect, formSwitchState, createSourceHeader, renderPresentationToolbar, togglePresentationList
 } from '#shared/widgets/presentation/presentationShell.js';
 import { HFieldTree } from '#shared/widgets/field-tree/HFieldTree.js';
 import { HRangeList } from '#shared/widgets/symbology/HRangeList.js';
@@ -117,7 +117,8 @@ export class CrosstabsDesigner extends HBaseWidget {
     const main = element('div', 'h-crosstabs-designer-main');
     this.formPane = element('div', 'h-crosstabs-tool-form');
     this.formHost = element('div', 'h-crosstabs-tool-form-body');
-    this.formPane.append(this.formHost);
+    // Optional properties and Help tips on top, only the form scrolls (27q3 review 6)
+    this.formPane.append(createFormSwitches(() => this.form), this.formHost);
     const view = element('div', 'h-crosstabs-tool-view');
     // the Filter Form of the parameters of the own query (Show for: Own query)
     const paramsHost = element('div', 'h-crosstabs-viewer-params');
@@ -465,10 +466,12 @@ export class CrosstabsDesigner extends HBaseWidget {
       values: formValues(this.values, ids),
       keepHidden: true,
       labelPos: 'above',
+      showOptional: formSwitchState().optional,
       specialEditors: this._specialEditors(ids),
       onChange: (form, change) => this._changed(change.name)
     });
     this.form.render();
+    this.form.setFieldHelpVisible(formSwitchState().help);
     void this._loadRectypes();
   }
 

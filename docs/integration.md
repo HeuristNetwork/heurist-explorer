@@ -89,7 +89,8 @@ destroy()}` (`read`: the normalized settings, null while the form has errors) an
 `{element, read(): Promise<{settings, state}|null>, reset(), destroy()}` (filters, layout of the presentation modules,
 `apps/explorer/src/ui/config/explorerWebsitePanel.js`), and since 2026-11-15 `websiteDefaults({moduleType})` →
 `{settings, state}` (the website defaults of a module, or of an Explorer with all its presentation modules) for a module
-added to a page. Explorer's public API has `setModuleSettings(type, settings)`: the designer preview gives new module
+added to a page; since 2026-11-27 `openPresentationEditor(kind, id)` → `Promise<{presetId}|null>` (the full screen editor of
+a crosstab or a story map over the designer, 27q3 §13; without it the CMS opens Explorer in a new window). Explorer's public API has `setModuleSettings(type, settings)`: the designer preview gives new module
 settings to a mounted Explorer or module (`setConfiguration`) instead of mounting it again (`applyInstanceSettings` of
 `apps/website/src/siteRuntime.js`); since 2026-11-15 also `applySettings(settings)` → `Promise<boolean>`: the whole
 settings of a published Explorer (filters, layout, modules) without mounting it again; another interface language

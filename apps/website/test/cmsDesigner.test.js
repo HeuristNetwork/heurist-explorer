@@ -29,7 +29,7 @@ const {
   changedDetails, dropPlace, menuPlace, parseTranslations, previewUrl, recordDocument, subPageIds, translationValues
 } = await import('../src/designer/designerData.js');
 const { designerHost, designerUrl, designHooks, isFramed } = await import('../src/siteRuntime.js');
-const { CmsDesigner } = await import('../src/designer/CmsDesigner.js');
+const { CmsDesigner, elementTitle } = await import('../src/designer/CmsDesigner.js');
 const { readFieldValues, restoreFieldValues } = await import('../src/designer/CmsPreview.js');
 const { openAddPageForm, presetName, cssText } = await import('../src/designer/designerDialogs.js');
 
@@ -1006,4 +1006,12 @@ test('designer (plan 27k §13.1): the language switch of the page changes the la
   link.closest = (selector) => ({ 'a[href]': link, '.h-site-lang': box }[selector] ?? null);
   listeners.click({ target: link, preventDefault: () => {} });
   assert.deepEqual(chosen, ['fre', 'eng'], 'no node selected');
+});
+
+test('panel title: Kind: Name, the kind alone without a name (27q3 review 8)', () => {
+  assert.equal(elementTitle({ type: 'crosstabs', name: 'Sales by year', tag: 'div' }), 'Crosstabs: Sales by year');
+  assert.equal(elementTitle({ type: 'crosstabs', name: '', tag: 'div' }), 'Crosstabs');
+  assert.equal(elementTitle({ field: 'page.2-1', tag: 'div' }, () => 'page: Name'), 'Record field: page: Name');
+  assert.equal(elementTitle({ control: 'group', name: 'Intro', tag: 'div' }), 'Group: Intro');
+  assert.equal(elementTitle({ tag: 'div' }), 'Text');
 });
