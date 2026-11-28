@@ -12,7 +12,8 @@ topic list, page Map / Timeline elements, Close and clear, Interface sections, e
 in Explorer's timeline, timeline French and locale, Website manager editor, topic picker by type) implemented 2026-11-27
 (§14)**; **review 7 (Publish and the CMS use separate Map / Timeline elements, editors above the CMS editor, Show for
 All <type>) implemented 2026-11-27 (§15)**; **review 8 (page language, one topic picker, panel titles, story map
-selection on pages) implemented 2026-11-27 (§16)**, not committed, no browser check. Extends the topic note
+selection on pages) implemented 2026-11-27 (§16)**; **review 9 (no Help / Options / Publish on published pages, page
+template Story map, Close and clear keeps the pane collapsed) implemented 2026-11-28 (§17)**, not committed, no browser check. Extends the topic note
 `presentation-sources.md`.
 
 ## 1. Goal
@@ -680,3 +681,31 @@ Decisions: **the language of a published page is stored with the page** (2a, opt
    manager (the button of the Published dialog, or any other way) first closes an open Story map / Crosstabs editor;
    its unsaved changes are asked first, Cancel keeps the editor and the manager is not opened
    (`ExplorerApplication._closePresentationEditors`).
+
+## 17. Review 9 (Artem 2026-11-28, implemented the same day)
+
+1. **No Help, Options and Publish buttons for modules on a published page.** A visitor does not change the options
+   of a module and does not publish it; Help gave 404 (the manuals are not on a website). The configuration forms
+   force these settings off in website / publication mode, and a published Explorer did it for its own modules
+   (`publishedModuleSettings`), but a module placed on a page directly (Map, Timeline, Data, Graph, Record view;
+   the Map / Timeline of a story map; pages saved before) used the stored settings. Now the rule is applied every
+   time a page is shown, so stored pages need no change:
+   - `shared/src/site/cmsModuleSettings.js` `publishedModuleSettings` (moved from Explorer's `publishedView.js`,
+     which re-exports it): `options.ui.showHelp / showOptions / showPublish` = false;
+   - website runtime (`siteRuntime.js`): when a module is mounted and when the CMS designer gives a mounted module
+     new settings (`applyInstanceSettings`); not for Explorer (it applies it to its modules);
+   - iframe mount: `PageRenderer::frame` (srv) the same before the bootstrap is written.
+2. **Page template "Story map"** in Add page, after Discover (`cmsPageTemplates.js`, `designerCatalog.js`): the
+   page name, an introduction, the Story map element and a Map element in two columns (70vh, one column on narrow
+   screens), the Timeline below (30vh); elements *Introduction*, *Map*, *Timeline* (all ticked). The story map is
+   linked to the Map / Timeline of the page (`settings.map`, `settings.timeline`); they get their website defaults
+   when the page is added; the configuration of the story map (which story map) opens after Add page.
+   **The same layout as Publish of a story map** (§15, `WebsiteEditService::storyMapPage`). Publish does not use the
+   template: Publish makes a standalone page on the server (`POST /page/0/import`), the template makes a menu page in
+   the CMS designer (client); one layout in two places, kept the same by hand.
+
+3. **Close and clear expanded the pane again** (§13, found by Artem in the browser): `HCardinalLayout.collapse`
+   collapsed the pane during the click of the button; the same click then reached the pane, now `is-collapsed`, and
+   `ExplorerPaneTabs._onCollapsedClick` (click on a collapsed pane = expand) restored it. Now a click expands a pane
+   only when the pane was collapsed already when the press began (`pointerdown`, capture, `data-collapsed-at-press`).
+   Test: `explorerPaneToolbar.test.js` (fails without the fix).

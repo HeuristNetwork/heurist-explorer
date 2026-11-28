@@ -73,6 +73,13 @@ export const PAGE_TEMPLATES = Object.freeze([{
       preview: [['h', 10, 6, 40, 7], ['m', 8, 18, 104, 56, 'Explorer']]
     },
     {
+      value: 'storymap', label: 'Story map', available: true, defaultTitle: 'Story map',
+      description: 'A story told on a map and a timeline: the Story map element (a story map made in Explorer, chosen in the'
+        + ' next step) beside a Map, the Timeline below, as a story map published from Explorer.'
+        + '<p>The map and the timeline can be configured in the page tree.</p>',
+      preview: [['h', 10, 6, 40, 7], ['m', 8, 18, 50, 38, 'Story'], ['m', 62, 18, 50, 38, 'Map'], ['m', 8, 60, 104, 16, 'Timeline']]
+    },
+    {
       value: 'blog', label: 'Blog', available: true, pending: true, defaultTitle: 'News',
       description: 'A blog or news page with dated posts, the newest first, to keep visitors informed about the latest'
         + ' work, events and publications of your project.',

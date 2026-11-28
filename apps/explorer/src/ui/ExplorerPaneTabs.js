@@ -161,6 +161,11 @@ export class ExplorerPaneTabs {
     if (strip.parentElement !== host || host.children?.[0] !== strip) host.prepend(strip);
     if (!this._clickHosts.has(host)) {
       this._clickHosts.add(host);
+      // whether the pane was collapsed when the press began: a button that collapses the pane (Close and clear)
+      // must not expand it again when its click reaches the pane (2026-11-28)
+      host.addEventListener('pointerdown', () => {
+        host.dataset.collapsedAtPress = host.classList.contains('is-collapsed') ? '1' : '';
+      }, true);
       host.addEventListener('click', (event) => this._onCollapsedClick(region, host, event));
     }
     strip.classList.toggle('is-single', tabs.length < 2);
@@ -180,7 +185,9 @@ export class ExplorerPaneTabs {
 
   /**
    * A click anywhere on a collapsed (or squeezed) pane, other than on a tab, expands
-   * it with the module it shows (its first module when it has none yet).
+   * it with the module it shows (its first module when it has none yet). Only when the
+   * pane was collapsed already when the press began: a click that collapses it (Close
+   * and clear) reaches the pane after the collapse and must not expand it again.
    *
    * @private
    * @param {string} region Pane region.
@@ -189,7 +196,9 @@ export class ExplorerPaneTabs {
    * @returns {void}
    */
   _onCollapsedClick(region, host, event) {
-    if (!this.active || !host.classList.contains('is-collapsed')) return;
+    const collapsedAtPress = host.dataset.collapsedAtPress === '1';
+    delete host.dataset.collapsedAtPress;
+    if (!this.active || !collapsedAtPress || !host.classList.contains('is-collapsed')) return;
     if (event.target?.closest?.('.h-explorer-pane-tab')) return;
     const type = this._activeTab(region) || this.paneTypes().get(region)?.[0];
     if (type) void this.select(region, type);

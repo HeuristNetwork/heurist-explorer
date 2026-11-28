@@ -120,10 +120,31 @@ test('a click on a collapsed module pane, not on a tab, expands it with its modu
   toolbar.setActive(true);
   const south = layout.cardinal.getRegionElement('south');
   assert.equal(layout.cardinal.state.south.collapsed, true);
+  south.dispatchEvent(new Event('pointerdown', { bubbles: true }));
   south.dispatchEvent(new Event('click', { bubbles: true }));
   await flush();
   assert.equal(layout.cardinal.state.south.collapsed, false);
   assert.deepEqual(shown.slice(-1), ['timeline']);
+});
+
+test('a click that collapses its pane (Close and clear) does not expand it again (2026-11-28)', async () => {
+  const { toolbar, layout, shown } = setup();
+  toolbar.setActive(true);
+  assert.equal(layout.cardinal.state.west.collapsed, false);
+  const west = layout.cardinal.getRegionElement('west');
+  // the press begins on the open pane; the button's handler collapses it before the click reaches the pane
+  west.dispatchEvent(new Event('pointerdown', { bubbles: true }));
+  layout.cardinal.collapse('west');
+  const count = shown.length;
+  west.dispatchEvent(new Event('click', { bubbles: true }));
+  await flush();
+  assert.equal(layout.cardinal.state.west.collapsed, true, 'stays collapsed');
+  assert.equal(shown.length, count, 'no module shown');
+  // a later click on the collapsed pane still expands it
+  west.dispatchEvent(new Event('pointerdown', { bubbles: true }));
+  west.dispatchEvent(new Event('click', { bubbles: true }));
+  await flush();
+  assert.equal(layout.cardinal.state.west.collapsed, false);
 });
 
 test('a configured pane without a module is a collapsed strip; growing it creates the module', async () => {

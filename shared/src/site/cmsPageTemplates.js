@@ -1,7 +1,7 @@
 /**
  * @file cmsPageTemplates.js
  * @brief Page templates of a website (plan 27i §9, rework 2026-11-13): Cover, Landing, About, Features, Team, Discover,
- *        Contact and Publications are built as ordinary elements of a page from the elements ticked in the Add page
+ *        Story map (27q3 §17), Contact and Publications are built as ordinary elements of a page from the elements ticked in the Add page
  *        form and a few options. Every element gets a first value, so the page has no empty places: the title,
  *        subtitle, logo and summary of the website, placeholder images and random banners of the website bundle
  *        (`assets/cms`), starter texts. Groups are CSS grids; the page itself is the root group (its own style,
@@ -27,7 +27,8 @@
  */
 
 /** Templates built from the Add page form (plan 27i §9). */
-export const CMS_TEMPLATE_PAGES = Object.freeze(['cover', 'landing', 'about', 'features', 'team', 'discover', 'contact', 'publications']);
+export const CMS_TEMPLATE_PAGES = Object.freeze(['cover', 'landing', 'about', 'features', 'team', 'discover', 'storymap', 'contact',
+  'publications']);
 
 /** The name of the page (Record field `page.2-1`), the first element of a new page (review 27n §22). */
 export const CMS_PAGE_NAME_FIELD = 'page.2-1';
@@ -64,6 +65,7 @@ export const CMS_TEMPLATE_ELEMENTS = Object.freeze({
   features: Object.freeze([]),
   team: Object.freeze(['text']),
   discover: Object.freeze(['text']),
+  storymap: Object.freeze(['text', 'map', 'timeline']),
   contact: Object.freeze(['address', 'contact', 'email', 'follow']),
   publications: Object.freeze(['text'])
 });
@@ -108,6 +110,7 @@ const TEXTS = Object.freeze({
     about: 'About',
     explore: 'Explore',
     discover: 'Search and explore the records of the database',
+    storymap: 'Follow the story on the map and the timeline.',
     address: '<h3>Address</h3><p>Street<br>City</p>',
     contact: '<h3>Contact</h3><p>Email<br>Phone</p>',
     follow: 'Follow us',
@@ -140,6 +143,7 @@ const TEXTS = Object.freeze({
     about: 'À propos',
     explore: 'Explorer',
     discover: 'Recherchez et explorez les enregistrements de la base de données',
+    storymap: 'Suivez le récit sur la carte et la frise chronologique.',
     address: '<h3>Adresse</h3><p>Rue<br>Ville</p>',
     contact: '<h3>Contact</h3><p>Courriel<br>Téléphone</p>',
     follow: 'Suivez-nous',
@@ -338,6 +342,30 @@ export function buildTemplatePage(doc, template, title, {
       doc.setNodeStyle(explorer, { ...doc.nodeStyle(explorer), height: '80vh' });
       break;
     }
+    case 'storymap': {
+      // the layout of a story map published from Explorer (27q3 review 7, WebsiteEditService::storyMapPage): the story
+      // map and the map in two columns, the timeline below; the story map is chosen after the page is added
+      addPageName(doc, title);
+      if (has('text')) build.text(null, `<p>${escapeHtml(texts.storymap)}</p>`);
+      const row = has('map') ? build.group(null, { ...columns(2, '12px') }) : null;
+      const story = build.element(row, 'storymap');
+      doc.setNodeStyle(story, { ...doc.nodeStyle(story), height: '70vh' });
+      const linked = {};
+      if (has('map')) {
+        const map = build.element(row, 'map');
+        doc.setNodeStyle(map, { ...doc.nodeStyle(map), height: '70vh' });
+        linked.map = build.instanceOf(map);
+      }
+      if (has('timeline')) {
+        const timeline = build.element(null, 'timeline');
+        doc.setNodeStyle(timeline, { ...doc.nodeStyle(timeline), height: '30vh' });
+        linked.timeline = build.instanceOf(timeline);
+      }
+      // the Map / Timeline elements get the website defaults when the page is added (CmsDesigner._withWebsiteDefaults)
+      doc.setInstance(build.instanceOf(story), { settings: linked });
+      configure.push(story);
+      break;
+    }
     case 'contact': {
       // the content centred, not wider than 1024 px (review 2026-11-15)
       doc.setPageStyle({ ...doc.pageStyle(), 'max-width': '1024px', margin: '0 auto' });
@@ -448,11 +476,15 @@ class TemplateBuilder {
     return node;
   }
 
+  /** The instance id of a widget or module node. */
+  instanceOf(node) {
+    return this.doc.find(node).node.attrs.find(([name]) => name === 'data-h-instance')[1];
+  }
+
   /** A widget with its settings. */
   widget(parent, element, settings) {
     const node = this.element(parent, element);
-    const instanceId = this.doc.find(node).node.attrs.find(([name]) => name === 'data-h-instance')[1];
-    this.doc.setInstance(instanceId, { settings });
+    this.doc.setInstance(this.instanceOf(node), { settings });
     return node;
   }
 

@@ -16,6 +16,7 @@
  */
 
 import { TOOL_TYPES, UNUSED_REGION, WEBSITE_TOOL_TYPES } from './ExplorerUiConfig.js';
+import { publishedModuleSettings } from '#shared/site/cmsModuleSettings.js';
 
 /** Presentation of the filter list in HFilter. */
 export const FILTER_MODES = ['buttons', 'list', 'select'];
@@ -45,21 +46,8 @@ export function publishedUiConfig(value = {}) {
   };
 }
 
-/**
- * Settings of a module on a published page: no Help, Options and Publish buttons (the
- * persisted settings envelope of every module, plan 29: `options.ui`).
- *
- * @param {object} [settings] Module settings.
- * @returns {object}
- */
-export function publishedModuleSettings(settings = {}) {
-  const value = settings && typeof settings === 'object' ? settings : {};
-  const options = value.options && typeof value.options === 'object' ? value.options : {};
-  return {
-    ...value,
-    options: { ...options, ui: { ...(options.ui || {}), showHelp: false, showOptions: false, showPublish: false } }
-  };
-}
+/** Settings of a module on a published page: no Help, Options and Publish buttons (shared with the website runtime). */
+export { publishedModuleSettings };
 
 /**
  * The HFilter settings of a page (`settings.filter`), normalized. Items are references (the

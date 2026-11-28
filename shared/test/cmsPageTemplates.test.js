@@ -190,6 +190,24 @@ test('discover and publications: Explorer of 80vh; the generated report opens af
   assert.equal(publications.configure.length, 1);
 });
 
+test('story map (27q3 §17): story map and map in two columns, the timeline below, linked; the story map opens after Add page', () => {
+  const { page, config } = built('storymap', 'Story map');
+  const instances = Object.entries(config.instances);
+  const [storyId, story] = instances.find(([, item]) => item.type === 'storymap');
+  const mapId = instances.find(([, item]) => item.type === 'map')[0];
+  const timelineId = instances.find(([, item]) => item.type === 'timeline')[0];
+  assert.equal(story.kind, 'widget');
+  assert.deepEqual(story.settings, { map: mapId, timeline: timelineId });
+  assert.ok(styles(config).some((style) => style['grid-template-columns'] === 'repeat(2, minmax(0, 1fr))'));
+  assert.equal(styles(config).filter((style) => style.height === '70vh').length, 2);
+  assert.ok(styles(config).some((style) => style.height === '30vh'));
+  assert.ok(page.content.indexOf(`"${storyId}"`) < page.content.indexOf(`"${mapId}"`), 'story map first');
+  assert.equal(page.configure.length, 1);
+  const alone = built('storymap', 'Story map', { values: { elements: [] } });
+  assert.deepEqual(Object.values(alone.config.instances).map((item) => item.type), ['storymap']);
+  assert.deepEqual(Object.values(alone.config.instances)[0].settings, {});
+});
+
 test('banners: the list is the folder; random order without repeats; asset names pass the check', async () => {
   const folder = path.resolve('apps/website/public/assets/cms/banners');
   const files = (await readdir(folder)).filter((name) => /\.(?:png|jpe?g)$/.test(name)).sort();

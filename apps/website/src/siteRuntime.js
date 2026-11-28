@@ -41,6 +41,7 @@ import { PageSync, instanceLinks } from './PageSync.js';
 import { normalizeDataSource } from '#shared/data/DataSource.js';
 import { cmsInstanceDataSource } from '#shared/site/cmsDocument.js';
 import { CMS_RECORDS_MODULES } from '#shared/site/cmsRecords.js';
+import { publishedModuleSettings } from '#shared/site/cmsModuleSettings.js';
 
 /**
  * The direct entries of the modules, loaded only when a page has the module
@@ -711,7 +712,7 @@ export function applyInstanceSettings(api, before, after) {
     return true;
   }
   if (typeof api.setConfiguration !== 'function') return false;
-  void api.setConfiguration(after.settings || {});
+  void api.setConfiguration(publishedModuleSettings(after.settings));
   return true;
 }
 
@@ -927,9 +928,11 @@ export async function mountInstance(host, id, config, loaders) {
     const { state, request: start } = await moduleStart(instance, config);
     // the requests of the module report to the page (Stop, plan 27l §4); Explorer has its own monitor and Stop
     const sync = instance.type === 'explorer' ? null : pageSyncOf(config);
+    // no Help, Options and Publish buttons for a visitor (2026-11-28); Explorer applies it to its own modules
+    const settings = instance.type === 'explorer' ? instance.settings || {} : publishedModuleSettings(instance.settings);
     const api = await mount({
       container,
-      bootstrap: { runtime: { ...(config.runtime || {}) }, settings: instance.settings || {}, state },
+      bootstrap: { runtime: { ...(config.runtime || {}) }, settings, state },
       bridge: sync ? sync.bridge() : null,
       assetBaseUrl: config.runtime?.moduleBaseUrl ? `${config.runtime.moduleBaseUrl}heurist-${instance.type}/` : null
     });

@@ -65,7 +65,8 @@ test('hosts: menu, modules, iframe, missing configuration and problems', async (
   assert.equal(calls.length, 1);
   assert.equal(calls[0].container.parentElement, root.children[1], 'the module renders into an element of the host');
   assert.ok(calls[0].container.classList.contains('h-site-module-root'));
-  assert.deepEqual(calls[0].bootstrap.settings, { a: 1 });
+  // no Help, Options and Publish buttons for a visitor (2026-11-28)
+  assert.deepEqual(calls[0].bootstrap.settings, { a: 1, options: { ui: { showHelp: false, showOptions: false, showPublish: false } } });
   assert.deepEqual(calls[0].bootstrap.state, { query: 't:1' });
   assert.equal(calls[0].bootstrap.runtime.language, 'fre');
   assert.equal(calls[0].assetBaseUrl, 'https://h/hclient/bundles/heurist-data/');
@@ -243,7 +244,8 @@ test('designer: new settings of a mounted module without mounting it again (revi
   const api = { setConfiguration: (value) => calls.push(['set', value]), setModuleSettings: (type, value) => calls.push([type, value]) };
   const map = (settings) => ({ kind: 'module', type: 'map', settings });
   assert.equal(applyInstanceSettings(api, map({ a: 1 }), map({ a: 2 })), true);
-  assert.deepEqual(calls.pop(), ['set', { a: 2 }]);
+  // no Help, Options and Publish buttons for a visitor (2026-11-28)
+  assert.deepEqual(calls.pop(), ['set', { a: 2, options: { ui: { showHelp: false, showOptions: false, showPublish: false } } }]);
   assert.equal(applyInstanceSettings(api, map({ a: 1 }), { ...map({ a: 2 }), state: { x: 1 } }), false, 'a new state: mounted again');
   assert.equal(applyInstanceSettings(null, map({}), map({ a: 1 })), false);
   const explorer = (modules, layout = [{ id: 'map', type: 'map', region: 'center', settings: modules.map }]) =>

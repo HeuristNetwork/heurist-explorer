@@ -30,7 +30,7 @@ import { createWebsiteFieldsForm, PAGE_FIELD_KEYS } from '../manager/websiteFiel
 const ELEMENT_LABELS = Object.freeze({
   title: 'Title', subtitle: 'Subtitle', logo: 'Logo', text: 'Introduction', enter: 'Enter button', background: 'Background',
   banner: 'Banner', image: 'Image (logo)', slideshow: 'Slideshow', buttons: 'Buttons', features: 'Features', news: 'News',
-  address: 'Address', contact: 'Contact', email: 'Email form', follow: 'Follow us',
+  map: 'Map', timeline: 'Timeline', address: 'Address', contact: 'Contact', email: 'Email form', follow: 'Follow us',
   origins: 'Origins of the project / history', description: 'Description of the project', aims: 'Aims and methodology',
   sources: 'Sources of data', acknowledgements: 'Acknowledgements', heurist: 'Heurist'
 });
