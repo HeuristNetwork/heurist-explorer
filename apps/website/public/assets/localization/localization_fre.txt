@@ -892,3 +892,7 @@
 #hide without records#masquer sans enregistrements
 #Record types by their groups#Types d'enregistrement par groupe
 #Record types without records are not offered (the chosen ones stay)#Les types d'enregistrement sans enregistrements ne sont pas proposés (ceux choisis restent)
+#Style and layout of the whole website#Style et mise en page de tout le site
+#Edit website record#Modifier l'enregistrement du site
+#Edit page record#Modifier l'enregistrement de la page
+#Help#Aide

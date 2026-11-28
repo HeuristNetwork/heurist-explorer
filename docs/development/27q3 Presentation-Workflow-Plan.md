@@ -13,7 +13,7 @@ in Explorer's timeline, timeline French and locale, Website manager editor, topi
 (§14)**; **review 7 (Publish and the CMS use separate Map / Timeline elements, editors above the CMS editor, Show for
 All <type>) implemented 2026-11-27 (§15)**; **review 8 (page language, one topic picker, panel titles, story map
 selection on pages) implemented 2026-11-27 (§16)**; **review 9 (no Help / Options / Publish on published pages, page
-template Story map, Close and clear keeps the pane collapsed, one record type selector, story elements from the topic type) implemented 2026-11-28 (§17)**, not committed, no browser check. Extends the topic note
+template Story map, Close and clear keeps the pane collapsed, one record type selector, story elements from the topic type, CMS editor toolbar) implemented 2026-11-28 (§17)**, not committed, no browser check. Extends the topic note
 `presentation-sources.md`.
 
 ## 1. Goal
@@ -741,3 +741,10 @@ Decisions: **the language of a published page is stored with the page** (2a, opt
    RecordEditorHost, third argument `{recordTypes}`): it is listed first, and without a rule the dialog opens with one
    rule at once whose starting record type is the topic type (`HRuleBuilder.open({recordTypes, newRule: true})`). A rule
    there already is kept as it is; other rule editors (Query sources) are unchanged. Test: `hRuleBuilderRender.test.js`.
+6. **CMS editor toolbar in the common toolbar layout** (Artem 2026-11-28): the toolbar of the west pane has the buttons
+   of the other editors (`presentationButton`: h-btn, 30px, icon and label): **Styles** (fa-gear, primary; tip *Style
+   and layout of the whole website*; was fa-palette after Properties) | **Pen** (fa-pen, icon only; tip *Edit website
+   record*, on the Page tab *Edit page record*; was Properties fa-gear) | **Check** | **Open** ‖ **Help** (icon only) |
+   **Close** (fa-xmark, was fa-door-open), Help and Close right aligned. Collapsible: the bar is a container; below
+   420px the labels of Check, Open and Close are hidden, below 300px also the label of Styles (it collapses last)
+   (designer.css). Test: `cmsDesigner.test.js` (order, icons, primary, icon-only buttons).

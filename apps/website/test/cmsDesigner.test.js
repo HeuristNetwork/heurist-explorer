@@ -553,6 +553,15 @@ test('designer: west pane with the tabs Site | Page, the preview alone in the ce
   // second row: language and page width as selects
   assert.equal(container.querySelector('.h-cms-view-bar').querySelectorAll('select').length, 2);
   assert.equal(container.querySelector('.h-cms-toolbar').querySelectorAll('select').length, 0, 'no language selector in the toolbar');
+  // the common toolbar layout (27q3 §17.6): Styles (primary, its label collapses last) | Pen | Check | Open ‖ Help | Close
+  const toolbarButtons = container.querySelector('.h-cms-toolbar').querySelectorAll('button');
+  assert.deepEqual(toolbarButtons.map((item) => item.querySelector('i').className.replace('fa-solid ', '')),
+    ['fa-gear', 'fa-pen', 'fa-list-check', 'fa-up-right-from-square', 'fa-circle-question', 'fa-xmark']);
+  assert.ok(toolbarButtons[0].classList.contains('h-btn-primary'));
+  assert.ok(toolbarButtons[0].querySelector('.h-presentation-btn-label').classList.contains('h-cms-label-last'));
+  assert.equal(toolbarButtons[1].querySelector('.h-presentation-btn-label'), null, 'Pen: icon only');
+  assert.equal(toolbarButtons[4].querySelector('.h-presentation-btn-label'), null, 'Help: icon only');
+  assert.equal(toolbarButtons[1].title, 'Edit website record');
 
   await designer._selectSiteItem('page:12');
   assert.equal(designer._siteTabActive(), false, 'a page opens on the Page tab');

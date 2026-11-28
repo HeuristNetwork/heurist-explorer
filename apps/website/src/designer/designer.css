@@ -63,8 +63,38 @@
   border-bottom: 1px solid var(--h-color-border);
 }
 
+/* the toolbar above the tabs in the common toolbar layout (27q3 §17.6): the buttons of the other editors (h-btn, 30px),
+   Help and Close right aligned; the labels collapse in a narrow pane, Check / Open / Close first, Styles last */
 .h-cms-toolbar {
+  container-type: inline-size;
+  gap: 4px var(--h-gap, 6px);
+  padding: 6px 8px;
   background: var(--h-color-surface, #f7f7f7);
+}
+
+.h-cms-toolbar-end {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 4px var(--h-gap, 6px);
+  margin-left: auto;
+}
+
+/* the labels follow the width of this bar, not the 640px of the presentation toolbars */
+.h-cms-toolbar .h-presentation-btn-label {
+  display: inline;
+}
+
+@container (max-width: 419px) {
+  .h-cms-toolbar .h-presentation-btn-label:not(.h-cms-label-last) {
+    display: none;
+  }
+}
+
+@container (max-width: 299px) {
+  .h-cms-toolbar .h-cms-label-last {
+    display: none;
+  }
 }
 
 /* a hidden button (Layout outside the header and footer): .h-btn sets its display */

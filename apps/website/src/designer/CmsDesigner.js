@@ -27,6 +27,7 @@ import { HCardinalLayout } from '#shared/widgets/layout/HCardinalLayout.js';
 import { HTree } from '#shared/widgets/tree/HTree.js';
 import { normalizeStoryMapSettings, storyTopicType } from '#shared/widgets/storymap/storyMapModel.js';
 import { createTabSet } from '#shared/widgets/layout/tabs.js';
+import { presentationButton } from '#shared/widgets/presentation/presentationShell.js';
 import { CMS_CONTROLS, CMS_ELEMENTS, CMS_PAGE_PRESETS, CMS_TEAM_TEMPLATE, cmsPageStarter, typeNameOf } from '#shared/site/cmsEdit.js';
 import { CMS_NAME } from '#shared/site/cmsDocument.js';
 import { buildTemplatePage, CMS_TEMPLATE_ELEMENTS } from '#shared/site/cmsPageTemplates.js';
@@ -596,21 +597,32 @@ export class CmsDesigner {
     this._manual.open(this._siteTabActive() ? 'site' : 'page');
   }
 
-  /** Toolbar above the tabs: Properties, Styles, Check, Open, Help, Close. */
+  /**
+   * Toolbar above the tabs in the common toolbar layout (27q3 §17.6): Styles (primary) | Pen | Check | Open ‖ Help |
+   * Close, the buttons of the other editors (h-btn, icon and label). In a narrow pane the labels collapse: Check, Open
+   * and Close first, Styles last; Pen and Help are icons only (designer.css).
+   */
   _renderToolbar() {
-    const bar = element('div', 'h-cms-toolbar');
+    const bar = element('div', 'h-toolbar h-cms-toolbar');
+    bar.setAttribute('role', 'toolbar');
     if (!this.readOnly) {
-      this.propertiesButton = barButton('fa-gear', 'Properties', () => this._editRecord(this._propertiesRecord()), 'Properties');
-      bar.append(this.propertiesButton, barButton('fa-palette', 'Styles of the whole website', () => this._styles(), 'Styles'));
+      const styles = presentationButton(bar, { icon: 'fa-gear', label: 'Styles', title: 'Style and layout of the whole website',
+        primary: true, run: () => this._styles() });
+      styles.querySelector('.h-presentation-btn-label')?.classList.add('h-cms-label-last');
+      // the record of the website (Site tab) or of the open page (Page tab)
+      this.propertiesButton = presentationButton(bar, { icon: 'fa-pen', label: 'Edit', title: 'Edit website record', caption: false,
+        run: () => this._editRecord(this._propertiesRecord()) });
     }
-    bar.append(
-      barButton('fa-list-check', 'Check the format of all pages and the records a visitor can not see', () => this._check(), 'Check'),
-      // as Open of the Website manager (2026-11-12)
-      barButton('fa-up-right-from-square', 'Open the website in a new tab (the saved version)', () => this._openSite(), 'Open'),
-      element('span', 'h-cms-toolbar-spacer'),
-      barButton('fa-circle-question', 'Website editor manual', () => this._openManual()),
-      barButton('fa-door-open', 'Close', () => this.close(), 'Close')
-    );
+    presentationButton(bar, { icon: 'fa-list-check', label: 'Check',
+      title: 'Check the format of all pages and the records a visitor can not see', run: () => this._check() });
+    // as Open of the Website manager (2026-11-12)
+    presentationButton(bar, { icon: 'fa-up-right-from-square', label: 'Open',
+      title: 'Open the website in a new tab (the saved version)', run: () => this._openSite() });
+    const end = element('span', 'h-cms-toolbar-end');
+    bar.append(end);
+    presentationButton(end, { icon: 'fa-circle-question', label: 'Help', title: 'Website editor manual', caption: false,
+      run: () => this._openManual() });
+    presentationButton(end, { icon: 'fa-xmark', label: 'Close', title: 'Close', run: () => this.close() });
     return bar;
   }
 
@@ -758,7 +770,7 @@ export class CmsDesigner {
 
   _tabChanged() {
     if (this.propertiesButton) {
-      this.propertiesButton.title = $HR(this._propertiesRecord() === this.site?.id ? 'Website properties' : 'Page properties');
+      this.propertiesButton.title = $HR(this._propertiesRecord() === this.site?.id || !this.site ? 'Edit website record' : 'Edit page record');
     }
     // the panel beside the tabs belongs to the Page tab
     this.westRow?.classList.toggle('h-cms-site-active', this._siteTabActive());
