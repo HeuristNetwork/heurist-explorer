@@ -16,7 +16,7 @@
 import { HBaseWidget } from '../HBaseWidget.js';
 import { createHInput } from '../form/inputs/createHInput.js';
 import { describeQueryParameters, resolveQueryParameters, linkedFacetRequest, parameterOperatorLabel } from '../../data/queryParameters.js';
-import { TermSource, UserGroupSource, TagSource, StaticSource } from '../../data/valueSources/localSources.js';
+import { TermSource, UserGroupSource, TagSource, StaticSource, RectypeSource } from '../../data/valueSources/localSources.js';
 import { FieldValueSource, FacetTermSource, FacetTagSource, RangeBucketSource, RecordTitleSource, fetchFieldRange } from '../../data/valueSources/FieldValueSource.js';
 import './HFilterForm.css';
 
@@ -375,6 +375,12 @@ export class HFilterForm extends HBaseWidget {
         return { type: 'enum', options: { source: new FacetTagSource(tags, counts, { selected }), numeric: true, listThreshold } };
       }
       if (tags.isAvailable()) return { type: 'enum', options: { source: tags, numeric: true, listThreshold } };
+    }
+
+    // a record type (t:N) in a list mode: the shared record type picker (27q3 §17.4), the host may give its own
+    if (parameter.predicate === 't' && LIST_MODES.has(config.mode) && this.options.dbdefs) {
+      const source = custom || new RectypeSource(this.options.dbdefs, { hideEmpty: true });
+      return { type: 'enum', options: { source, numeric: true, listThreshold } };
     }
 
     // a term's code (f:N:code) picked from the codes of the field's vocabulary

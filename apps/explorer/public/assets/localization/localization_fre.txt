@@ -1777,3 +1777,7 @@
 #Show the elements of the story on a timeline? A Timeline element will be added to the page.#Afficher les éléments de l’histoire sur une frise chronologique ? Un élément Frise chronologique sera ajouté à la page.
 #The Map element of the page that shows the current element#L’élément Carte de la page qui montre l’élément courant
 #The Timeline element of the page that shows the elements of the story#L’élément Frise chronologique de la page qui montre les éléments de l’histoire
+#grouped#groupés
+#hide without records#masquer sans enregistrements
+#Record types by their groups#Types d'enregistrement par groupe
+#Record types without records are not offered (the chosen ones stay)#Les types d'enregistrement sans enregistrements ne sont pas proposés (ceux choisis restent)

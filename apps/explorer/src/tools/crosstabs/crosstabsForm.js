@@ -91,12 +91,13 @@ export function defaultBucketMode(fieldType) {
  *
  * @param {object} context
  * @param {{query: number, form?: number}} context.ids Field ids of the query and its filter form (their special editors).
- * @param {Array<{id: number, label: string}>} context.rectypes Record types of *Record type*.
+ * @param {{rectypeIds?: number[]|null, rectypeCounts?: object, rectypeMarks?: object}|null} [context.rectypes] The
+ *        record types of *Record type* (the types of the test records, their counts, marks); null: every type.
  * @param {Array<{id: number, label: string}>} context.numericFields Numeric fields of that type (the measure).
  * @param {Object<string, string|null>} [context.fieldTypes] Type of the field of each dimension (its values).
  * @returns {object} heurist-edit-form/1.
  */
-export function crosstabsForm({ ids = {}, rectypes = [], numericFields = [], fieldTypes = {} }) {
+export function crosstabsForm({ ids = {}, rectypes = null, numericFields = [], fieldTypes = {} }) {
   const dimension = (name) => ({
     id: name, type: 'accordion', label: DIMENSION_LABELS[name], open: name === 'rows',
     children: [
@@ -122,8 +123,9 @@ export function crosstabsForm({ ids = {}, rectypes = [], numericFields = [], fie
           { name: String(ids.query || 'query'), type: 'special', special: 'query', label: 'Query', help: HELP.query },
           // the Filter Form of the parameters: set by the query editor, not shown
           { name: String(ids.form || 'filterForm'), type: 'special', special: 'filterForm', label: 'Filter form', hidden: true },
+          // the shared record type picker (27q3 §17.4); the types of the test records with their counts
           { name: 'fieldsOf', type: 'enum', mode: 'select', label: 'Record type', help: HELP.fieldsOf, req: 'required',
-            terms: rectypes.map((item) => ({ id: String(item.id), label: item.label })) }
+            source: 'rectypes', hideEmpty: true, ...(rectypes || {}) }
         ]
       },
       ...CROSSTAB_DIMENSIONS.map(dimension),

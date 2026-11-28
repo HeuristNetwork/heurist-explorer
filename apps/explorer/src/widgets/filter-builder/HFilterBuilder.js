@@ -34,6 +34,8 @@ import { HFilterFormDesigner } from './HFilterFormDesigner.js';
 import { HFilterForm } from '#shared/widgets/filter/HFilterForm.js';
 import { describeQueryParameters, hasQueryParameters, resolveQueryParameters } from '#shared/data/queryParameters.js';
 import { parseTextQuery } from '#shared/data/query/parseTextQuery.js';
+import { createHInput } from '#shared/widgets/form/inputs/createHInput.js';
+import { RectypeSource } from '#shared/data/valueSources/index.js';
 import { str, kindFor, operatorByKey } from '../../utils/vocabHelpers.js';
 import './HFilterBuilder.css';
 
@@ -101,22 +103,18 @@ export class HFilterBuilder extends HBaseWidget {
     // ---- header: record type + language ----
     const header = el('div', 'h-fb-header');
 
-    this._rtySel = document.createElement('select');
-    this._rtySel.className = 'h-select h-fb-rectype';
+    // the shared record type picker (27q3 §17.4: filter, grouped, hide without records)
+    this._rtyHost = el('div', 'h-fb-rectype');
     this._populateRectypes();
-    this._rtySel.addEventListener('change', () => {
-      this.model.rtyId = coerceRty(this._rtySel.value);
-      this._onScopeChanged();
-      this._recompose();
-    });
 
-    header.append(labelled($HR('Record type'), this._rtySel));
+    header.append(labelled($HR('Record type'), this._rtyHost));
     if (this.dbdefs.hasRectypeCounts?.()) {
-      header.append(hideUnusedToggle(this._hideUnused, (on) => {
+      // also the field tree: the switch of the picker and this one are the same setting
+      this._hideToggle = hideUnusedToggle(this._hideUnused, (on) => {
         this._hideUnused = on;
         this._populateRectypes();
-        this._rtySel.value = this.model.rtyId === '' || this.model.rtyId == null ? '' : String(this.model.rtyId);
-      }));
+      });
+      header.append(this._hideToggle);
     }
 
     // Filter Form actions are offered both in the header and below the criteria.
@@ -240,8 +238,6 @@ export class HFilterBuilder extends HBaseWidget {
     this.model.rtyId = value;
     if (this.isRendered) {
       this._populateRectypes();
-      this._rtySel.value = value === '' || value == null ? '' : String(value);
-      this._rtySel.disabled = Boolean(this._fixedRecordTypeId);
       this._onScopeChanged();
       this._recompose();
     }
@@ -496,38 +492,40 @@ export class HFilterBuilder extends HBaseWidget {
   // --------------------------------------------------------------- internal ---
 
   /**
-   * Rebuild the record-type select's options, grouped by rectype group.
+   * (Re)make the record type picker with the type of the model (the shared picker of record types, 27q3 §17.4):
+   * grouped by record type group, the types without records hidden while *hide* is on (the chosen one stays);
+   * disabled while the type is fixed.
    *
    * @private
    * @returns {void}
    */
   _populateRectypes() {
-    this._rtySel.replaceChildren();
-    for (const [val, label] of [['', $HR('any record type')]]) {
-      const o = document.createElement('option');
-      o.value = val; o.textContent = label; this._rtySel.append(o);
-    }
-    const groups = new Map();
-    const current = String(this.model.rtyId ?? '');
-    for (const rt of this.dbdefs.rectypes()) {
-      // the selected type stays listed even when it has no records
-      if (this._hideUnused && String(rt.id) !== current && this.dbdefs.isRectypeUsed?.(rt.id) === false) continue;
-      const gid = rt.group ?? 0;
-      if (!groups.has(gid)) groups.set(gid, []);
-      groups.get(gid).push(rt);
-    }
-    const groupMeta = new Map((this.dbdefs.rectypeGroups?.() || []).map((g) => [g.id, g]));
-    for (const [gid, list] of groups) {
-      const og = document.createElement('optgroup');
-      og.label = groupMeta.get(gid)?.name || $HR('Other');
-      for (const rt of list) {
-        const o = document.createElement('option');
-        o.value = String(rt.id);
-        o.textContent = rt.name;
-        og.append(o);
+    if (!this._rtyHost) return;
+    void this._rtyInput?.destroy?.();
+    this._rtyHost.replaceChildren();
+    // each picker its own host: the async destroy of the old one must not clear the new one
+    const host = el('div', 'h-fb-rectype-picker');
+    this._rtyHost.append(host);
+    const value = this.model.rtyId === '' || this.model.rtyId == null ? null : Number(this.model.rtyId);
+    const source = new RectypeSource(this.dbdefs, {
+      hideEmpty: this._hideUnused,
+      // the switch of the picker is the setting of the builder (and of the field tree)
+      onToggle: (id, on) => {
+        if (id !== 'hideEmpty') return;
+        this._hideUnused = on;
+        const box = this._hideToggle?.querySelector('input');
+        if (box) box.checked = on;
       }
-      this._rtySel.append(og);
-    }
+    });
+    this._rtyInput = createHInput('enum', host, {
+      suppressLabel: true, source, value, multiple: false, emptyLabel: $HR('any record type')
+    });
+    this._rtyInput.setReadOnly?.(Boolean(this._fixedRecordTypeId));
+    host.addEventListener('h-input-change', () => {
+      this.model.rtyId = coerceRty(this._rtyInput.getValue() ?? '');
+      this._onScopeChanged();
+      this._recompose();
+    });
   }
 
   /**
@@ -538,8 +536,6 @@ export class HFilterBuilder extends HBaseWidget {
    */
   _syncFromModel() {
     this._populateRectypes();
-    this._rtySel.value = this.model.rtyId === '' || this.model.rtyId == null ? '' : String(this.model.rtyId);
-    this._rtySel.disabled = Boolean(this._fixedRecordTypeId);
     this._conjSel.value = this.model.conjunction === 'any' ? 'any' : 'all';
 
     for (const entry of this._entries) {
@@ -924,6 +920,8 @@ export class HFilterBuilder extends HBaseWidget {
    * @returns {Promise<void>}
    */
   async destroy() {
+    await this._rtyInput?.destroy?.();
+    this._rtyInput = null;
     this.tree?.destroy();
     for (const entry of this._entries) { entry.item?.destroy?.(); entry.panel?.destroy?.(); }
     for (const s of this._sorts) s.destroy?.();

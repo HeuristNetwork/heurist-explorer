@@ -22,6 +22,7 @@
 import '@fortawesome/fontawesome-free/css/brands.min.css';
 import { $HR } from '#shared/ui';
 import { createHInput } from '#shared/widgets/form/inputs/createHInput.js';
+import { RectypeSource, StaticSource } from '#shared/data/valueSources/index.js';
 import { HInputColor } from '#shared/widgets/form/inputs/HInputColor.js';
 import { ITEM_COLORS, MENU_COLOR, MENU_EXPAND_ICON, MENU_LINE_WIDTHS, faIcon, menuLook } from '#shared/site/cmsMenu.js';
 import { formDialog } from './designerDialogs.js';
@@ -377,8 +378,16 @@ export function openActionMenuForm({ settings = {}, pages = [], recordTypes = []
     const url = element('input', 'h-input h-compact');
     url.type = 'text';
     url.placeholder = 'https://';
-    const type = element('select', 'h-select h-compact');
-    type.append(...recordTypes.map((entry) => option(String(entry.id), entry.name)));
+    // Add record: the shared record type picker (27q3 §17.4) of the record types given; without the definitions a list
+    const type = element('span', 'h-cms-action-rectype');
+    const typeIds = recordTypes.map((entry) => Number(entry.id));
+    const typeInput = createHInput('enum', type, {
+      suppressLabel: true, multiple: false, emptyLabel: $HR('Select record type…'),
+      source: services.dbdefs ? new RectypeSource(services.dbdefs, { ids: typeIds })
+        : new StaticSource(recordTypes.map((entry) => ({ value: Number(entry.id), label: entry.name }))),
+      value: item.action === 'addRecord' && Number(item.target) > 0 ? Number(item.target) : null
+    });
+    type.addEventListener('h-input-change', () => formChanged(form));
     // Record page: the page and the record (plan 27g §6)
     const recordPage = recordPagePicker(services, item.action === 'recordPage' ? Number(item.target) || null : null);
     const record = recordInput(services, item.action === 'recordPage' ? Number(item.record) || 0 : 0);
@@ -402,8 +411,7 @@ export function openActionMenuForm({ settings = {}, pages = [], recordTypes = []
     }
     if (item.action === 'toggle') toggleTarget.value = String(item.target || '');
     if (item.action === 'url') url.value = item.target || '';
-    else if (item.action === 'addRecord') type.value = String(item.target || '');
-    else if (!['recordPage', 'savedFilter', 'search', 'toggle'].includes(item.action) && item.target) page.value = String(item.target);
+    else if (!['addRecord', 'recordPage', 'savedFilter', 'search', 'toggle'].includes(item.action) && item.target) page.value = String(item.target);
     const showTarget = () => {
       target.replaceChildren(...({ page: [page], url: [url], addRecord: [type],
         recordPage: [single ? recordTarget : recordPage.element], back: [],
@@ -469,6 +477,7 @@ export function openActionMenuForm({ settings = {}, pages = [], recordTypes = []
       destroy: () => {
         record.destroy();
         caption?.destroy?.();
+        void typeInput.destroy?.();
       },
       read: () => {
         pageLabel();
@@ -483,7 +492,7 @@ export function openActionMenuForm({ settings = {}, pages = [], recordTypes = []
         else if (action.value === 'recordPage') {
           value.target = Number(recordPage.select.value) || 0;
           value.record = record.value();
-        } else if (action.value === 'addRecord') value.target = Number(type.value) || type.value;
+        } else if (action.value === 'addRecord') value.target = Number(typeInput.getValue()) || 0;
         else if (action.value === 'toggle') value.target = toggleTarget.value;
         else if (action.value === 'savedFilter' && filter.value()) {
           const chosen = filter.value();

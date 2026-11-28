@@ -166,12 +166,13 @@ test('View: Own map toggles between the own map and Explorer\'s Map module', asy
 
 test('form: the story topic record type is required, the query is not; the type is kept', () => {
   const ids = { query: 2, rules: 3, mapDocument: 7 };
-  const form = storyMapForm({ ids, rectypes: [{ id: 10, name: 'Person' }] });
+  const form = storyMapForm({ ids });
   const fields = form.groups[0].children;
   const type = fields.find((field) => field.name === 'topicType');
   const query = fields.find((field) => field.name === '2');
   assert.equal(type.req, 'required');
-  assert.deepEqual(type.terms, [{ id: '10', label: 'Person' }]);
+  // the shared record type picker (27q3 §17.4)
+  assert.equal(type.source, 'rectypes');
   assert.equal(query.req, undefined);
   const settings = normalizeStoryMapSettings({ story: { topicType: 10 } });
   const values = formValues({ title: 'A', query: '', settings }, ids);

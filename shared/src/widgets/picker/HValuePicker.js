@@ -3,7 +3,8 @@
  * @brief Filterable value list: a replacement for `<select>` over long or
  *        uncertain option lists (plan §4.2).
  *
- * Layout: a sticky filter row (filter icon | input | clear) above the list. An item may have `marks` (small labels
+ * Layout: a sticky filter row (filter icon | input | clear) above the list; the switches of a source (`toggles()`,
+ * record types: grouped, hide without records) on a line below the input. An item may have `marks` (small labels
  * after it), `disabled` (shown, not pickable) and `title` (the tooltip of its row).
  * The filter row appears when the list is incomplete or longer than
  * `filterThreshold`. Values come from a value source (`load()` contract); a
@@ -108,6 +109,9 @@ export class HValuePicker extends HBaseWidget {
     this.clearButton.setAttribute('aria-label', $HR('Clear filter'));
     this.clearButton.hidden = true;
     this.filterRow.append(icon, this.input, this.clearButton, ...this._renderActions());
+    // the switches: a line of their own in the (sticky) filter row
+    this.toggleRow = this._renderToggles();
+    if (this.toggleRow) this.filterRow.append(this.toggleRow);
 
     this.list = document.createElement('ul');
     this.list.id = `${id}-list`;
@@ -163,6 +167,43 @@ export class HValuePicker extends HBaseWidget {
     });
   }
 
+  /**
+   * The switches of the source below the filter row (`source.toggles()`, e.g. record types: grouped, hide without
+   * records; 27q3 §17.4): a change goes to `source.setToggle(id, checked)` and the list is loaded again. Null when the
+   * source has none (or in controlled mode).
+   *
+   * @returns {HTMLElement|null}
+   */
+  _renderToggles() {
+    const toggles = this.options.controlled ? [] : (this.source.toggles?.() || []);
+    this.hasToggles = toggles.length > 0;
+    if (!this.hasToggles) return null;
+    const row = document.createElement('div');
+    row.className = 'h-value-picker-toggles';
+    for (const toggle of toggles) {
+      const label = document.createElement('label');
+      label.className = 'h-value-picker-toggle';
+      if (toggle.title) label.title = $HR(toggle.title);
+      const input = document.createElement('input');
+      input.type = 'checkbox';
+      input.className = 'h-checkbox';
+      input.checked = Boolean(toggle.checked);
+      input.dataset.toggle = String(toggle.id);
+      const caption = document.createElement('span');
+      caption.className = 'h-i18n';
+      caption.textContent = $HR(toggle.label);
+      label.append(input, caption);
+      this.listen(input, 'change', () => {
+        this.source.setToggle?.(toggle.id, input.checked);
+        this._loaded = false;
+        void this.load();
+        this.input?.focus();
+      });
+      row.append(label);
+    }
+    return row;
+  }
+
   /** Load values once (first open, V11); later calls reuse them. */
   async open() {
     if (!this._loaded) await this.load();
@@ -194,7 +235,8 @@ export class HValuePicker extends HBaseWidget {
     this._renderList();
     try {
       const text = this._complete && this._loaded ? '' : this._text;
-      const result = await this.source.load({ text, signal: controller.signal });
+      // the chosen values: a source may keep them listed (record types without records, §17.4)
+      const result = await this.source.load({ text, signal: controller.signal, selected: this._values.slice() });
       if (controller.signal.aborted || this.state !== 'rendered') return;
       this._items = Array.isArray(result?.items) ? result.items : [];
       this._total = Number(result?.total) || this._items.length;
@@ -385,8 +427,9 @@ export class HValuePicker extends HBaseWidget {
     if (!this.list) return;
     const visible = this._complete ? filterItems(this._items, this._text) : this._items;
     const threshold = Number(this.options.filterThreshold) || FILTER_ROW_THRESHOLD;
+    // with actions or switches (record types) the filter row is always there
     this.filterRow.hidden = Boolean(this.options.controlled)
-      || !this.actions?.length
+      || !this.actions?.length && !this.hasToggles
         && !(this._loaded && needsFilterRow({ complete: this._complete, total: this._total }, threshold))
         && !this._text;
     const { rows, shown, total } = limitRows(visible, Number(this.options.maxRows) || MAX_RENDERED_ROWS);

@@ -5,7 +5,7 @@ import { installFakeDom } from './helpers/fakeDom.js';
 const document = installFakeDom();
 const { accessFormState, accessHeader, loadRecordAddDefaults, saveRecordAddDefaults } = await import('../src/data/recordAccess.js');
 const { HRecordAccess, ownerChoices } = await import('../src/widgets/record-access/HRecordAccess.js');
-const { recordTypeItems } = await import('../src/widgets/record-access/openRecordAddDialog.js');
+const { recordTypeSource } = await import('../src/widgets/record-access/openRecordAddDialog.js');
 
 /** HDbDefs stand-in: user 2 is a member of group 5, not of group 6; user 3 exists. */
 function dbdefs({ admin = false } = {}) {
@@ -119,7 +119,7 @@ test('HRecordAccess: a pending record shows Public with the note and is saved pe
 });
 
 test('Add record dialog: the allowed types, grouped by record type group', () => {
-  const items = recordTypeItems(dbdefs(), [10, 12, 11]);
+  const items = recordTypeSource(dbdefs(), [10, 12, 11]).items();
   assert.deepEqual(items.map((item) => [item.value, item.groupLabel]), [[10, 'People and places'], [11, 'People and places'], [12, 'Bibliography']]);
 });
 

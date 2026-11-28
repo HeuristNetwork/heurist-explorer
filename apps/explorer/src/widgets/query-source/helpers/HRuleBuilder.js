@@ -58,7 +58,7 @@ export class HRuleBuilder extends HBaseWidget {
     this.recordTypes = [];
     this._rows = [];
     // shared by every row: hide record types without records from the selectors
-    this._prefs = { hideUnused: true };
+    this._prefs = { hideEmpty: true, grouped: true };
   }
 
   setRules(rules) {
@@ -128,10 +128,16 @@ export class HRuleBuilder extends HBaseWidget {
     help.textContent = $HR('Expand the result by following pointers or relationships. Add a step to continue from the records found by the previous step.');
     head.append(help);
     if (this.dbdefs.hasRectypeCounts?.()) {
-      head.append(hideUnusedToggle(this._prefs.hideUnused, (on) => {
-        this._prefs.hideUnused = on;
+      // also the reverse pointers of the field lists; the switch of the record type pickers is the same setting
+      this._hideToggle = hideUnusedToggle(this._prefs.hideEmpty, (on) => {
+        this._prefs.hideEmpty = on;
         for (const row of this._rows) row.refresh();
-      }));
+      });
+      head.append(this._hideToggle);
+      this._prefs.onHideChange = (on) => {
+        const box = this._hideToggle?.querySelector('input');
+        if (box) box.checked = on;
+      };
     }
 
     this._list = document.createElement('div');
@@ -278,7 +284,18 @@ class RuleRow {
 
   /** Whether a record type is offered: used, or already chosen (current or loaded rule value). */
   _offered(id, keep) {
-    return !this.prefs.hideUnused || keep.has(Number(id)) || this.dbdefs.isRectypeUsed?.(id) !== false;
+    return !this.prefs.hideEmpty || keep.has(Number(id)) || this.dbdefs.isRectypeUsed?.(id) !== false;
+  }
+
+  /**
+   * A record type source of this builder (27q3 §17.4): the switches grouped / hide without records are the prefs of
+   * the builder, shared by every picker of its rows (and the header checkbox).
+   */
+  _rectypeSource({ ids = null, priority = [] } = {}) {
+    return new RectypeSource(this.dbdefs, {
+      ids, priority, prefs: this.prefs,
+      onToggle: (id, on) => { if (id === 'hideEmpty') this.prefs.onHideChange?.(on); }
+    });
   }
 
   /** Selected source types; [] = any record type. */
@@ -342,14 +359,11 @@ class RuleRow {
    * every type when the previous target is any record type.
    */
   _renderSource() {
-    const keep = new Set(this._sourceValue);
     const locked = this.parentTypes?.length === 1;
     const ids = this.parentTypes?.length > 1 ? this.parentTypes : null;
     this._sourceWidget = this._picker(this.source, this._sourceWidget, {
-      source: new RectypeSource(this.dbdefs, {
-        ids, priority: this.parentTypes === null ? this.recordTypes : [],
-        filter: ids || locked ? null : (id) => this._offered(id, keep)
-      }),
+      // the shared record type picker (27q3 §17.4): grouped / hide without records, the state of the builder
+      source: this._rectypeSource({ ids, priority: this.parentTypes === null ? this.recordTypes : [] }),
       value: this._sourceValue,
       emptyLabel: $HR(ids ? 'Any of the previous types' : 'Any record type'),
       onChange: () => this._sourceChanged()
@@ -383,12 +397,13 @@ class RuleRow {
     const keep = new Set(current);
     const allTypes = () => this.dbdefs.rectypes().map((rt) => Number(rt.id));
     const fields = this._targetFields?.size ? this._targetFields : this._fields;
-    const targets = linkTargets(item, fields, allTypes).filter((id) => this._offered(id, keep));
-    // a field with a single target type fixes it; a generic traversal keeps "any"
-    this._singleTarget = Boolean(item && !item.generic) && targets.length === 1;
-    this._targetValue = this._singleTarget ? [targets[0]] : current.filter((id) => targets.includes(id));
+    const targets = linkTargets(item, fields, allTypes);
+    // a field with a single target type (with records) fixes it; a generic traversal keeps "any"
+    const offered = targets.filter((id) => this._offered(id, keep));
+    this._singleTarget = Boolean(item && !item.generic) && offered.length === 1;
+    this._targetValue = this._singleTarget ? [offered[0]] : current.filter((id) => targets.includes(id));
     this._targetWidget = this._picker(this.target, this._targetWidget, {
-      source: new RectypeSource(this.dbdefs, { ids: targets }),
+      source: this._rectypeSource({ ids: targets }),
       value: this._targetValue,
       emptyLabel: $HR('Any record type')
     });
@@ -478,7 +493,7 @@ class RuleRow {
     }
     const target = targets[0];
     const builder = new HFilterBuilder({
-      dbdefs: this.dbdefs, vocabulary: queryVocabulary, lang: this.lang, hideUnusedRectypes: this.prefs.hideUnused
+      dbdefs: this.dbdefs, vocabulary: queryVocabulary, lang: this.lang, hideUnusedRectypes: this.prefs.hideEmpty
     });
     const host = document.createElement('div');
     host.className = 'h-rule-filter-builder';

@@ -25,6 +25,8 @@
 
 import { HBaseWidget } from '../HBaseWidget.js';
 import { HFieldTree } from '../field-tree/HFieldTree.js';
+import { HValueCombo } from '../picker/HValueCombo.js';
+import { RectypeSource } from '../../data/valueSources/localSources.js';
 import { HMsg } from '../../ui/HMsg.js';
 import { $HR } from '../../ui/i18n/HResource.js';
 import { fieldPathCode, fieldCodeLabel } from '../../data/fieldPathCodes.js';
@@ -170,6 +172,8 @@ export class HThematicMapEditor extends HBaseWidget {
   /** Remove the inputs and the field tree. */
   async destroy() {
     await this._destroyRangeInputs();
+    await this.scopeCombo?.destroy();
+    this.scopeCombo = null;
     this.fieldTree?.destroy?.();
     this.fieldTree = null;
     await super.destroy();
@@ -350,19 +354,28 @@ export class HThematicMapEditor extends HBaseWidget {
     const panel = this.selectionPanel;
     if (!panel) return;
     const scope = element('div', 'h-thematic-scope');
+    void this.scopeCombo?.destroy();
+    this.scopeCombo = null;
     if (types.length > 1) {
-      const label = element('label', 'h-thematic-scope-label');
+      const label = element('div', 'h-thematic-scope-label');
       label.textContent = $HR('Record types in layer');
-      const select = document.createElement('select');
-      select.className = 'h-select';
-      for (const type of types) select.append(new Option(type.count ? `${type.label} (${type.count})` : type.label, String(type.id)));
-      select.value = String(this.scopeRectype || types[0].id);
-      this.listen(select, 'change', () => {
-        this.scopeRectype = Number(select.value);
-        this.fieldTree?.setRecordType(this.scopeRectype);
-        this._refreshPreviews();
-      });
-      label.append(select);
+      // the shared record type picker (27q3 §17.4): the types of the layer with their counts
+      const host = element('div', 'h-thematic-scope-picker');
+      this.scopeCombo = new HValueCombo().attach(host, {
+        source: new RectypeSource(this.options.dbdefs, {
+          ids: types.map((type) => Number(type.id)),
+          counts: Object.fromEntries(types.filter((type) => type.count).map((type) => [String(type.id), type.count]))
+        }),
+        multiple: false,
+        value: Number(this.scopeRectype || types[0].id),
+        onChange: (value) => {
+          if (!(Number(value) > 0)) return;
+          this.scopeRectype = Number(value);
+          this.fieldTree?.setRecordType(this.scopeRectype);
+          this._refreshPreviews();
+        }
+      }).render();
+      label.append(host);
       scope.append(label);
     } else if (types.length === 1) {
       scope.textContent = `${$HR('Layer record type')}: ${types[0].label}`;

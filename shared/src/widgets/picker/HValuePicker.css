@@ -26,6 +26,27 @@
   display: none;
 }
 
+/* switches of the source (record types: grouped, hide without records; 27q3 §17.4): a line below the input */
+.h-value-picker-filter:has(.h-value-picker-toggles) {
+  flex-wrap: wrap;
+}
+
+.h-value-picker-toggles {
+  flex: 1 0 100%;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px 12px;
+  font-size: var(--h-font-size-small);
+}
+
+.h-value-picker-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
 .h-value-picker-filter-icon {
   color: var(--h-color-icon);
 }

@@ -1082,11 +1082,10 @@ export class StoryMapTool extends HBaseWidget {
     this._formType = this._elementType();
     this.form = new HEditForm().attach(this.formHost, {
       ...services,
-      form: storyMapForm({
-        ids, templates: this.templates, dateFields: this._dateFields(this._formType),
-        rectypes: (this.dbdefs?.rectypes?.() || []).slice().sort((x, y) => String(x.name).localeCompare(String(y.name)))
-      }),
+      form: storyMapForm({ ids, templates: this.templates, dateFields: this._dateFields(this._formType) }),
       values: formValues(this.values, ids),
+      // the record type pickers read the definitions of the form
+      dbdefs: services.dbdefs || this.dbdefs,
       keepHidden: true,
       labelPos: 'above',
       showOptional: formSwitchState().optional,

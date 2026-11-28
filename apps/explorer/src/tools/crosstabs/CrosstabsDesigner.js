@@ -461,9 +461,11 @@ export class CrosstabsDesigner extends HBaseWidget {
     this.form = new HEditForm().attach(this.formHost, {
       ...services,
       form: crosstabsForm({
-        ids, rectypes: this._rectypeTerms(this.rectypes), numericFields: this._numericFields(this.values.settings.fields.rectype), fieldTypes
+        ids, rectypes: this._rectypeChoice(this.rectypes), numericFields: this._numericFields(this.values.settings.fields.rectype), fieldTypes
       }),
       values: formValues(this.values, ids),
+      // the record type picker reads the definitions of the form
+      dbdefs: services.dbdefs || this.dbdefs,
       keepHidden: true,
       labelPos: 'above',
       showOptional: formSwitchState().optional,
@@ -542,20 +544,24 @@ export class CrosstabsDesigner extends HBaseWidget {
     }
     if (serial !== this._rectypeSerial || !this.form) return;
     this.rectypes = types;
-    await this.form.updateField('fieldsOf', { terms: this._rectypeTerms(types) });
+    await this.form.updateField('fieldsOf', this._rectypeChoice(types));
   }
 
-  /** @private Terms of *Record type*: those of the test records "Name (count)", the chosen one kept. */
-  _rectypeTerms(types) {
-    const all = (this.dbdefs?.rectypes?.() || []).map((type) => ({ id: String(type.id), label: type.name }));
-    if (!Array.isArray(types)) return all;
-    const terms = types.map((type) => ({ id: String(type.id), label: `${type.name} (${type.count.toLocaleString()})` }));
-    const chosen = String(this.form ? [this.form.getValue('fieldsOf')].flat()[0] ?? '' : this.values.settings.fields.rectype ?? '');
-    if (chosen && !terms.some((term) => term.id === chosen)) {
-      const name = this.dbdefs?.rectypeName?.(Number(chosen)) || `#${chosen}`;
-      terms.push({ id: chosen, label: `${name} (${$HR('not in the test records')})` });
+  /**
+   * @private The record types of *Record type* (the shared picker, 27q3 §17.4): those of the test records with their
+   * counts, the chosen one kept (marked "not in the test records"); without test records every type.
+   */
+  _rectypeChoice(types) {
+    if (!Array.isArray(types)) return { rectypeIds: null, rectypeCounts: null, rectypeMarks: null };
+    const ids = types.map((type) => Number(type.id));
+    const counts = Object.fromEntries(types.map((type) => [String(type.id), type.count]));
+    const chosen = Number(this.form ? [this.form.getValue('fieldsOf')].flat()[0] ?? 0 : this.values.settings.fields.rectype ?? 0) || 0;
+    const marks = {};
+    if (chosen && !ids.includes(chosen)) {
+      ids.push(chosen);
+      marks[String(chosen)] = ['not in the test records'];
     }
-    return terms;
+    return { rectypeIds: ids, rectypeCounts: counts, rectypeMarks: marks };
   }
 
   /** @private Numeric fields of a record type (the measure). */

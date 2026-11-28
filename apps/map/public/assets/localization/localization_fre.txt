@@ -369,3 +369,7 @@
 #Configuration#Configuration
 #None: all map documents#Aucun : tous les documents cartographiques
 #None: all base maps#Aucun : tous les fonds de carte
+#grouped#groupés
+#hide without records#masquer sans enregistrements
+#Record types by their groups#Types d'enregistrement par groupe
+#Record types without records are not offered (the chosen ones stay)#Les types d'enregistrement sans enregistrements ne sont pas proposés (ceux choisis restent)

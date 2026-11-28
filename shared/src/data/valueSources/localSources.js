@@ -22,17 +22,21 @@ import { sortItems } from './valueList.js';
 
 /** Base for sources whose whole list is known locally. */
 class LocalSource {
-  /** @returns {Array<object>} Every item, in display order. */
-  items() {
+  /**
+   * @param {{selected?: Array<*>}} [options] The values chosen now (a source may keep them listed).
+   * @returns {Array<object>} Every item, in display order.
+   */
+  items(options = {}) {
     return [];
   }
 
   /**
+   * @param {{selected?: Array<*>}} [options] `selected`: the values of the picker.
    * @returns {Promise<{items: Array<object>, total: number, complete: boolean}>}
    *          The complete list; text filtering is left to the picker.
    */
-  async load() {
-    const items = this.items();
+  async load({ selected = [] } = {}) {
+    const items = this.items({ selected });
     return { items, total: items.length, complete: true };
   }
 
@@ -117,35 +121,111 @@ export class TermSource extends LocalSource {
  * Record types from HDbDefs: the `priority` types first ("Current data source"),
  * then every record-type group in display order, alphabetical within a group.
  * Values are record-type IDs.
+ *
+ * The picker of every record type selector has the same header (27q3 §17.4,
+ * 2026-11-28): the filter input and the switches `[ ] grouped` (by record type
+ * group, else one alphabetical list) and `[ ] hide without records` (only when
+ * the record counts are known, `dbdefs.hasRectypeCounts()`; the chosen types
+ * stay listed). The source offers them as `toggles()`; HValuePicker shows them.
  */
 export class RectypeSource extends LocalSource {
   /**
-   * @param {object} dbdefs HDbDefs (`rectypes`, `rectypeGroups`, `rectypeName`).
+   * @param {object} dbdefs HDbDefs (`rectypes`, `rectypeGroups`, `rectypeName`, `isRectypeUsed`).
    * @param {object} [options]
    * @param {number[]|null} [options.ids] Offer only these types (default: all).
    * @param {number[]} [options.priority] Types listed first.
-   * @param {Function} [options.filter] `(id) => boolean`, e.g. hide types without records.
+   * @param {Function} [options.filter] `(id) => boolean`: types left out always.
+   * @param {Object<string, number>|Map} [options.counts] Count of each type (shown after its name), e.g. of the
+   *        test records.
+   * @param {Object<string, string[]>|Map} [options.marks] Marks of a type (small labels after its name).
+   * @param {boolean} [options.grouped=true] First state of *grouped*.
+   * @param {boolean} [options.hideEmpty=false] First state of *hide without records*.
+   * @param {{grouped?: boolean, hideEmpty?: boolean}} [options.prefs] The state kept by the host instead (shared by
+   *        its selectors, e.g. all rows of the expansion rules): read and written here.
+   * @param {Function} [options.onToggle] `(id, checked)`: a switch of the header changed (`grouped`, `hideEmpty`).
    */
-  constructor(dbdefs, { ids = null, priority = [], filter = null } = {}) {
+  constructor(dbdefs, { ids = null, priority = [], filter = null, counts = null, marks = null, grouped = true,
+    hideEmpty = false, prefs = null, onToggle = null } = {}) {
     super();
     this.dbdefs = dbdefs;
     this.ids = ids ? new Set(ids.map(Number)) : null;
     this.priority = priority.map(Number);
     this.filter = filter;
+    this.counts = toMap(counts);
+    this.marks = toMap(marks);
+    this.prefs = prefs || { grouped: grouped !== false, hideEmpty: hideEmpty === true };
+    this.onToggle = onToggle;
   }
 
-  /** @returns {Array<object>} Record-type items with `group` / `groupLabel`. */
-  items() {
-    const types = (this.dbdefs?.rectypes?.() || []).filter((rt) => (!this.ids || this.ids.has(Number(rt.id)))
-      && (!this.filter || this.filter(Number(rt.id))));
-    const item = (rt, group, groupLabel) => ({ value: Number(rt.id), label: rt.name || String(rt.id), group, groupLabel });
+  /** @returns {boolean} Whether the types are listed by their groups. */
+  get grouped() {
+    return this.prefs.grouped !== false;
+  }
+
+  /** @returns {boolean} Whether the types without records are left out. */
+  get hideEmpty() {
+    return this.prefs.hideEmpty === true;
+  }
+
+  /**
+   * The switches of the picker header.
+   *
+   * @returns {Array<{id: string, label: string, checked: boolean, title?: string}>}
+   */
+  toggles() {
+    const list = [{ id: 'grouped', label: 'grouped', checked: this.grouped, title: 'Record types by their groups' }];
+    if (this.dbdefs?.hasRectypeCounts?.()) {
+      list.push({ id: 'hideEmpty', label: 'hide without records', checked: this.hideEmpty,
+        title: 'Record types without records are not offered (the chosen ones stay)' });
+    }
+    return list;
+  }
+
+  /**
+   * Change a switch of the header (the picker loads the list again).
+   *
+   * @param {string} id `grouped` or `hideEmpty`.
+   * @param {boolean} checked
+   * @returns {void}
+   */
+  setToggle(id, checked) {
+    if (id !== 'grouped' && id !== 'hideEmpty') return;
+    this.prefs[id] = Boolean(checked);
+    this.onToggle?.(id, Boolean(checked));
+  }
+
+  /**
+   * @param {{selected?: Array<*>}} [options] The chosen types: listed also when they have no records.
+   * @returns {Array<object>} Record-type items with `group` / `groupLabel`.
+   */
+  items({ selected = [] } = {}) {
+    const keep = new Set(selected.map(Number));
+    const hide = this.hideEmpty && this.dbdefs?.hasRectypeCounts?.();
+    const types = (this.dbdefs?.rectypes?.() || []).filter((rt) => {
+      const id = Number(rt.id);
+      if (this.ids && !this.ids.has(id)) return false;
+      if (this.filter && !this.filter(id)) return false;
+      return !hide || keep.has(id) || this.dbdefs.isRectypeUsed?.(id) !== false;
+    });
+    const item = (rt, group, groupLabel) => {
+      const id = Number(rt.id);
+      const count = this.counts?.get(String(id));
+      const marks = this.marks?.get(String(id));
+      return { value: id, label: rt.name || String(id), group, groupLabel,
+        ...(count != null ? { count } : {}), ...(marks?.length ? { marks } : {}) };
+    };
     const byName = (a, b) => a.label.localeCompare(b.label, undefined, { sensitivity: 'base', numeric: true });
     const first = this.priority.map((id) => types.find((rt) => Number(rt.id) === id)).filter(Boolean);
     const list = first.map((rt) => item(rt, 'current', 'Current data source'));
+    const rest = types.filter((rt) => !first.includes(rt));
+    if (!this.grouped) {
+      // one alphabetical list (after the types of the data source, a line between)
+      list.push(...rest.map((rt) => item(rt, 'all', '')).sort(byName));
+      return list;
+    }
     const names = new Map((this.dbdefs?.rectypeGroups?.() || []).map((group) => [String(group.id), group.name]));
     const blocks = new Map();
-    for (const rt of types) {
-      if (first.includes(rt)) continue;
+    for (const rt of rest) {
       const key = rt.group != null && names.has(String(rt.group)) ? String(rt.group) : '';
       if (!blocks.has(key)) blocks.set(key, []);
       blocks.get(key).push(item(rt, `group:${key}`, key ? names.get(key) : 'Other'));
@@ -159,6 +239,13 @@ export class RectypeSource extends LocalSource {
   labelFor(value) {
     return this.dbdefs?.rectypeName?.(value) || '';
   }
+}
+
+/** An object or Map of values by id as a Map with text keys; null for none. */
+function toMap(value) {
+  if (!value) return null;
+  const entries = value instanceof Map ? [...value.entries()] : Object.entries(value);
+  return new Map(entries.map(([key, item]) => [String(key), item]));
 }
 
 /**

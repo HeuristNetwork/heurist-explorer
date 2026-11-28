@@ -16,9 +16,14 @@ installFakeDom();
 const { crosstabCode } = await import('../src/tools/crosstabs/CrosstabsDesigner.js');
 
 test('form: sections, required rows field and record type, the measure fields', () => {
-  const form = crosstabsForm({ ids: IDS, rectypes: [{ id: 10, label: 'Person' }], numericFields: [{ id: 1160, label: 'Population' }] });
+  const form = crosstabsForm({ ids: IDS, rectypes: { rectypeIds: [10], rectypeCounts: { 10: 5 } }, numericFields: [{ id: 1160, label: 'Population' }] });
   assert.deepEqual(form.groups.map((group) => group.id), ['source', 'rows', 'columns', 'pages', 'measure', 'display', 'visitor']);
   const fields = form.groups.flatMap((group) => group.children);
+  // the shared record type picker (27q3 §17.4) with the types of the test records
+  const rectype = fields.find((field) => field.name === 'fieldsOf');
+  assert.equal(rectype.source, 'rectypes');
+  assert.deepEqual(rectype.rectypeIds, [10]);
+  assert.deepEqual(rectype.rectypeCounts, { 10: 5 });
   assert.equal(fields.find((field) => field.name === 'rowsCode').req, 'required');
   // recommended: shown with Optional properties off (27q3 review 6)
   for (const name of ['columnsCode', 'columnsBuckets', 'pagesCode', 'rowsBuckets', 'measureOp', 'displayTitle', 'totals', 'level', 'export']) {

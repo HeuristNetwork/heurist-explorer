@@ -193,3 +193,7 @@
 #Zoom to active map document#Zoom sur le document cartographique actif
 #timeline options#options de la frise chronologique
 #timeline controls#contrôles de la frise chronologique
+#grouped#groupés
+#hide without records#masquer sans enregistrements
+#Record types by their groups#Types d'enregistrement par groupe
+#Record types without records are not offered (the chosen ones stay)#Les types d'enregistrement sans enregistrements ne sont pas proposés (ceux choisis restent)

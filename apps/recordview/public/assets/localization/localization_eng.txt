@@ -107,3 +107,7 @@
 #Configuration#Configuration
 #Record View options#Record View options
 #Publish Record View#Publish Record View
+#grouped#grouped
+#hide without records#hide without records
+#Record types by their groups#Record types by their groups
+#Record types without records are not offered (the chosen ones stay)#Record types without records are not offered (the chosen ones stay)

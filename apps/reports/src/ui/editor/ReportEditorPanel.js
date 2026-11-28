@@ -35,6 +35,8 @@ import {
   DEFAULT_SNIPPET_OPTIONS, branchKey, buildFieldSnippet, buildGroupedSnippet, segmentsFromPath
 } from '#shared/smarty/smartySnippetBuilder.js';
 import { HFieldTree } from '#shared/widgets/field-tree/HFieldTree.js';
+import { createHInput } from '#shared/widgets/form/inputs/createHInput.js';
+import { RectypeSource } from '#shared/data/valueSources/index.js';
 import { HCardinalLayout } from '#shared/widgets/layout/HCardinalLayout.js';
 import { createSourceHeader, renderPresentationToolbar, togglePresentationList } from '#shared/widgets/presentation/presentationShell.js';
 import { ReportsApplication } from '../../core/ReportsApplication.js';
@@ -187,13 +189,8 @@ export class ReportEditorPanel extends HBaseWidget {
     el('div', 'h-reports-editor-section', body).textContent = $HR('Add fields');
     const typeRow = el('label', 'h-reports-editor-row', body);
     el('span', 'h-muted', typeRow).textContent = $HR('Record type');
-    this.rectypeSelect = el('select', 'h-select', typeRow);
-    this.rectypeSelect.append(option($HR('Loading...'), ''));
-    this.listen(this.rectypeSelect, 'change', () => {
-      this.tree?.setRecordType(this.rectypeSelect.value);
-      this.tree?.clearSelection();
-      storeRectype(this.rectypeSelect.value);
-    });
+    // the shared record type picker (27q3 §17.4), made when the definitions are loaded
+    this.rectypeHost = el('div', 'h-reports-editor-rectype', typeRow);
 
     const add = el('button', 'h-btn h-btn-primary h-reports-editor-add', body);
     add.type = 'button';
@@ -318,16 +315,21 @@ export class ReportEditorPanel extends HBaseWidget {
   async loadTree() {
     this.dbdefs = await this.app.loadDbDefs();
     if (!this.container) return;
-    this.rectypeSelect.replaceChildren(option($HR('Choose a record type'), ''));
-    for (const rectype of this.dbdefs.rectypes()) {
-      this.rectypeSelect.append(option(rectype.name, String(rectype.id)));
-    }
     const remembered = readRectype();
     const initial = guessRectype(this.editor.getValue(), this.dbdefs) || remembered;
-    if (initial && this.dbdefs.rectype(initial)) this.rectypeSelect.value = String(initial);
+    this.rectypeInput = createHInput('enum', this.rectypeHost, {
+      suppressLabel: true, multiple: false, emptyLabel: $HR('Choose a record type'),
+      source: new RectypeSource(this.dbdefs),
+      value: initial && this.dbdefs.rectype(initial) ? Number(initial) : null
+    });
+    this.listen(this.rectypeHost, 'h-input-change', () => {
+      this.tree?.setRecordType(this.rectypeId());
+      this.tree?.clearSelection();
+      storeRectype(this.rectypeId());
+    });
     this.tree = new HFieldTree({ dbdefs: this.dbdefs });
     this.tree.mount(this.treeHost, {
-      rtyId: this.rectypeSelect.value,
+      rtyId: this.rectypeId(),
       maxDepth: 3,
       enumOutputs: true,
       includeFiles: true,
@@ -353,7 +355,7 @@ export class ReportEditorPanel extends HBaseWidget {
    * @returns {Array<object>} `{path, segments, label, remark, rectypeId}`.
    */
   selectedItems() {
-    const rootRectypeId = this.rectypeSelect.value;
+    const rootRectypeId = this.rectypeId();
     const items = [];
     for (const path of this.tree?.getSelectedPaths() || []) {
       const segments = segmentsFromPath(path);
@@ -411,11 +413,17 @@ export class ReportEditorPanel extends HBaseWidget {
     writeInsertOptions(this.insertOptions);
   }
 
+  /** @returns {string} The record type chosen for Add fields ('' none). */
+  rectypeId() {
+    const value = this.rectypeInput?.getValue();
+    return value == null || value === '' ? '' : String(value);
+  }
+
   /** Whether the field of an item has repeated values (its loop is always added). */
   isRepeatableItem(item) {
     const leaf = item.segments[item.segments.length - 1];
     if (!leaf.fieldId || leaf.kind === 'relationship') return false;
-    let rty = this.rectypeSelect.value;
+    let rty = this.rectypeId();
     for (const segment of item.segments.slice(0, -1)) rty = segment.targetRectypeId || segment.sourceRectypeId || '';
     return this.dbdefs?.isRepeatable(rty, leaf.fieldId) === true;
   }
@@ -423,7 +431,7 @@ export class ReportEditorPanel extends HBaseWidget {
   /** Context of the snippet builder. */
   snippetContext() {
     return {
-      rootRectypeId: this.rectypeSelect.value,
+      rootRectypeId: this.rectypeId(),
       isRepeatable: (rty, dty) => this.dbdefs?.isRepeatable(rty, dty) === true,
       rectypeName: (id) => this.dbdefs?.rectypeName(id) || ''
     };
@@ -465,7 +473,7 @@ export class ReportEditorPanel extends HBaseWidget {
 
   /** Field variables for completion: `$r.f<id>` of the chosen record type. */
   fieldCompletions() {
-    const rty = this.rectypeSelect?.value;
+    const rty = this.rectypeId();
     if (!this.dbdefs || !rty) return [];
     return (this.dbdefs.fields(rty) || []).map((field) => ({ label: `$r.f${field.id}`, detail: field.name }));
   }
@@ -565,6 +573,8 @@ export class ReportEditorPanel extends HBaseWidget {
     // the test run of this editor is not needed any more
     if (this.testJob) this.app.jobs.cancel(this.testJob.id).catch(() => {});
     this.testJob = null;
+    await this.rectypeInput?.destroy?.();
+    this.rectypeInput = null;
     this.tree?.destroy();
     this.tree = null;
     await this.output?.destroy();

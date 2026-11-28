@@ -872,3 +872,7 @@
 #Accordion#Accordion
 #Story map#Story map
 #Record view#Record view
+#grouped#grouped
+#hide without records#hide without records
+#Record types by their groups#Record types by their groups
+#Record types without records are not offered (the chosen ones stay)#Record types without records are not offered (the chosen ones stay)

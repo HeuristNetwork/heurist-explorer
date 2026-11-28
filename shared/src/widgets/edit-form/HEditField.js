@@ -39,7 +39,7 @@
 import { HBaseWidget } from '../HBaseWidget.js';
 import { createHInput } from '../form/inputs/createHInput.js';
 import { FORM_FIELD_CLASS, FORM_LABEL_CLASS } from '../form/formLayout.js';
-import { TermSource } from '../../data/valueSources/localSources.js';
+import { RectypeSource, TermSource } from '../../data/valueSources/localSources.js';
 import { cssWidth } from '../../data/editFormSchema.js';
 import { closePopover } from '../popover/popover.js';
 import { openTextTranslationDialog } from '../translation/HTextTranslationDialog.js';
@@ -820,6 +820,22 @@ export class HEditField extends HBaseWidget {
     const field = this.field;
     let choices;
     let items;
+    if (field.source === 'rectypes') {
+      // a record type selector (27q3 §17.4): the shared picker with grouped / hide without records; the types of
+      // `rectypeIds` (default all), `rectypeCounts` and `rectypeMarks` after the names
+      const source = new RectypeSource(this.options.dbdefs, {
+        ids: Array.isArray(field.rectypeIds) ? field.rectypeIds : null,
+        counts: field.rectypeCounts || null,
+        marks: field.rectypeMarks || null,
+        hideEmpty: field.hideEmpty === true
+      });
+      return {
+        source,
+        mode: 'select',
+        ...(this.isMultiChoice ? { multiple: true } : {}),
+        ...(field.emptyLabel ? { emptyLabel: field.emptyLabel } : {})
+      };
+    }
     if (Array.isArray(field.terms)) {
       // marks, disabled and a tooltip of a term are kept (the query choices: [filter] [parametrized], review 7)
       const terms = field.terms.map((term) => ({

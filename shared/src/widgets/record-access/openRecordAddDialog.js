@@ -20,7 +20,7 @@
 import { HMsg } from '../../ui/HMsg.js';
 import { $HR } from '../../ui/i18n/HResource.js';
 import { HValueCombo } from '../picker/HValueCombo.js';
-import { StaticSource } from '../../data/valueSources/localSources.js';
+import { RectypeSource } from '../../data/valueSources/localSources.js';
 import { userDataRecordTypeIds } from '../../data/recordDomains.js';
 import { loadRecordAddDefaults, saveRecordAddDefaults } from '../../data/recordAccess.js';
 import { HRecordAccess } from './HRecordAccess.js';
@@ -32,23 +32,15 @@ const DIALOG_ID = 'h-record-add-dialog';
 let dialogCount = 0;
 
 /**
- * Record type items of the picker: the types grouped by their record type group.
+ * The record types of the picker: the shared record type picker (27q3 §17.4) of the allowed types, grouped by their
+ * record type group; the types without records are shown at first (the first record of a type is added here too).
  *
  * @param {object} dbdefs HDbDefs.
  * @param {number[]} types Allowed record type ids.
- * @returns {Array<{value: number, label: string, group: *, groupLabel: string}>}
+ * @returns {RectypeSource}
  */
-export function recordTypeItems(dbdefs, types) {
-  const allowed = new Set(types.map(Number));
-  const groups = new Map((dbdefs?.rectypeGroups?.() || []).map((group) => [group.id, group.name]));
-  return (dbdefs?.rectypes?.() || [])
-    .filter((rectype) => allowed.has(Number(rectype.id)))
-    .map((rectype) => ({
-      value: Number(rectype.id),
-      label: rectype.name,
-      group: rectype.group ?? null,
-      groupLabel: groups.get(rectype.group) || ''
-    }));
+export function recordTypeSource(dbdefs, types) {
+  return new RectypeSource(dbdefs, { ids: types });
 }
 
 /**
@@ -66,7 +58,6 @@ export function openRecordAddDialog({ dbdefs, database = '', recordTypes = null,
   const who = { database, userId: Number(dbdefs?.currentUserId?.()) || 0 };
   const defaults = loadRecordAddDefaults(who);
   const types = (recordTypes?.length ? recordTypes : userDataRecordTypeIds(dbdefs)).map(Number);
-  const items = recordTypeItems(dbdefs, types);
   const dialogId = `${DIALOG_ID}-${++dialogCount}`;
 
   const host = document.createElement('div');
@@ -85,7 +76,7 @@ export function openRecordAddDialog({ dbdefs, database = '', recordTypes = null,
   const initialType = [Number(rectypeId), defaults.rectypeId].find((id) => id > 0 && types.includes(id)) ?? null;
   let addButton = null;
   const typeCombo = new HValueCombo().attach(typeHost, {
-    source: new StaticSource(items),
+    source: recordTypeSource(dbdefs, types),
     multiple: false,
     value: initialType,
     emptyLabel: $HR('Select record type…'),

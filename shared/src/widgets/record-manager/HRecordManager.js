@@ -323,10 +323,10 @@ export class HRecordManager extends HBaseWidget {
       dbdefs: this.dbdefs,
       // no value lists or counts from the server: the lists are terms and tags (plan 21 §7.1)
       apiClient: null,
-      // Record type of an unconstrained manager: the types of the list
-      // (only those with records, review 2026-11-09)
+      // Record type of an unconstrained manager: the types of the list (those with records at first, review
+      // 2026-11-09; the switch of the shared picker, 27q3 §17.4)
       valueSourceFactory: (parameter) => (parameter.predicate === 't'
-        ? new RectypeSource(this.dbdefs, { ids: this.types, filter: this.unconstrained ? (id) => this.dbdefs?.isRectypeUsed?.(id) !== false : null })
+        ? new RectypeSource(this.dbdefs, { ids: this.types, hideEmpty: this.unconstrained })
         : null),
       onSubmit: ({ query }) => this.applyFilter(query?.q || [])
     }).render();

@@ -13,7 +13,7 @@ in Explorer's timeline, timeline French and locale, Website manager editor, topi
 (§14)**; **review 7 (Publish and the CMS use separate Map / Timeline elements, editors above the CMS editor, Show for
 All <type>) implemented 2026-11-27 (§15)**; **review 8 (page language, one topic picker, panel titles, story map
 selection on pages) implemented 2026-11-27 (§16)**; **review 9 (no Help / Options / Publish on published pages, page
-template Story map, Close and clear keeps the pane collapsed) implemented 2026-11-28 (§17)**, not committed, no browser check. Extends the topic note
+template Story map, Close and clear keeps the pane collapsed, one record type selector) implemented 2026-11-28 (§17)**, not committed, no browser check. Extends the topic note
 `presentation-sources.md`.
 
 ## 1. Goal
@@ -709,3 +709,30 @@ Decisions: **the language of a published page is stored with the page** (2a, opt
    `ExplorerPaneTabs._onCollapsedClick` (click on a collapsed pane = expand) restored it. Now a click expands a pane
    only when the pane was collapsed already when the press began (`pointerdown`, capture, `data-collapsed-at-press`).
    Test: `explorerPaneToolbar.test.js` (fails without the fix).
+4. **One record type selector everywhere** (Artem 2026-11-28): every record type choice is an HValueCombo of
+   `RectypeSource` with the same header: the filter input (always, also for a short list) and the switches
+   `[ ] grouped` (by record type group; off: one alphabetical list) and `[ ] hide without records` (only when the record
+   counts are known, `dbdefs.hasRectypeCounts()`; the chosen types stay listed). The source offers the switches
+   (`toggles()`, `setToggle()`), HValuePicker shows them on a line below the filter input and loads the list again; the
+   picker gives the source the chosen values (`load({selected})`). A host may keep the state for all its selectors
+   (`prefs`, e.g. the expansion rules: every row and the header checkbox); `counts` and `marks` after the names.
+   In a form: an ordinary enum field with `source: 'rectypes'` (`rectypeIds`, `rectypeCounts`, `rectypeMarks`,
+   `hideEmpty`; HEditField), no new input. Converted:
+
+   | Selector | Before | Several types | Hide at first |
+   |---|---|---|---|
+   | Story map: Story topic record type | combo of terms | no | yes |
+   | Crosstabs: Record type (test record types, counts; the chosen one marked) | combo of terms | no | yes |
+   | Expansion rules: starting / target record type | combo, grouped, no filter row | **yes** (as before) | header checkbox |
+   | Filter builder: Record type (`h-fb-rectype`) | `<select>` with optgroups | no (the query has one `t`) | header checkbox |
+   | Filter Form: a `t` parameter in a list mode; Record manager | text input / combo | as the parameter mode | yes (manager: unconstrained) |
+   | Add record (record manager, pointer fields) | combo, grouped | no | no (the first record of a type) |
+   | Reports editor: Record type of Add fields | `<select>` | no | no |
+   | Thematic map: Record types in layer (counts) | `<select>` | no | no |
+   | CMS action menu: Add record | `<select>` | no | no |
+
+   The header checkboxes of the filter builder and of the expansion rules stay (they also hide fields of the field
+   tree / reverse pointers) and are the same setting as the switch of their pickers. Not changed: the inline helper of
+   the filter text (typed, no list header) and the target select of a linked block of the filter builder (not shown;
+   the block shows its target as text). The switches are not remembered between dialogs. Test:
+   `shared/test/rectypePicker.test.js`.

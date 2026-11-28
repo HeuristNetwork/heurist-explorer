@@ -91,10 +91,9 @@ export function valueTexts(values) {
  *        record type Map document.
  * @param {Array<{id: number, title: string, card: boolean}>} context.templates Report templates.
  * @param {Array<{id: number, label: string}>} context.dateFields Date fields of the story element type.
- * @param {Array<{id: number, name: string}>} [context.rectypes] Record types of the database (Story topic record type).
  * @returns {object} heurist-edit-form/1.
  */
-export function storyMapForm({ ids, templates = [], dateFields = [], rectypes = [] }) {
+export function storyMapForm({ ids, templates = [], dateFields = [] }) {
   const templateTerms = templates.map((item) => ({ id: String(item.id), label: item.card ? item.title : `${item.title} (not a card)` }));
   const template = (name, label, help) => ({ name, type: 'enum', mode: 'select', label, help, terms: templateTerms, emptyLabel: '(none)' });
   return {
@@ -105,8 +104,9 @@ export function storyMapForm({ ids, templates = [], dateFields = [], rectypes = 
         children: [
           { name: 'title', type: 'freetext', label: 'Name', req: 'required' },
           // the record type of the topics, required; the query is optional (27q3 Story map review, 2026-11-25)
+          // the shared record type picker (27q3 §17.4): grouped, hide without records
           { name: 'topicType', type: 'enum', mode: 'select', label: 'Story topic record type', help: HELP.topicType, req: 'required',
-            terms: rectypes.map((type) => ({ id: String(type.id), label: type.name })) },
+            source: 'rectypes', hideEmpty: true },
           { name: String(ids.query || MANUAL_APPLY.query), type: 'special', special: 'query', label: 'Story topics', help: HELP.topics },
           { name: String(ids.rules || MANUAL_APPLY.rules), type: 'special', special: 'rules', label: 'Story elements', help: HELP.elements, req: 'required' },
           { name: 'order', type: 'enum', mode: 'select', label: 'Order', help: HELP.order, clearable: false, terms: orderTerms(dateFields) },

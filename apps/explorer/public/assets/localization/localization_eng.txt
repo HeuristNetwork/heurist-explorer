@@ -1757,3 +1757,7 @@
 #Show the elements of the story on a timeline? A Timeline element will be added to the page.#Show the elements of the story on a timeline? A Timeline element will be added to the page.
 #The Map element of the page that shows the current element#The Map element of the page that shows the current element
 #The Timeline element of the page that shows the elements of the story#The Timeline element of the page that shows the elements of the story
+#grouped#grouped
+#hide without records#hide without records
+#Record types by their groups#Record types by their groups
+#Record types without records are not offered (the chosen ones stay)#Record types without records are not offered (the chosen ones stay)
