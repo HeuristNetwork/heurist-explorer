@@ -1196,10 +1196,12 @@ export class StoryMapTool extends HBaseWidget {
 
   /**
    * @private The rule editor of the record editor; the elements must be of one record type. A new type asks first
-   * and gives the order and the places of the new type.
+   * and gives the order and the places of the new type. The rule starts from the story topic record type: without a
+   * rule the dialog opens with one rule from that type (27q3 §17.5).
    */
   async _editRule(base, value, context) {
-    const result = await base.edit(value, context);
+    const topicType = Number([this.form?.getValue('topicType')].flat()[0]) || 0;
+    const result = await base.edit(value, context, topicType ? { recordTypes: [topicType] } : {});
     if (result === undefined) return undefined;
     const rules = (() => {
       try {

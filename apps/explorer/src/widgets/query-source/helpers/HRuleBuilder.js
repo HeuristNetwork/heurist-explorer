@@ -79,13 +79,21 @@ export class HRuleBuilder extends HBaseWidget {
     return this;
   }
 
-  /** Open the native rule builder dialog. Resolves to the edited rules, or `null` on Cancel. */
+  /**
+   * Open the native rule builder dialog. Resolves to the edited rules, or `null` on Cancel.
+   *
+   * @param {{recordTypes?: number[], dataSource?: object, newRule?: boolean}} [options] `recordTypes`: listed first and
+   *        the starting type of a new rule (else the type of the data source); `newRule`: without rules, one rule is
+   *        added at once from that type (the story elements of a story map start from its topic type, 27q3 §17.5).
+   * @returns {Promise<Array<object>|null>}
+   */
   async open(options = {}) {
     if (options.recordTypes) this.setRecordTypes(options.recordTypes);
     if (!this.recordTypes.length) {
       const rty = inferRecordTypeId(options.dataSource?.request?.q);
       if (rty) this.setRecordTypes([rty]);
     }
+    this._newRule = options.newRule === true;
 
     const host = document.createElement('div');
     host.className = 'h-rule-builder-dialog';
@@ -196,13 +204,17 @@ export class HRuleBuilder extends HBaseWidget {
     this._previewText.value = rulesPreview(this._rows.map((row) => row.getRule()).filter(Boolean));
   }
 
-  /** Rebuild rows from `rules`. With no rules the list stays empty until "Add rule". */
+  /**
+   * Rebuild rows from `rules`. With no rules the list stays empty until "Add rule"; opened with `newRule`, one rule
+   * from the given record type is there at once.
+   */
   _syncRows() {
     if (!this._list) return;
     for (const row of this._rows) row.destroy();
     this._rows = [];
     this._list.replaceChildren();
     for (const rule of this.rules) this._addRoot(rule);
+    if (!this.rules.length && this._newRule && this.recordTypes.length) this._addRoot();
   }
 
   _addRoot(rule = null) {

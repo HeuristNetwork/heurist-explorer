@@ -531,11 +531,15 @@ export class RecordEditorHost {
         icon: 'fa-hexagon-nodes',
         title: 'Rules used by Graph to expand the result through linked records.',
         describe: (value) => describeRules(parseJson(value), dbdefs),
-        edit: async (value, context) => {
+        // `start`: the record type a caller starts the rules from (the topic type of a story map, 27q3 §17.5): listed
+        // first, and without rules one rule from it is there at once
+        edit: async (value, context, start = {}) => {
           const current = asArray(parseJson(value));
           const builder = new HRuleBuilder({ dbdefs, lang: this.options.language });
+          const types = (start.recordTypes || []).map(Number).filter((id) => id > 0);
           const result = await builder.setRules(current).open({
-            dataSource: { request: { q: query ? parseJson(context.getValue(query)) ?? context.getValue(query) : null } }
+            dataSource: { request: { q: query ? parseJson(context.getValue(query)) ?? context.getValue(query) : null } },
+            ...(types.length ? { recordTypes: types, newRule: true } : {})
           });
           return result == null ? undefined : (result.length ? JSON.stringify(result) : '');
         }

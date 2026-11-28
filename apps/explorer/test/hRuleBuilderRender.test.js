@@ -51,6 +51,24 @@ test('a new rule starts from the data source type; the dialog allows three steps
   assert.equal(row.children.length, 0);
 });
 
+test('opened with newRule (story elements, 27q3 §17.5): without rules one rule from the given type at once', () => {
+  const builder = new HRuleBuilder({ dbdefs }).setRecordTypes([5]);
+  builder._newRule = true;
+  builder.attach(document.createElement('div')).render();
+  assert.equal(builder._rows.length, 1);
+  assert.deepEqual(builder.getRules()[0].query, { links: [{ t: 5 }] }, 'starts from Person');
+  // rules there already: no rule is added
+  const other = new HRuleBuilder({ dbdefs }).setRecordTypes([5]).setRules([{ query: { connected: [{ t: 10 }] }, levels: [] }]);
+  other._newRule = true;
+  other.attach(document.createElement('div')).render();
+  assert.equal(other._rows.length, 1);
+  assert.deepEqual(other.getRules()[0].query, { connected: [{ t: 10 }] });
+  // without newRule the list stays empty
+  const plain = new HRuleBuilder({ dbdefs }).setRecordTypes([5]);
+  plain.attach(document.createElement('div')).render();
+  assert.equal(plain._rows.length, 0);
+});
+
 test('related:<field> rules reopen on the relationship field, own or referencing', () => {
   const defs = {
     ...dbdefs,

@@ -13,7 +13,7 @@ in Explorer's timeline, timeline French and locale, Website manager editor, topi
 (§14)**; **review 7 (Publish and the CMS use separate Map / Timeline elements, editors above the CMS editor, Show for
 All <type>) implemented 2026-11-27 (§15)**; **review 8 (page language, one topic picker, panel titles, story map
 selection on pages) implemented 2026-11-27 (§16)**; **review 9 (no Help / Options / Publish on published pages, page
-template Story map, Close and clear keeps the pane collapsed, one record type selector) implemented 2026-11-28 (§17)**, not committed, no browser check. Extends the topic note
+template Story map, Close and clear keeps the pane collapsed, one record type selector, story elements from the topic type) implemented 2026-11-28 (§17)**, not committed, no browser check. Extends the topic note
 `presentation-sources.md`.
 
 ## 1. Goal
@@ -736,3 +736,8 @@ Decisions: **the language of a published page is stored with the page** (2a, opt
    the filter text (typed, no list header) and the target select of a linked block of the filter builder (not shown;
    the block shows its target as text). The switches are not remembered between dialogs. Test:
    `shared/test/rectypePicker.test.js`.
+5. **Story elements start from the topic record type** (Artem 2026-11-28): the Expansion rules dialog of *Story
+   elements* gets the Story topic record type of the form (`StoryMapTool._editRule` → the rules special editor of
+   RecordEditorHost, third argument `{recordTypes}`): it is listed first, and without a rule the dialog opens with one
+   rule at once whose starting record type is the topic type (`HRuleBuilder.open({recordTypes, newRule: true})`). A rule
+   there already is kept as it is; other rule editors (Query sources) are unchanged. Test: `hRuleBuilderRender.test.js`.
